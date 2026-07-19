@@ -19,11 +19,15 @@ The path from empty repo to public release, one version at a time. Each version 
 
 ## v0.0.1 — Alpha: the spike
 
-**Expectation:** falsify the architecture as cheaply as possible ([ARCHITECTURE.md §12](ARCHITECTURE.md#12-validation-order-the-spike)). Every risky bet — tldraw hosting live terminals, the renderer degradation ladder, the headless mirror — is exercised before any product feature exists. Code from this phase is allowed to be throwaway; the *conclusions* are the deliverable.
+**Status: PASSED (2026-07-19, Windows)** — results and one consciously
+accepted deviation (memory measured in dev mode) in
+[ARCHITECTURE.md §13](ARCHITECTURE.md#13-spike-findings-v001--passed-2026-07-19-windows-11).
+
+**Expectation:** falsify the architecture as cheaply as possible ([ARCHITECTURE.md §12](ARCHITECTURE.md#12-validation-order-the-spike)). Every risky bet — React Flow hosting live terminals, the renderer degradation ladder, the headless mirror — is exercised before any product feature exists. Code from this phase is allowed to be throwaway; the *conclusions* are the deliverable.
 
 **Outputs**
 1. Electron + TypeScript (strict) scaffold with the main/renderer split of [ARCHITECTURE.md §2](ARCHITECTURE.md#2-process-model); one hardcoded workspace, no persistence.
-2. tldraw canvas with a custom terminal shape (pan/zoom, move/resize only).
+2. React Flow canvas with a custom terminal shape (pan/zoom, move/resize only).
 3. Terminal pipeline: node-pty in main ↔ xterm.js in renderer over a dedicated byte channel; agent presets as auto-executed commands; `DOGWALKER_*` spawn env already injected ([ARCHITECTURE.md §3](ARCHITECTURE.md#3-terminal-subsystem)).
 4. Headless mirror (xterm-headless per PTY) proving screen serialization works while the renderer instance is suspended.
 5. Degradation ladder tiers 1–3 with **per-terminal renderer hot-swap at runtime** and the WebGL context budget ([ARCHITECTURE.md §4](ARCHITECTURE.md#4-terminal-rendering-the-degradation-ladder)). Tier 4 is intentionally not built.
@@ -36,7 +40,7 @@ The path from empty repo to public release, one version at a time. Each version 
 - Tier transitions cause no lost scrollback, no reflow glitches, no terminal restarts.
 - ≤ 8 WebGL contexts ever live; zero context-loss events in a 30-minute session.
 - Dogwalker's own processes ≤ ~500 MB with 15 quiet terminals (agents excluded).
-- Verified on Windows and macOS (Linux best-effort).
+- Verified on Windows (macOS and Linux deliberately deferred to the v0.7 cross-OS QA matrix).
 
 **Failure protocol:** if the criteria can't be met after honest optimization, findings go into ARCHITECTURE.md and the stack decision reopens *before* v0.1. That is the spike doing its job.
 

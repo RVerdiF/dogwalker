@@ -9,8 +9,8 @@ How Dogwalker is built. For what it is and why, see [PRODUCT.md](PRODUCT.md).
 | Layer | Choice | Why |
 |---|---|---|
 | App shell | **Electron + TypeScript** | The only stack where all three hard requirements are cheap at once: terminals (xterm.js + node-pty across macOS/Win/Linux), embedded automatable browsers (Chromium `WebContentsView` + CDP), and a mature canvas ecosystem. A native-per-OS approach multiplies every module by ~3. |
-| Canvas | **tldraw** (custom shape types) | Infinite pan/zoom, groups, snapping, align/distribute, undo/redo, minimap — most of the canvas feature list — out of the box. We implement custom shapes (terminal, note, portal, file tree) and the connection cables. |
-| Terminal emulation | **xterm.js** (WebGL + canvas renderers) + **node-pty** | Battle-tested emulator; node-pty covers posix PTYs and Windows ConPTY. |
+| Canvas | **React Flow (@xyflow/react)** (custom node & edge types) | MIT-licensed node-graph canvas: infinite pan/zoom, custom React nodes and edges, minimap, selection, and a viewport API out of the box — and its node+edge model is exactly Dogwalker's (terminals + leashes). Considered **tldraw**: richer whiteboard features (drawing, groups, align/tidy, undo/redo built in), but discarded because its SDK license (verified 2026-07) forbids production use without a commercial license — incompatible with a 100% free product ([PRODUCT.md principle 5](PRODUCT.md#14-principles)). Whiteboard features we lose (drawing tools, groups, align/distribute, undo/redo) get built on top of React Flow in their scheduled versions ([ROADMAP.md](ROADMAP.md)). |
+| Terminal emulation | **xterm.js v6** (WebGL + DOM renderers) + **node-pty** | Battle-tested emulator; node-pty covers posix PTYs and Windows ConPTY. Note: xterm.js v6 (2025-12) removed the canvas renderer — the degradation ladder's tier 2 uses the DOM renderer. |
 | Code editor | **CodeMirror 6** | Embedded editor in File Tree nodes. Considered **Monaco** (VS Code's editor): richer IDE features out of the box, but discarded because it is heavyweight per instance (multi-MB bundle plus worker setup), designed around a single full-window editor rather than several small ones, and has unreliable layout/hit-testing inside CSS-transformed containers — exactly what a zoomable canvas is. CodeMirror 6 is modular (~10× smaller core), cheap enough to run one instance per File Tree node, and behaves correctly in scaled DOM; its trade-off (IDE smarts require assembling extensions) is acceptable since agents, not the editor, provide the intelligence. |
 | Git | Shell out to system `git` | Diff/graph/branch ops and worktrees without reimplementing git. |
 | Portals | Electron `WebContentsView` + **Chrome DevTools Protocol** | Navigation, clicks, screenshots, JS eval, DOM/console access with zero external dependencies. |
@@ -31,7 +31,7 @@ How Dogwalker is built. For what it is and why, see [PRODUCT.md](PRODUCT.md).
 └──────────────┬────────────────────────────────────────────────────────────┘
                │ Electron IPC (typed channels)
 ┌──────────────▼──────────────── Renderer process ──────────────────────────┐
-│  Canvas UI (tldraw) · xterm.js instances · Prompt Composer · File Tree    │
+│  Canvas UI (React Flow) · xterm.js instances · Prompt Composer · File Tree    │
 │  · Note editor · connection cables · attention badges                     │
 └───────────────────────────────────────────────────────────────────────────┘
    (Portals render in their own WebContentsViews, composited over the canvas)
@@ -58,13 +58,13 @@ One host daemon per app instance. The renderer is presentation; every capability
 | Tier | Condition | Renderer | Refresh |
 |---|---|---|---|
 | 1 | Visible & readable size (focused or high zoom) | xterm.js WebGL | 60 fps |
-| 2 | Visible but small (low zoom; text unreadable anyway) | canvas-2D | throttled 2–5 fps — still visibly alive |
+| 2 | Visible but small (low zoom; text unreadable anyway) | DOM renderer | throttled 2–5 fps — still visibly alive |
 | 3 | Outside viewport | none (render suspended) | 0 — parsing continues in the headless mirror |
 | 4 | *Escape hatch only* (50+ terminals, if profiling ever demands) | last-frame snapshot | static |
 
 **Design invariant (decided week 1, do not regress):** the terminal node component must support **hot-swapping renderers per terminal at runtime**. Tier transitions happen on scroll/zoom without losing scrollback or state. Never bind a terminal's identity to its renderer.
 
-WebGL context budget: contexts are granted to tier-1 terminals only (focused first, then largest on-screen), well under the cap; everyone else uses canvas-2D.
+WebGL context budget: contexts are granted to tier-1 terminals only (focused first, then largest on-screen), well under the cap; everyone else uses the DOM renderer.
 
 ## 5. The IPC bus & `dogwalker` CLI
 
@@ -156,9 +156,61 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
 
 Build order is risk-ordered; the first milestone exists to falsify the architecture cheaply:
 
-1. **Spike:** Electron + tldraw + xterm.js/node-pty; 15 terminals running real agents; pan/zoom fluid; renderer hot-swap (tier 1 ↔ 2 ↔ 3) working. If this isn't smooth, revisit before building features.
+1. **Spike:** Electron + React Flow + xterm.js/node-pty; 15 terminals running real agents; pan/zoom fluid; renderer hot-swap (tier 1 ↔ 2 ↔ 3) working. If this isn't smooth, revisit before building features.
 2. Broker + shim + `ask`/`reply`/`check` + skill (the product's core).
 3. Workspaces/persistence, notes, composer, connections UI.
 4. File tree, portals, floors, routines, Walker verbs.
 
 Open questions tracked as they arise; none currently block the spike.
+
+## 13. Spike findings (v0.0.1 — PASSED, 2026-07-19, Windows 11)
+
+Automated smoke run (`DW_SMOKE=1 npm start`): 15 terminals — 5 running an
+output-flooding stress preset, 10 shells — across five phases (working zoom,
+overview zoom, flown-away, return, continuous 20-step pan sweep).
+
+**Validated**
+- **60 fps in every phase**, including 8 WebGL terminals under flood and a
+  continuous pan across the grid. Typing input path untested by automation.
+- Degradation ladder + per-terminal hot-swap works: tier "waves" roll across
+  the grid during pans; overview zoom demotes all 15 to DOM renderer; flying
+  away suspends all (tier 3). WebGL budget never exceeded 8/8, **zero context
+  losses**.
+- Headless mirror: 79 KB serialized from main while the renderer instance was
+  suspended; tier-3 overflow resync (reset + replay from mirror) works.
+- node-pty 1.1.0 is N-API with bundled prebuilds — Forge rebuild skipped via
+  `rebuildConfig: { onlyModules: [] }`; no native toolchain needed on dev
+  machines.
+
+**Surprises & fixes**
+- tldraw license and xterm v6 canvas-renderer removal — already recorded in §1.
+- `@xterm/headless` 6.0.0 ships a broken `module` field (points at a
+  nonexistent file); worked around with a Vite alias in `vite.main.config.ts`.
+- Chromium throttles rAF to ~0 in occluded windows: harmless for the product
+  (hidden windows need no frames) but it corrupts fps measurements — smoke
+  mode disables `backgroundThrottling`. Early "1 fps" readings were this, not
+  rendering cost.
+- Terminals promoted to tier 1 before their DOM attach never claimed WebGL;
+  `attach()` now claims the entitled context.
+- `onMove` recomputes could be swallowed by the rAF guard mid-transition,
+  leaving the final viewport unclassified; a 500 ms no-op-when-unchanged
+  safety tick self-heals this.
+
+**Author-validated (2026-07-19)**: real agents running in preset terminals —
+performance OK; typing echo in the focused terminal — feels immediate.
+
+**Decided**: macOS/Linux verification deferred to the v0.7 cross-OS QA matrix
+(Windows is the dev platform).
+
+**Soak results (30 min, 5 flooding + 10 quiet)**: fps 57–60 throughout; app
+memory plateaued at ~785 MB with zero monotonic growth; JS heap a healthy
+29–52 MB GC sawtooth; **zero context losses over the full session**. A second
+run with 15 quiet shells: **615 MB, flat across samples** (fps 60, 0 losses).
+
+**Deviation, consciously accepted**: the ≤ ~500 MB exit criterion was measured
+at 615 MB — but in dev mode (React dev build, Vite dev server, HMR). The
+architecture signal is the flat plateau and the small marginal cost per
+terminal (~170 MB for 5 continuously-flooding terminals), not the fixed
+dev-tooling overhead. Packaged-build measurement moves to v0.7 hardening.
+
+**Verdict: spike PASSED (2026-07-19).** The stack holds; v0.1 may begin.

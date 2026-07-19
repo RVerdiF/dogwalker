@@ -7,19 +7,19 @@ You are working on **Dogwalker**: a free, cross-platform (macOS/Windows/Linux) E
 | Doc | What it covers | Read when |
 |---|---|---|
 | [PRODUCT.md](PRODUCT.md) | What Dogwalker is: every feature in detail, core concepts (workspace, node, agent, connection, floor, portal, routine), compatibility targets, product principles, explicit non-goals. | Before designing or changing any user-facing behavior. |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | How it's built: stack (Electron + tldraw + xterm.js/node-pty), process model (host daemon vs renderer), terminal subsystem, rendering degradation ladder, the IPC broker and `dogwalker` CLI protocol (ask/reply/check), attention detection, floors, portals, persistence, security, build order. | Before writing or reviewing any code. |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | How it's built: stack (Electron + React Flow + xterm.js/node-pty), process model (host daemon vs renderer), terminal subsystem, rendering degradation ladder, the IPC broker and `dogwalker` CLI protocol (ask/reply/check), attention detection, floors, portals, persistence, security, build order. | Before writing or reviewing any code. |
 | [README.md](README.md) | Public-facing overview: pitch, features, install/quick start, compatibility tables, architecture summary with deep links. | To understand how the project presents itself; keep it in sync when features land. |
 | [ROADMAP.md](ROADMAP.md) | The version path v0.0.1 (alpha spike) → v0.1–v0.6 (feature versions) → v0.7 (hardening) → v0.8 (release engineering) → v1.0 (launch): per-version expectations, outputs, and measurable exit criteria. | Before starting any work, to know what belongs in the current version — anything not listed for the version is deferred by default. |
 
 ## Project status
 
-Design phase → v0.0.1 spike. No application code exists yet. The current milestone is the **spike** ([ROADMAP.md](ROADMAP.md#v001--spike-validate-the-stack), mechanism in [ARCHITECTURE.md §12](ARCHITECTURE.md#12-validation-order-the-spike)): 15 live agent terminals on a tldraw canvas with per-terminal renderer hot-swap. Do not build features ahead of the spike's validation.
+v0.0.1 spike **PASSED** (2026-07-19; findings in [ARCHITECTURE.md §13](ARCHITECTURE.md#13-spike-findings-v001--passed-2026-07-19-windows-11)). The spike app lives in `src/` (Electron Forge + Vite; main: `src/main.ts` + `src/main/`, renderer: `src/renderer.tsx` + `src/app/`); automated self-check via `DW_SMOKE=1 npm start` (`DW_SOAK`, `DW_QUIET`, `DW_SOAK_MIN` refine it). Current milestone: **v0.1 — the core loop** ([ROADMAP.md](ROADMAP.md#v01--the-core-loop)); anything not listed there is deferred by default.
 
 ## Invariants — do not violate without explicit human sign-off
 
 These were deliberate decisions with reasoning behind them (see ARCHITECTURE.md for full context):
 
-1. **Terminals are never static screenshots at working zoom levels.** The rendering degradation ladder (WebGL → throttled canvas-2D → suspended-offscreen) is the mechanism; per-terminal **renderer hot-swap at runtime** is a required capability of the terminal node component. ([§4](ARCHITECTURE.md#4-terminal-rendering-the-degradation-ladder))
+1. **Terminals are never static screenshots at working zoom levels.** The rendering degradation ladder (WebGL → throttled DOM renderer → suspended-offscreen) is the mechanism; per-terminal **renderer hot-swap at runtime** is a required capability of the terminal node component. ([§4](ARCHITECTURE.md#4-terminal-rendering-the-degradation-ladder))
 2. **The screen is presentation, not transport.** Agent replies travel through the broker (`dogwalker reply <id> --stdin`), never by scraping terminal output. `check` is the only screen-reading verb and it is read-only. ([§5.2](ARCHITECTURE.md#52-ask--reply--structured-messaging-not-screen-scraping))
 3. **PTY injection is one atomic write**: bracketed-paste open + body + close + CR in a single `write()`. Never split it, never sleep between paste and Enter (splitting causes a visible flash in the target TUI). Wrap in bracketed paste only if the target has DEC mode 2004 active (tracked by the headless mirror). ([§5.2](ARCHITECTURE.md#52-ask--reply--structured-messaging-not-screen-scraping))
 4. **No logic in the CLI shim.** Authorization, routing, and state live in the host broker; the shim parses argv, sends one JSON request with `DOGWALKER_TERMINAL_ID`, streams the response. ([§5.1](ARCHITECTURE.md#51-transport))

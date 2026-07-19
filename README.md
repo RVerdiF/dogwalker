@@ -99,7 +99,7 @@ Agents learn the CLI through a skill installed in your agent-skills folder — n
 
 ## Architecture at a glance
 
-Electron app, two halves: a **host daemon** (main process) owning PTYs, the IPC socket, the message broker, portals (CDP), floors, and routines — and a **canvas UI** (renderer) built on tldraw with xterm.js terminal nodes. The `dogwalker` CLI available inside canvas terminals is a thin shim over the daemon's socket; **all** agent-facing capability flows through one broker, gated by the connection graph.
+Electron app, two halves: a **host daemon** (main process) owning PTYs, the IPC socket, the message broker, portals (CDP), floors, and routines — and a **canvas UI** (renderer) built on React Flow with xterm.js terminal nodes. The `dogwalker` CLI available inside canvas terminals is a thin shim over the daemon's socket; **all** agent-facing capability flows through one broker, gated by the connection graph.
 
 Highlights worth reading about:
 
@@ -122,7 +122,7 @@ Free and open source. License file to be added (MIT intended).
 
 Currently pre-v0.0.1. The full path — expectations, outputs, and exit criteria per version — is in [ROADMAP.md](ROADMAP.md):
 
-- [ ] **v0.0.1 — Alpha**: spike — 15 live agent terminals on a tldraw canvas with renderer hot-swap (validates the stack)
+- [x] **v0.0.1 — Alpha**: spike — 15 live agent terminals on a React Flow canvas with renderer hot-swap (validates the stack) ✓ *passed 2026-07-19*
 - [ ] **v0.1 — Core loop**: workspaces, broker + `dogwalker` CLI (`ask` / `reply` / `check`) + agent skill, connections, notes, composer
 - [ ] **v0.2 — Daily-driver comfort**: canvas completion, workspace shell, themes, memory limits
 - [ ] **v0.3 — File Tree & visual context**: four views, git ops, embedded editor, note images
