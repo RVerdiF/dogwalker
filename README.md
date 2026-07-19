@@ -120,10 +120,17 @@ Free and open source. License file to be added (MIT intended).
 
 ## Status & roadmap
 
-- [ ] **Spike** — 15 live agent terminals on a tldraw canvas with renderer hot-swap (validates the whole architecture)
-- [ ] Broker + `dogwalker` CLI (`ask` / `reply` / `check`) + agent skill
-- [ ] Workspaces, notes, composer, connections UI
-- [ ] File tree, portals, floors, routines, Walker mode
-- [ ] Packaged releases
+Currently pre-v0.0.1. The full path — expectations, outputs, and exit criteria per version — is in [ROADMAP.md](ROADMAP.md):
+
+- [ ] **v0.0.1 — Alpha**: spike — 15 live agent terminals on a tldraw canvas with renderer hot-swap (validates the stack)
+- [ ] **v0.1 — Core loop**: workspaces, broker + `dogwalker` CLI (`ask` / `reply` / `check`) + agent skill, connections, notes, composer
+- [ ] **v0.2 — Daily-driver comfort**: canvas completion, workspace shell, themes, memory limits
+- [ ] **v0.3 — File Tree & visual context**: four views, git ops, embedded editor, note images
+- [ ] **v0.4 — Portals**: embedded automatable browsers + `portal` CLI verbs
+- [ ] **v0.5 — Floors**: parallel git-worktree workspaces with Land flow and hooks
+- [ ] **v0.6 — Automation**: Routines + Walker mode
+- [ ] **v0.7 — Hardening**: beta, feature freeze, cross-OS QA
+- [ ] **v0.8 — Release engineering**: installers, signing, public repo, RCs
+- [ ] **v1.0 — Launch**
 
 Contributions and issue reports are welcome once the spike lands.

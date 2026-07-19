@@ -9,10 +9,11 @@ You are working on **Dogwalker**: a free, cross-platform (macOS/Windows/Linux) E
 | [PRODUCT.md](PRODUCT.md) | What Dogwalker is: every feature in detail, core concepts (workspace, node, agent, connection, floor, portal, routine), compatibility targets, product principles, explicit non-goals. | Before designing or changing any user-facing behavior. |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How it's built: stack (Electron + tldraw + xterm.js/node-pty), process model (host daemon vs renderer), terminal subsystem, rendering degradation ladder, the IPC broker and `dogwalker` CLI protocol (ask/reply/check), attention detection, floors, portals, persistence, security, build order. | Before writing or reviewing any code. |
 | [README.md](README.md) | Public-facing overview: pitch, features, install/quick start, compatibility tables, architecture summary with deep links. | To understand how the project presents itself; keep it in sync when features land. |
+| [ROADMAP.md](ROADMAP.md) | The version path v0.0.1 (alpha spike) → v0.1–v0.6 (feature versions) → v0.7 (hardening) → v0.8 (release engineering) → v1.0 (launch): per-version expectations, outputs, and measurable exit criteria. | Before starting any work, to know what belongs in the current version — anything not listed for the version is deferred by default. |
 
 ## Project status
 
-Design phase → spike. No application code exists yet. The first milestone is the **spike** defined in [ARCHITECTURE.md §12](ARCHITECTURE.md#12-validation-order-the-spike): 15 live agent terminals on a tldraw canvas with per-terminal renderer hot-swap. Do not build features ahead of the spike's validation.
+Design phase → v0.0.1 spike. No application code exists yet. The current milestone is the **spike** ([ROADMAP.md](ROADMAP.md#v001--spike-validate-the-stack), mechanism in [ARCHITECTURE.md §12](ARCHITECTURE.md#12-validation-order-the-spike)): 15 live agent terminals on a tldraw canvas with per-terminal renderer hot-swap. Do not build features ahead of the spike's validation.
 
 ## Invariants — do not violate without explicit human sign-off
 
