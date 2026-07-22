@@ -2,6 +2,7 @@ import type { PresetId } from '../shared/ipc';
 
 interface Props {
   onSpawn: (preset: PresetId) => void;
+  onAddNote: () => void;
 }
 
 /** End-user presets (stress is dev-only and lives on the DevBar). */
@@ -17,7 +18,7 @@ const PALETTE: Array<{ id: PresetId; label: string; icon: string }> = [
  * a preset to drop a new terminal on the canvas. Per-terminal deletion is the ×
  * on each node's header.
  */
-export function TerminalPalette({ onSpawn }: Props) {
+export function TerminalPalette({ onSpawn, onAddNote }: Props) {
   return (
     <div className="dw-palette">
       <span className="dw-palette-plus">＋</span>
@@ -32,6 +33,15 @@ export function TerminalPalette({ onSpawn }: Props) {
           {p.label}
         </button>
       ))}
+      <span className="dw-palette-sep" />
+      <button
+        className="dw-palette-chip"
+        title="New note"
+        onClick={onAddNote}
+      >
+        <span className="dw-palette-chip-icon">📝</span>
+        Note
+      </button>
     </div>
   );
 }

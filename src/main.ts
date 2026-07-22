@@ -8,6 +8,7 @@ import { Broker } from './main/broker';
 import { createShimDir } from './main/shimDir';
 import { runBrokerTest } from './main/brokerTest';
 import { WorkspaceStore } from './main/workspaceStore';
+import { NoteStore } from './main/noteStore';
 import type {
   ProcessMetric,
   SpawnOptions,
@@ -44,11 +45,12 @@ const createWindow = () => {
 
   const graph = new GraphStore();
   const history = new History(path.join(app.getPath('userData'), 'history'));
+  const notes = new NoteStore(app.getPath('userData'), graph);
   const shimDir = createShimDir();
   const socketPath = brokerPipePath();
 
   ptys = new PtyManager(mainWindow.webContents, graph, { socketPath, shimDir });
-  broker = new Broker(socketPath, graph, ptys, history);
+  broker = new Broker(socketPath, graph, ptys, history, notes);
   broker.listen();
 
   const wc = mainWindow.webContents;
@@ -57,6 +59,9 @@ const createWindow = () => {
   });
   history.on('append', (pair) => {
     if (!wc.isDestroyed()) wc.send('history:append', pair);
+  });
+  notes.on('update', (id: string) => {
+    if (!wc.isDestroyed()) wc.send('note:update', id);
   });
 
   ipcMain.handle('graph:get', () => graph.snapshot());
@@ -69,6 +74,19 @@ const createWindow = () => {
   ipcMain.handle('history:between', (_e, { a, b }: { a: string; b: string }) =>
     history.between(a, b),
   );
+
+  ipcMain.handle('note:register', (_e, { id, name }: { id: string; name: string }) =>
+    notes.register(id, name),
+  );
+  ipcMain.handle('note:rename', (_e, { id, name }: { id: string; name: string }) =>
+    notes.rename(id, name),
+  );
+  ipcMain.handle('note:read', (_e, id: string) => notes.read(id));
+  ipcMain.handle('note:save', (_e, { id, content }: { id: string; content: string }) =>
+    notes.write(id, content),
+  );
+  ipcMain.handle('note:unload', (_e, id: string) => notes.unload(id));
+  ipcMain.handle('note:delete', (_e, id: string) => notes.delete(id));
 
   const workspaces = new WorkspaceStore(app.getPath('userData'));
   ipcMain.handle('ws:list', () => workspaces.list());
@@ -109,6 +127,7 @@ const createWindow = () => {
       process.env.DW_EDGETEST ? 'edgetest=1' : '',
       process.env.DW_PERSISTTEST ? 'persisttest=1' : '',
       process.env.DW_PALETTETEST ? 'palettetest=1' : '',
+      process.env.DW_NOTETEST ? 'notetest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

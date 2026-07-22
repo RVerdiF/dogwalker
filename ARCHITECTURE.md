@@ -217,9 +217,9 @@ dev-tooling overhead. Packaged-build measurement moves to v0.7 hardening.
 
 ## 14. v0.1 progress — the core loop (in progress, branch `v0.1-core-loop`)
 
-The differentiating slice and workspace persistence are built and validated;
-the rest of v0.1 (notes, composer, themes, OSC 133 attention) is follow-up on
-the same branch.
+The differentiating slice, workspace persistence, and notes are built and
+validated; the rest of v0.1 (composer, themes, OSC 133 attention) is follow-up
+on the same branch.
 
 **Built — messaging core**
 - **GraphStore** (`src/main/graphStore.ts`) — authoritative terminals + leashes;
@@ -266,3 +266,22 @@ returns the peer — proving the CLI exists only inside canvas terminals.
 saves 2 nodes + 1 leash (geometry, names, edge stable-id integrity all OK) and
 the layout **survives teardown** on disk; launch 2 restores 2 live terminals +
 1 live leash matching the saved specs.
+
+**Built — notes**
+- **GraphStore generalized** — nodes carry a `kind` (terminal|note); a note's
+  graph id is its stableId (no process). The broker authorizes note access the
+  same way — only a wired-up note is reachable.
+- **NoteStore** (`src/main/noteStore.ts`) — markdown files under
+  `userData/notes/<stableId>.md`, the single writer for both the editor and the
+  CLI; emits `update` so an open editor refreshes after an agent writes.
+- **`note` verb** (broker + shim) — `dogwalker note read|append|write <name>`,
+  gated by the connection graph.
+- **NoteNode** (`src/app/NoteNode.tsx`) — a markdown sticky with raw/formatted
+  modes (react-markdown + remark-gfm), inline rename, delete-with-file; refreshes
+  on `note:update`. Notes are excluded from the terminal render ladder. Added to
+  the palette; image paste stays deferred to v0.3.
+
+**Validated** (`DW_NOTETEST=1`, Windows, 2026-07-19): an agent `note read`s a
+connected note's content off its own terminal and `note write`s it (file
+reflects the change via the single writer); the note and its terminal↔note leash
+both persist in the layout and restore.

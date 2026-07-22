@@ -49,6 +49,18 @@ const api: DwApi = {
     ipcRenderer.invoke('ws:rename', { id, name, icon }),
   deleteWorkspace: (id) => ipcRenderer.invoke('ws:delete', id),
   setActiveWorkspace: (id) => ipcRenderer.invoke('ws:setActive', id),
+
+  registerNote: (id, name) => ipcRenderer.invoke('note:register', { id, name }),
+  renameNote: (id, name) => ipcRenderer.invoke('note:rename', { id, name }),
+  readNote: (id) => ipcRenderer.invoke('note:read', id),
+  saveNote: (id, content) => ipcRenderer.invoke('note:save', { id, content }),
+  unloadNote: (id) => ipcRenderer.invoke('note:unload', id),
+  deleteNote: (id) => ipcRenderer.invoke('note:delete', id),
+  onNoteUpdate: (cb) => {
+    const listener = (_e: IpcRendererEvent, id: string) => cb(id);
+    ipcRenderer.on('note:update', listener);
+    return () => ipcRenderer.removeListener('note:update', listener);
+  },
 };
 
 contextBridge.exposeInMainWorld('dw', api);

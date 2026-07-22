@@ -3,6 +3,7 @@ import * as crypto from 'node:crypto';
 import type { GraphStore } from './graphStore';
 import type { PtyManager } from './ptyManager';
 import type { History } from './history';
+import type { NoteStore } from './noteStore';
 import {
   encode,
   type BrokerRequest,
@@ -33,6 +34,7 @@ export class Broker {
     private graph: GraphStore,
     private ptys: PtyManager,
     private history: History,
+    private notes: NoteStore,
   ) {
     this.server = net.createServer((socket) => this.onConnection(socket));
   }
@@ -84,6 +86,8 @@ export class Broker {
       case 'connect':
       case 'disconnect':
         return this.handleWire(socket, req.cmd, req.from, req.target);
+      case 'note':
+        return this.handleNote(socket, req.from, req.op, req.target, req.body);
       default:
         return this.respond(socket, { ok: false, error: 'unknown command' });
     }
@@ -204,6 +208,46 @@ export class Broker {
         );
       if (edge) this.graph.disconnect(edge.id);
     }
+    this.respond(socket, { ok: true });
+  }
+
+  private handleNote(
+    socket: net.Socket,
+    from: string,
+    op: 'read' | 'append' | 'write',
+    target: string,
+    body?: string,
+  ): void {
+    // Only notes the caller is wired to are reachable.
+    const noteId = this.graph.resolvePeer(from, target, 'note');
+    if (!noteId) {
+      return this.respond(socket, {
+        ok: false,
+        error: `no connected note named "${target}"`,
+      });
+    }
+    if (op === 'read') {
+      const content = this.notes.read(noteId);
+      this.history.append({
+        ts: Date.now(),
+        kind: 'check',
+        from,
+        to: noteId,
+        body: '(read note)',
+      });
+      return this.respond(socket, { ok: true, data: { content } });
+    }
+    // append / write mutate; notify the UI to refresh the open editor.
+    const text = body ?? '';
+    if (op === 'append') this.notes.append(noteId, text, true);
+    else this.notes.write(noteId, text, true);
+    this.history.append({
+      ts: Date.now(),
+      kind: 'ask',
+      from,
+      to: noteId,
+      body: `(${op} note) ${text.slice(0, 80)}`,
+    });
     this.respond(socket, { ok: true });
   }
 

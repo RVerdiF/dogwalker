@@ -81,11 +81,11 @@ export class PtyManager {
 
     proc.onExit(() => {
       this.target.send('pty:exit', id);
-      this.graph.removeTerminal(id);
+      this.graph.removeNode(id);
     });
 
     this.entries.set(id, { proc, mirror, serializer, name: opts.name });
-    this.graph.addTerminal(id, opts.name, opts.preset);
+    this.graph.addNode(id, opts.name, 'terminal', opts.preset);
 
     const command = presetCommand(opts.preset);
     if (command) {
@@ -131,7 +131,7 @@ export class PtyManager {
     this.pending.delete(id);
     entry.proc.kill();
     entry.mirror.dispose();
-    this.graph.removeTerminal(id);
+    this.graph.removeNode(id);
   }
 
   killAll(): void {

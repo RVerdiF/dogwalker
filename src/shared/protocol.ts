@@ -29,13 +29,21 @@ export interface ConnectReq {
   from: string;
   target: string;
 }
+export interface NoteReq {
+  cmd: 'note';
+  from: string;
+  op: 'read' | 'append' | 'write';
+  target: string;
+  body?: string;
+}
 
 export type BrokerRequest =
   | AskReq
   | ReplyReq
   | CheckReq
   | ListReq
-  | ConnectReq;
+  | ConnectReq
+  | NoteReq;
 
 export interface BrokerResponse {
   ok: boolean;

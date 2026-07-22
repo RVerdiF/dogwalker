@@ -24,11 +24,14 @@ export interface ProcessMetric {
   memoryMB: number;
 }
 
+export type NodeKind = 'terminal' | 'note';
+
 /** A node in the authoritative main-process graph (identity only, no layout). */
-export interface GraphTerminal {
+export interface GraphNode {
   id: string;
   name: string;
-  preset: PresetId;
+  kind: NodeKind;
+  preset?: PresetId;
 }
 
 /** An undirected connection ("leash") between two node ids. */
@@ -39,7 +42,7 @@ export interface GraphEdge {
 }
 
 export interface GraphSnapshot {
-  terminals: GraphTerminal[];
+  nodes: GraphNode[];
   edges: GraphEdge[];
 }
 
@@ -53,16 +56,27 @@ export interface HistoryEntry {
   body: string;
 }
 
-/** A terminal's persisted layout: identity + geometry (no live PTY state). */
-export interface NodeSpec {
+interface BaseSpec {
   stableId: string;
   name: string;
-  preset: PresetId;
   x: number;
   y: number;
   w: number;
   h: number;
 }
+
+/** A terminal's persisted layout: identity + geometry (no live PTY state). */
+export interface TerminalSpec extends BaseSpec {
+  kind: 'terminal';
+  preset: PresetId;
+}
+
+/** A note's persisted layout; its markdown body lives in a file keyed by id. */
+export interface NoteSpec extends BaseSpec {
+  kind: 'note';
+}
+
+export type NodeSpec = TerminalSpec | NoteSpec;
 
 /** Everything needed to reconstruct a workspace's canvas. */
 export interface WorkspaceLayout {
@@ -111,6 +125,19 @@ export interface DwApi {
   renameWorkspace(id: string, name: string, icon: string): Promise<void>;
   deleteWorkspace(id: string): Promise<void>;
   setActiveWorkspace(id: string): Promise<void>;
+
+  // Notes. A note is a markdown file keyed by stableId, registered in the graph
+  // so it can be wired to terminals (and other notes) and reached by the CLI.
+  registerNote(id: string, name: string): Promise<string>; // ensures file+graph node; returns content
+  renameNote(id: string, name: string): Promise<void>;
+  readNote(id: string): Promise<string>;
+  saveNote(id: string, content: string): Promise<void>;
+  /** Remove the note's graph node but keep its file (workspace switch). */
+  unloadNote(id: string): Promise<void>;
+  /** Delete the note's graph node and file (user delete). */
+  deleteNote(id: string): Promise<void>;
+  /** Fires when a note's content changes out-of-band (e.g. an agent wrote it). */
+  onNoteUpdate(cb: (id: string) => void): () => void;
 }
 
 declare global {

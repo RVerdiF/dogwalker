@@ -22,6 +22,11 @@ You can only reach terminals you are wired to. Run `dogwalker list` to see them.
   a dev server, a log tail.
 - `dogwalker reply <msg-id> --stdin` — answer a message that was sent to you (see
   below). `<msg-id>` comes from the incoming message.
+- `dogwalker note read <name>` — print a connected note's markdown.
+- `dogwalker note append <name> --stdin` / `dogwalker note write <name> --stdin`
+  — append to, or replace, a connected note's contents. Notes are shared context
+  that persists across sessions; use them to leave findings, specs, or TODOs the
+  user and other agents can see.
 - `dogwalker connect <name>` / `dogwalker disconnect <name>` — manage leashes.
 
 ## When another agent asks you something

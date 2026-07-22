@@ -151,6 +151,13 @@ body,
   font-size: 14px;
 }
 
+.dw-palette-sep {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.14);
+  margin: 0 2px;
+}
+
 /* ---- Dev toolbar (dev only) --------------------------------------------- */
 .dw-devbar {
   position: absolute;
@@ -683,4 +690,154 @@ body,
   background: rgba(255, 122, 122, 0.2);
   color: #ff9a9a;
   border-color: rgba(255, 122, 122, 0.4);
+}
+
+/* ---- Note node ---------------------------------------------------------- */
+.dw-note {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #201f17;
+  border: 1px solid #3a3726;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dw-note-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #2a2818;
+  border-bottom: 1px solid #3a3726;
+  cursor: grab;
+  user-select: none;
+}
+
+.dw-note-emoji {
+  font-size: 13px;
+}
+
+.dw-note-name {
+  flex: 1;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #e8dfae;
+}
+
+.dw-note-name-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #4a4630;
+  border-radius: 5px;
+  color: #f0e8c0;
+  padding: 2px 6px;
+  font-size: 13px;
+}
+
+.dw-note-mode,
+.dw-note .dw-close {
+  background: none;
+  border: none;
+  color: #a89a5f;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+  font-family: Consolas, monospace;
+}
+
+.dw-note-mode.on {
+  color: #e0cf7a;
+}
+
+.dw-note-mode:hover {
+  color: #f0e8c0;
+}
+
+.dw-note-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dw-note-raw {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: #16150f;
+  color: #e8dfae;
+  padding: 10px;
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dw-note-md {
+  padding: 4px 12px;
+  color: #e8e4d4;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.dw-note-md h1,
+.dw-note-md h2,
+.dw-note-md h3 {
+  color: #f2ecd0;
+  margin: 0.6em 0 0.3em;
+}
+
+.dw-note-md h1 { font-size: 1.4em; }
+.dw-note-md h2 { font-size: 1.2em; }
+.dw-note-md h3 { font-size: 1.05em; }
+
+.dw-note-md code {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.dw-note-md pre {
+  background: #16150f;
+  padding: 10px;
+  border-radius: 7px;
+  overflow-x: auto;
+}
+
+.dw-note-md pre code {
+  background: none;
+  padding: 0;
+}
+
+.dw-note-md a {
+  color: #8ab4ff;
+}
+
+.dw-note-md table {
+  border-collapse: collapse;
+}
+
+.dw-note-md th,
+.dw-note-md td {
+  border: 1px solid #3a3726;
+  padding: 4px 8px;
+}
+
+.dw-note-md blockquote {
+  border-left: 3px solid #4a4630;
+  margin: 0.4em 0;
+  padding-left: 10px;
+  color: #c8be92;
+}
+
+.dw-note-empty {
+  color: #8a7f4f;
+  font-style: italic;
 }

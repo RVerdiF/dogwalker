@@ -61,9 +61,23 @@ async function buildRequest() {
       if (!target) die(`usage: dogwalker ${cmd} <terminal>`);
       return { cmd, from, target };
     }
+    case 'note': {
+      const op = argv[1];
+      const target = argv[2];
+      if (!['read', 'append', 'write'].includes(op) || !target) {
+        die('usage: dogwalker note read|append|write <note> [--stdin | <text>]');
+      }
+      let body;
+      if (op !== 'read') {
+        body = argv.includes('--stdin')
+          ? (await readStdin()).replace(/\n?EOF\s*$/, '').trimEnd()
+          : argv.slice(3).join(' ');
+      }
+      return { cmd: 'note', from, op, target, body };
+    }
     default:
       die(
-        'commands: ask <t> <msg> | reply <id> --stdin | check <t> | list | connect <t> | disconnect <t>',
+        'commands: ask <t> <msg> | reply <id> --stdin | check <t> | list | note read|append|write <n> | connect <t> | disconnect <t>',
       );
   }
 }
@@ -76,6 +90,8 @@ function render(cmd, data) {
     for (const p of data.peers) process.stdout.write(`${p.name}\t${p.id}\n`);
   } else if (cmd === 'ask' && data && typeof data.body === 'string') {
     process.stdout.write(data.body + '\n');
+  } else if (cmd === 'note' && data && typeof data.content === 'string') {
+    process.stdout.write(data.content.replace(/\s+$/, '') + '\n');
   } else {
     process.stdout.write('ok\n');
   }
