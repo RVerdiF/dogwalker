@@ -54,10 +54,18 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
   return (
     <div className={`dw-node ${selected ? 'dw-node-selected' : ''}`}>
       <NodeResizer isVisible={selected} minWidth={320} minHeight={200} />
-      {/* Leashes are undirected; with ConnectionMode.Loose either handle can
-          start or end a connection. Two handles give a bigger drag target. */}
-      <Handle type="source" position={Position.Left} className="dw-handle" />
-      <Handle type="target" position={Position.Right} className="dw-handle" />
+      {/* Leashes are undirected. Four visible source handles (one per side):
+          with ConnectionMode.Loose each can both start and receive a drag, so
+          you can pull from — and drop onto — any side. The hidden "sink" target
+          handle exists only so a derived edge can resolve a target-type handle
+          and mount; React Flow won't render an edge otherwise. The leash itself
+          is a floating edge (FloatingLeash.tsx), so which handles it names is
+          irrelevant to how it looks. */}
+      <Handle id="top" type="source" position={Position.Top} className="dw-handle" />
+      <Handle id="right" type="source" position={Position.Right} className="dw-handle" />
+      <Handle id="bottom" type="source" position={Position.Bottom} className="dw-handle" />
+      <Handle id="left" type="source" position={Position.Left} className="dw-handle" />
+      <Handle id="sink" type="target" position={Position.Left} className="dw-handle-sink" />
       <div className="dw-drag dw-node-header">
         <span className="dw-node-name">
           {data.name}

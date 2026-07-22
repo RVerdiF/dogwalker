@@ -82,6 +82,7 @@ const createWindow = () => {
       process.env.DW_SOAK ? 'soak=1' : '',
       process.env.DW_QUIET ? 'quiet=1' : '',
       process.env.DW_SOAK_MIN ? `soakmin=${process.env.DW_SOAK_MIN}` : '',
+      process.env.DW_EDGETEST ? 'edgetest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

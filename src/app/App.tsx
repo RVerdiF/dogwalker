@@ -13,12 +13,13 @@ import {
 import type { GraphSnapshot, PresetId } from '../shared/ipc';
 import { terminals, type Tier } from './terminalService';
 import { TerminalNode, type TerminalFlowNode } from './TerminalNode';
+import { FloatingLeash } from './FloatingLeash';
 import { Hud } from './Hud';
 import { HistoryPanel } from './HistoryPanel';
 import { runSmoke } from './smoke';
 
 const nodeTypes = { terminal: TerminalNode };
-const edgeOptions = { type: 'default', className: 'dw-leash', animated: false };
+const edgeTypes = { leash: FloatingLeash };
 
 const NODE_W = 560;
 const NODE_H = 380;
@@ -76,10 +77,16 @@ function Canvas() {
   const edges = useMemo<Edge[]>(
     () =>
       graph.edges.map((e) => ({
-        ...edgeOptions,
         id: e.id,
         source: e.a,
         target: e.b,
+        // React Flow needs a resolvable source-type and target-type handle to
+        // mount an edge. Name any visible source handle and the hidden "sink"
+        // target. FloatingLeash recomputes the anchors from geometry, so these
+        // names don't affect how the leash looks.
+        sourceHandle: 'right',
+        targetHandle: 'sink',
+        type: 'leash',
       })),
     [graph.edges],
   );
@@ -215,6 +222,43 @@ function Canvas() {
     void runSmoke({ spawn: spawnOne, setViewport, getViewport });
   }, [spawnOne, setViewport, getViewport]);
 
+  // Verifies the floating-leash origin fix: node B is placed to the RIGHT of A,
+  // so the leash must leave A's right side (x near A's right edge), not its left.
+  useEffect(() => {
+    if (smokeRan.current) return;
+    if (!new URLSearchParams(window.location.search).has('edgetest')) return;
+    smokeRan.current = true;
+    void (async () => {
+      const a = await spawnOne('shell');
+      const b = await spawnOne('shell'); // grid places b at x=GRID_GAP_X (right of a)
+      await window.dw.connect(a, b);
+      await new Promise((r) => setTimeout(r, 800));
+      const edgeEls = document.querySelectorAll('.react-flow__edge').length;
+      const anyPath = document.querySelectorAll('.react-flow__edge-path').length;
+      const pathEl =
+        document.querySelector<SVGPathElement>('.dw-leash-path') ??
+        document.querySelector<SVGPathElement>('.react-flow__edge-path');
+      const d = pathEl?.getAttribute('d') ?? '';
+      const m = /M\s*([\d.-]+)[ ,]([\d.-]+)/.exec(d);
+      const startX = m ? Number(m[1]) : NaN;
+      const node = document.querySelector('.react-flow__node');
+      const sides = ['top', 'right', 'bottom', 'left'].filter((s) =>
+        node?.querySelector(`.react-flow__handle-${s}`),
+      );
+      console.log(
+        'EDGETEST RESULT ' +
+          JSON.stringify({
+            edgeEls,
+            anyPath,
+            pathClass: pathEl?.getAttribute('class') ?? null,
+            startX: Math.round(startX),
+            leavesRightSide: startX > NODE_W / 2,
+            handleSides: sides,
+          }),
+      );
+    })();
+  }, [spawnOne]);
+
   const killAll = useCallback(() => {
     setNodes((ns) => {
       for (const n of ns) {
@@ -263,11 +307,13 @@ function Canvas() {
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
         onConnect={onConnect}
         onEdgesDelete={onEdgesDelete}
         onEdgeClick={onEdgeClick}
         connectionMode={ConnectionMode.Loose}
+        connectionRadius={45}
         onMove={recomputeTiers}
         minZoom={0.1}
         maxZoom={2}

@@ -181,20 +181,51 @@ body,
 
 /* Leashes */
 .dw-handle {
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   background: #8ab4ff;
   border: 2px solid #16161c;
+  opacity: 0.35;
+  transition: opacity 0.12s, transform 0.12s;
+  z-index: 5;
 }
 
-.react-flow__edge.dw-leash .react-flow__edge-path {
+.dw-node:hover .dw-handle,
+.dw-node-selected .dw-handle {
+  opacity: 1;
+}
+
+/* Enlarge the hit target on hover so grabbing/dropping a leash is forgiving. */
+.dw-handle:hover {
+  transform: scale(1.5);
+  opacity: 1;
+}
+
+/* Exists only so derived edges can resolve a target-type handle to mount.
+   Never a drag affordance — invisible and click-through. */
+.dw-handle-sink {
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.react-flow__edge .dw-leash-path {
   stroke: #8ab4ff;
   stroke-width: 2.5;
 }
 
-.react-flow__edge.dw-leash.selected .react-flow__edge-path {
+.react-flow__edge .dw-leash-path.selected {
   stroke: #b98aff;
   stroke-width: 3.5;
+}
+
+/* Widen the invisible interaction path so leashes are easy to click. */
+.react-flow__edge .react-flow__edge-interaction {
+  stroke-width: 20;
 }
 
 /* History panel */
