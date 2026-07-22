@@ -2,6 +2,11 @@ import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { PtyManager } from './main/ptyManager';
+import { GraphStore } from './main/graphStore';
+import { History } from './main/history';
+import { Broker } from './main/broker';
+import { createShimDir } from './main/shimDir';
+import { runBrokerTest } from './main/brokerTest';
 import type { ProcessMetric, SpawnOptions } from './shared/ipc';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -10,6 +15,14 @@ if (started) {
 }
 
 let ptys: PtyManager | null = null;
+let broker: Broker | null = null;
+
+function brokerPipePath(): string {
+  if (process.platform === 'win32') {
+    return `\\\\.\\pipe\\dogwalker-${process.pid}`;
+  }
+  return path.join(app.getPath('userData'), `broker-${process.pid}.sock`);
+}
 
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
@@ -24,15 +37,43 @@ const createWindow = () => {
     },
   });
 
-  ptys = new PtyManager(mainWindow.webContents);
+  const graph = new GraphStore();
+  const history = new History(path.join(app.getPath('userData'), 'history'));
+  const shimDir = createShimDir();
+  const socketPath = brokerPipePath();
+
+  ptys = new PtyManager(mainWindow.webContents, graph, { socketPath, shimDir });
+  broker = new Broker(socketPath, graph, ptys, history);
+  broker.listen();
+
+  const wc = mainWindow.webContents;
+  graph.on('change', (snap) => {
+    if (!wc.isDestroyed()) wc.send('graph:update', snap);
+  });
+  history.on('append', (pair) => {
+    if (!wc.isDestroyed()) wc.send('history:append', pair);
+  });
+
+  ipcMain.handle('graph:get', () => graph.snapshot());
+  ipcMain.handle('graph:connect', (_e, { a, b }: { a: string; b: string }) =>
+    graph.connect(a, b),
+  );
+  ipcMain.handle('graph:disconnect', (_e, edgeId: string) =>
+    graph.disconnect(edgeId),
+  );
+  ipcMain.handle('history:between', (_e, { a, b }: { a: string; b: string }) =>
+    history.between(a, b),
+  );
 
   // Dev visibility: renderer console mirrored to stdout (no devtools needed).
-  mainWindow.webContents.on('console-message', (event) => {
+  wc.on('console-message', (event) => {
     console.log(`[renderer:${event.level}] ${event.message}`);
   });
   mainWindow.on('closed', () => {
     ptys?.killAll();
+    broker?.close();
     ptys = null;
+    broker = null;
   });
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -49,6 +90,10 @@ const createWindow = () => {
     mainWindow.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
+  }
+
+  if (process.env.DW_BROKERTEST) {
+    void runBrokerTest(ptys, graph, socketPath);
   }
 };
 

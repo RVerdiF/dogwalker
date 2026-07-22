@@ -1,18 +1,24 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
+  ConnectionMode,
   ReactFlow,
   ReactFlowProvider,
   useNodesState,
   useReactFlow,
+  type Connection,
+  type Edge,
+  type EdgeMouseHandler,
 } from '@xyflow/react';
-import type { PresetId } from '../shared/ipc';
+import type { GraphSnapshot, PresetId } from '../shared/ipc';
 import { terminals, type Tier } from './terminalService';
 import { TerminalNode, type TerminalFlowNode } from './TerminalNode';
 import { Hud } from './Hud';
+import { HistoryPanel } from './HistoryPanel';
 import { runSmoke } from './smoke';
 
 const nodeTypes = { terminal: TerminalNode };
+const edgeOptions = { type: 'default', className: 'dw-leash', animated: false };
 
 const NODE_W = 560;
 const NODE_H = 380;
@@ -28,8 +34,15 @@ const PRESETS: PresetId[] = ['shell', 'claude', 'codex', 'gemini', 'stress'];
 
 function Canvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState<TerminalFlowNode>([]);
+  const [graph, setGraph] = useState<GraphSnapshot>({ terminals: [], edges: [] });
   const [preset, setPreset] = useState<PresetId>('shell');
   const [mirrorInfo, setMirrorInfo] = useState('');
+  const [historyPair, setHistoryPair] = useState<{
+    a: string;
+    b: string;
+    aName: string;
+    bName: string;
+  } | null>(null);
   const { getViewport, setViewport } = useReactFlow();
   const spawnCount = useRef(0);
   const tierPass = useRef(false);
@@ -44,11 +57,54 @@ function Canvas() {
         ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, exited: true } } : n)),
       );
     });
+    const offGraph = window.dw.onGraph(setGraph);
+    void window.dw.graph().then(setGraph);
     return () => {
       offData();
       offExit();
+      offGraph();
     };
   }, [setNodes]);
+
+  // Leash edges are fully derived from the authoritative main-process graph.
+  const nameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of graph.terminals) m.set(t.id, t.name);
+    return m;
+  }, [graph.terminals]);
+
+  const edges = useMemo<Edge[]>(
+    () =>
+      graph.edges.map((e) => ({
+        ...edgeOptions,
+        id: e.id,
+        source: e.a,
+        target: e.b,
+      })),
+    [graph.edges],
+  );
+
+  const onConnect = useCallback((c: Connection) => {
+    if (c.source && c.target && c.source !== c.target) {
+      void window.dw.connect(c.source, c.target);
+    }
+  }, []);
+
+  const onEdgesDelete = useCallback((deleted: Edge[]) => {
+    for (const e of deleted) void window.dw.disconnect(e.id);
+  }, []);
+
+  const onEdgeClick = useCallback<EdgeMouseHandler>(
+    (_evt, edge) => {
+      setHistoryPair({
+        a: edge.source,
+        b: edge.target,
+        aName: nameById.get(edge.source) ?? edge.source,
+        bName: nameById.get(edge.target) ?? edge.target,
+      });
+    },
+    [nameById],
+  );
 
   const recomputeTiers = useCallback(() => {
     if (tierPass.current) return;
@@ -128,7 +184,8 @@ function Canvas() {
       const n = spawnCount.current++;
       const cols = 80;
       const rows = 24;
-      const { id } = await window.dw.spawn({ preset: p, cols, rows });
+      const name = `${p}-${n + 1}`;
+      const { id } = await window.dw.spawn({ preset: p, name, cols, rows });
       terminals.create(id);
       const node: TerminalFlowNode = {
         id,
@@ -139,7 +196,7 @@ function Canvas() {
           y: Math.floor(n / GRID_COLS) * GRID_GAP_Y,
         },
         style: { width: NODE_W, height: NODE_H },
-        data: { name: `${p}-${n + 1}`, preset: p, tier: 3 as Tier, exited: false },
+        data: { name, preset: p, tier: 3 as Tier, exited: false },
       };
       setNodes((ns) => [...ns, node]);
       return id;
@@ -187,7 +244,7 @@ function Canvas() {
   return (
     <div className="dw-root">
       <div className="dw-toolbar">
-        <span className="dw-logo">🐕 Dogwalker spike</span>
+        <span className="dw-logo">🐕 Dogwalker</span>
         <select value={preset} onChange={(e) => setPreset(e.target.value as PresetId)}>
           {PRESETS.map((p) => (
             <option key={p} value={p}>
@@ -199,13 +256,18 @@ function Canvas() {
         <button onClick={() => void spawn15()}>Spawn 15</button>
         <button onClick={() => void mirrorCheck()}>Mirror check</button>
         <button onClick={killAll}>Kill all</button>
+        <span className="dw-hint">drag a node's side handle to another to leash · click a leash for history</span>
         {mirrorInfo && <span className="dw-mirror-info">{mirrorInfo}</span>}
       </div>
       <ReactFlow
         nodes={nodes}
-        edges={[]}
+        edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
+        onConnect={onConnect}
+        onEdgesDelete={onEdgesDelete}
+        onEdgeClick={onEdgeClick}
+        connectionMode={ConnectionMode.Loose}
         onMove={recomputeTiers}
         minZoom={0.1}
         maxZoom={2}
@@ -214,6 +276,7 @@ function Canvas() {
         <Background gap={20} />
       </ReactFlow>
       <Hud />
+      <HistoryPanel pair={historyPair} onClose={() => setHistoryPair(null)} />
     </div>
   );
 }

@@ -1,5 +1,12 @@
 import { memo, useEffect, useRef } from 'react';
-import { NodeResizer, useReactFlow, type Node, type NodeProps } from '@xyflow/react';
+import {
+  Handle,
+  NodeResizer,
+  Position,
+  useReactFlow,
+  type Node,
+  type NodeProps,
+} from '@xyflow/react';
 import { terminals, type Tier } from './terminalService';
 
 export interface TerminalNodeData extends Record<string, unknown> {
@@ -47,6 +54,10 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
   return (
     <div className={`dw-node ${selected ? 'dw-node-selected' : ''}`}>
       <NodeResizer isVisible={selected} minWidth={320} minHeight={200} />
+      {/* Leashes are undirected; with ConnectionMode.Loose either handle can
+          start or end a connection. Two handles give a bigger drag target. */}
+      <Handle type="source" position={Position.Left} className="dw-handle" />
+      <Handle type="target" position={Position.Right} className="dw-handle" />
       <div className="dw-drag dw-node-header">
         <span className="dw-node-name">
           {data.name}

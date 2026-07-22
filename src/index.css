@@ -172,3 +172,111 @@ body,
 .dw-hud-fps.bad {
   color: #ff7a7a;
 }
+
+.dw-hint {
+  margin-left: 8px;
+  color: #6a6a78;
+  font-size: 12px;
+}
+
+/* Leashes */
+.dw-handle {
+  width: 10px;
+  height: 10px;
+  background: #8ab4ff;
+  border: 2px solid #16161c;
+}
+
+.react-flow__edge.dw-leash .react-flow__edge-path {
+  stroke: #8ab4ff;
+  stroke-width: 2.5;
+}
+
+.react-flow__edge.dw-leash.selected .react-flow__edge-path {
+  stroke: #b98aff;
+  stroke-width: 3.5;
+}
+
+/* History panel */
+.dw-history {
+  position: fixed;
+  top: 60px;
+  right: 12px;
+  width: 380px;
+  max-height: 70vh;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: #16161c;
+  border: 1px solid #2e2e3a;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.dw-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #20202a;
+  border-bottom: 1px solid #2e2e3a;
+  font-weight: 600;
+}
+
+.dw-history-body {
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.dw-history-empty {
+  color: #6a6a78;
+  padding: 16px;
+  text-align: center;
+}
+
+.dw-msg {
+  border-left: 3px solid #3a3a48;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  background: #1b1b23;
+  border-radius: 0 6px 6px 0;
+}
+
+.dw-msg-ask {
+  border-left-color: #8ab4ff;
+}
+
+.dw-msg-reply {
+  border-left-color: #7fd79a;
+}
+
+.dw-msg-check {
+  border-left-color: #e0cf7a;
+}
+
+.dw-msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #8a8a99;
+  margin-bottom: 3px;
+}
+
+.dw-msg-kind {
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.dw-msg-time {
+  margin-left: auto;
+}
+
+.dw-msg-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: Consolas, monospace;
+  font-size: 12px;
+}

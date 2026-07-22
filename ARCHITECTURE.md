@@ -214,3 +214,34 @@ terminal (~170 MB for 5 continuously-flooding terminals), not the fixed
 dev-tooling overhead. Packaged-build measurement moves to v0.7 hardening.
 
 **Verdict: spike PASSED (2026-07-19).** The stack holds; v0.1 may begin.
+
+## 14. v0.1 progress — the core loop (in progress, branch `v0.1-core-loop`)
+
+The differentiating slice is built and validated; the rest of v0.1 (notes,
+composer, full workspace persistence/sidebar, themes, OSC 133 attention) is
+follow-up on the same branch.
+
+**Built**
+- **GraphStore** (`src/main/graphStore.ts`) — authoritative terminals + leashes;
+  the broker authorizes strictly against it.
+- **Broker** (`src/main/broker.ts`) — net server on a named pipe (Windows) /
+  unix socket; `ask` / `reply` / `check` / `list` / `connect` / `disconnect`;
+  ask holds the caller's connection and unblocks on the peer's `reply`,
+  correlated by msg-id, with a 120 s timeout.
+- **Shim** (`src/shim/shim.mjs` + `src/main/shimDir.ts`) — standalone `dogwalker`
+  /`walk` CLI materialized into a per-app shim dir prepended to each PTY's PATH;
+  no logic, just framing.
+- **Injection** — `PtyManager.inject()` does the one-write bracketed-paste
+  (gated on the mirror's DEC mode 2004), the sole PTY writer.
+- **History** (`src/main/history.ts`) — append-only JSONL per node pair; the UI
+  renders it when a leash is clicked.
+- **Connections UI** — React Flow loose-mode handles create leashes; edges are
+  derived from the graph; clicking a leash opens the message-history panel.
+- **Skill** (`skills/dogwalker/SKILL.md`) — teaches agents the CLI + reply-via-
+  `--stdin` heredoc contract.
+
+**Validated** (`DW_BROKERTEST=1 npm start`, Windows, 2026-07-19): ask→inject→
+reply round-trip returns the exact reply body to the held caller; `check` and
+`list` work; an **unwired terminal is denied** (connection-graph auth); and the
+**real shim** run through a shell (`dogwalker list`) resolves via PATH and
+returns the peer — proving the CLI exists only inside canvas terminals.
