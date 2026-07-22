@@ -40,6 +40,15 @@ const api: DwApi = {
     ipcRenderer.on('history:append', listener);
     return () => ipcRenderer.removeListener('history:append', listener);
   },
+
+  listWorkspaces: () => ipcRenderer.invoke('ws:list'),
+  createWorkspace: (name, icon) => ipcRenderer.invoke('ws:create', { name, icon }),
+  loadWorkspace: (id) => ipcRenderer.invoke('ws:load', id),
+  saveLayout: (id, layout) => ipcRenderer.invoke('ws:saveLayout', { id, layout }),
+  renameWorkspace: (id, name, icon) =>
+    ipcRenderer.invoke('ws:rename', { id, name, icon }),
+  deleteWorkspace: (id) => ipcRenderer.invoke('ws:delete', id),
+  setActiveWorkspace: (id) => ipcRenderer.invoke('ws:setActive', id),
 };
 
 contextBridge.exposeInMainWorld('dw', api);

@@ -14,34 +14,171 @@ body,
   font-size: 13px;
 }
 
-.dw-root {
+/* ---- App shell ---------------------------------------------------------- */
+.dw-app {
   height: 100%;
   display: flex;
-  flex-direction: column;
 }
 
-.dw-root .react-flow {
+.dw-main {
   flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.dw-canvas-host {
+  position: absolute;
+  inset: 0;
+}
+
+.dw-canvas-host .react-flow {
   background: #101014;
 }
 
-.dw-toolbar {
+/* ---- Workspace rail ----------------------------------------------------- */
+.dw-rail {
+  width: 60px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  background: #131319;
+  border-right: 1px solid #23232e;
+}
+
+.dw-rail-brand {
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+
+.dw-rail-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.dw-rail-ws,
+.dw-rail-add,
+.dw-rail-menu {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: #1e1e27;
+  color: #d6d6dd;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
+}
+
+.dw-rail-ws:hover,
+.dw-rail-add:hover,
+.dw-rail-menu:hover {
+  background: #26262f;
+  transform: translateY(-1px);
+}
+
+.dw-rail-ws.active {
+  border-color: #8ab4ff;
+  box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.2);
+}
+
+.dw-rail-add {
+  font-size: 24px;
+  color: #8a8a99;
+  border-style: dashed;
+  border-color: #3a3a48;
+  background: transparent;
+}
+
+.dw-rail-menu {
+  font-size: 18px;
+}
+
+/* ---- Terminal palette (floating glass, top-center) ---------------------- */
+.dw-palette {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 16;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 12px;
+  background: rgba(32, 32, 42, 0.6);
+  backdrop-filter: blur(22px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
+}
+
+.dw-palette-plus {
+  color: #8a8a99;
+  font-size: 15px;
+  margin-right: 2px;
+}
+
+.dw-palette-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e6e6ee;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.12s, border-color 0.12s;
+}
+
+.dw-palette-chip:hover {
+  background: rgba(138, 180, 255, 0.16);
+  border-color: rgba(138, 180, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.dw-palette-chip-icon {
+  font-size: 14px;
+}
+
+/* ---- Dev toolbar (dev only) --------------------------------------------- */
+.dw-devbar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 15;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: #1a1a22;
-  border-bottom: 1px solid #2a2a35;
-  z-index: 10;
+  padding: 6px 10px;
+  background: rgba(26, 26, 34, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid #2a2a35;
+  border-radius: 10px;
 }
 
-.dw-logo {
-  font-weight: 600;
-  margin-right: 8px;
+.dw-devbar-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #101014;
+  background: #e0cf7a;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-.dw-toolbar select,
-.dw-toolbar button {
+.dw-devbar select,
+.dw-devbar button {
   background: #26262f;
   color: #d6d6dd;
   border: 1px solid #3a3a48;
@@ -51,18 +188,8 @@ body,
   cursor: pointer;
 }
 
-.dw-toolbar button:hover {
+.dw-devbar button:hover {
   background: #32323e;
-}
-
-.dw-mirror-info {
-  margin-left: 8px;
-  color: #8ab4ff;
-  font-family: Consolas, monospace;
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .dw-node {
@@ -310,4 +437,250 @@ body,
   word-break: break-word;
   font-family: Consolas, monospace;
   font-size: 12px;
+}
+
+/* ---- Glass sectioned menu (Panel) --------------------------------------- */
+.dw-panel-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 6, 10, 0.45);
+  backdrop-filter: blur(3px);
+}
+
+.dw-panel {
+  position: relative;
+  width: min(880px, 92vw);
+  height: min(620px, 88vh);
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(30, 30, 40, 0.72);
+  backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.dw-panel-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dw-panel-title {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 4px 10px 14px;
+  color: #f0f0f5;
+}
+
+.dw-panel-navitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #c8c8d4;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.dw-panel-navitem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dw-panel-navitem.active {
+  background: rgba(138, 180, 255, 0.16);
+  color: #fff;
+}
+
+.dw-panel-navitem.soon {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.dw-panel-navicon {
+  font-size: 16px;
+}
+
+.dw-soon {
+  margin-left: auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9a9aa8;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.dw-panel-body {
+  padding: 24px 28px;
+  overflow-y: auto;
+}
+
+.dw-panel-placeholder {
+  color: #9a9aa8;
+  padding: 40px 8px;
+  text-align: center;
+}
+
+.dw-panel-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #c8c8d4;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.dw-panel-close:hover {
+  background: rgba(255, 122, 122, 0.2);
+  color: #ff9a9a;
+}
+
+.dw-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.dw-section-head h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #f0f0f5;
+}
+
+.dw-ws-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.dw-ws-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.dw-ws-card.active {
+  border-color: rgba(138, 180, 255, 0.6);
+  background: rgba(138, 180, 255, 0.08);
+}
+
+.dw-ws-open {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #eaeaf0;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.dw-ws-card-icon {
+  font-size: 22px;
+}
+
+.dw-ws-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dw-ws-active-dot {
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7fd79a;
+}
+
+.dw-ws-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.dw-ws-edit {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dw-ws-icon-input {
+  width: 40px;
+  text-align: center;
+}
+
+.dw-ws-name-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.dw-ws-edit input {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 7px;
+  color: #eaeaf0;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.dw-btn-primary {
+  background: #8ab4ff;
+  color: #0f0f16;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dw-btn-primary:hover {
+  background: #a3c4ff;
+}
+
+.dw-btn-small {
+  background: rgba(255, 255, 255, 0.08);
+  color: #d6d6dd;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.dw-btn-small:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.dw-btn-danger:hover {
+  background: rgba(255, 122, 122, 0.2);
+  color: #ff9a9a;
+  border-color: rgba(255, 122, 122, 0.4);
 }

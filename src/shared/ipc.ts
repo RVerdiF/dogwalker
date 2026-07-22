@@ -53,6 +53,34 @@ export interface HistoryEntry {
   body: string;
 }
 
+/** A terminal's persisted layout: identity + geometry (no live PTY state). */
+export interface NodeSpec {
+  stableId: string;
+  name: string;
+  preset: PresetId;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Everything needed to reconstruct a workspace's canvas. */
+export interface WorkspaceLayout {
+  nodes: NodeSpec[];
+  /** Connections as unordered stable-id pairs. */
+  edges: Array<[string, string]>;
+}
+
+export interface WorkspaceMeta {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+export interface WorkspaceFile extends WorkspaceMeta {
+  layout: WorkspaceLayout;
+}
+
 export interface DwApi {
   spawn(opts: SpawnOptions): Promise<SpawnResult>;
   write(id: string, data: string): void;
@@ -74,6 +102,15 @@ export interface DwApi {
   history(a: string, b: string): Promise<HistoryEntry[]>;
   /** Fires when a leash's history gains an entry (renderer refreshes). */
   onHistory(cb: (pair: { a: string; b: string }) => void): () => void;
+
+  // Workspaces (persisted in main under userData/workspaces).
+  listWorkspaces(): Promise<{ workspaces: WorkspaceMeta[]; active: string }>;
+  createWorkspace(name: string, icon: string): Promise<WorkspaceMeta>;
+  loadWorkspace(id: string): Promise<WorkspaceFile>;
+  saveLayout(id: string, layout: WorkspaceLayout): Promise<void>;
+  renameWorkspace(id: string, name: string, icon: string): Promise<void>;
+  deleteWorkspace(id: string): Promise<void>;
+  setActiveWorkspace(id: string): Promise<void>;
 }
 
 declare global {

@@ -217,11 +217,11 @@ dev-tooling overhead. Packaged-build measurement moves to v0.7 hardening.
 
 ## 14. v0.1 progress — the core loop (in progress, branch `v0.1-core-loop`)
 
-The differentiating slice is built and validated; the rest of v0.1 (notes,
-composer, full workspace persistence/sidebar, themes, OSC 133 attention) is
-follow-up on the same branch.
+The differentiating slice and workspace persistence are built and validated;
+the rest of v0.1 (notes, composer, themes, OSC 133 attention) is follow-up on
+the same branch.
 
-**Built**
+**Built — messaging core**
 - **GraphStore** (`src/main/graphStore.ts`) — authoritative terminals + leashes;
   the broker authorizes strictly against it.
 - **Broker** (`src/main/broker.ts`) — net server on a named pipe (Windows) /
@@ -245,3 +245,24 @@ reply round-trip returns the exact reply body to the held caller; `check` and
 `list` work; an **unwired terminal is denied** (connection-graph auth); and the
 **real shim** run through a shell (`dogwalker list`) resolves via PATH and
 returns the peer — proving the CLI exists only inside canvas terminals.
+
+**Built — persistence & app shell**
+- **WorkspaceStore** (`src/main/workspaceStore.ts`) — workspaces as plain JSON
+  under `userData/workspaces` (metadata + layout: node specs with geometry +
+  connections as stable-id pairs), an `index.json` for order + active. Node
+  identity is a persistent `stableId` distinct from the ephemeral live PTY id.
+- **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
+  terminals from its specs, places them at saved geometry, and re-wires leashes;
+  layout is saved (debounced) on move/resize/add/remove/connect/disconnect.
+  Switching kills+respawns (keep-alive is v0.2). A `tearingDown` guard stops
+  persistence before teardown so killing terminals (which empties the graph)
+  can't clobber the stored layout with nodes-minus-edges.
+- **App shell** (`src/app/{App,Sidebar,Panel,DevBar}.tsx`) — a workspace rail
+  plus a glass, sectioned menu (Workspaces live; Agents/Presets/Roles/Settings
+  as placeholders for later versions). The old test toolbar is now `DevBar`,
+  rendered only under `import.meta.env.DEV`.
+
+**Validated** (`DW_PERSISTTEST=1`, two launches, Windows, 2026-07-19): launch 1
+saves 2 nodes + 1 leash (geometry, names, edge stable-id integrity all OK) and
+the layout **survives teardown** on disk; launch 2 restores 2 live terminals +
+1 live leash matching the saved specs.

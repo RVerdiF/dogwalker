@@ -7,7 +7,12 @@ import { History } from './main/history';
 import { Broker } from './main/broker';
 import { createShimDir } from './main/shimDir';
 import { runBrokerTest } from './main/brokerTest';
-import type { ProcessMetric, SpawnOptions } from './shared/ipc';
+import { WorkspaceStore } from './main/workspaceStore';
+import type {
+  ProcessMetric,
+  SpawnOptions,
+  WorkspaceLayout,
+} from './shared/ipc';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -65,6 +70,25 @@ const createWindow = () => {
     history.between(a, b),
   );
 
+  const workspaces = new WorkspaceStore(app.getPath('userData'));
+  ipcMain.handle('ws:list', () => workspaces.list());
+  ipcMain.handle('ws:create', (_e, { name, icon }: { name: string; icon: string }) =>
+    workspaces.create(name, icon),
+  );
+  ipcMain.handle('ws:load', (_e, id: string) => workspaces.load(id));
+  ipcMain.handle(
+    'ws:saveLayout',
+    (_e, { id, layout }: { id: string; layout: WorkspaceLayout }) =>
+      workspaces.saveLayout(id, layout),
+  );
+  ipcMain.handle(
+    'ws:rename',
+    (_e, { id, name, icon }: { id: string; name: string; icon: string }) =>
+      workspaces.rename(id, name, icon),
+  );
+  ipcMain.handle('ws:delete', (_e, id: string) => workspaces.remove(id));
+  ipcMain.handle('ws:setActive', (_e, id: string) => workspaces.setActive(id));
+
   // Dev visibility: renderer console mirrored to stdout (no devtools needed).
   wc.on('console-message', (event) => {
     console.log(`[renderer:${event.level}] ${event.message}`);
@@ -83,6 +107,8 @@ const createWindow = () => {
       process.env.DW_QUIET ? 'quiet=1' : '',
       process.env.DW_SOAK_MIN ? `soakmin=${process.env.DW_SOAK_MIN}` : '',
       process.env.DW_EDGETEST ? 'edgetest=1' : '',
+      process.env.DW_PERSISTTEST ? 'persisttest=1' : '',
+      process.env.DW_PALETTETEST ? 'palettetest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

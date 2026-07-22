@@ -7,13 +7,16 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
+import type { PresetId } from '../shared/ipc';
 import { terminals, type Tier } from './terminalService';
 
 export interface TerminalNodeData extends Record<string, unknown> {
   name: string;
-  preset: string;
+  preset: PresetId;
   tier: Tier;
   exited: boolean;
+  /** Stable across restarts; used for persistence (live PTY id is ephemeral). */
+  stableId: string;
 }
 
 export type TerminalFlowNode = Node<TerminalNodeData, 'terminal'>;
