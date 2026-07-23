@@ -81,6 +81,7 @@ export function Canvas({
   const { getViewport, setViewport } = useReactFlow();
   const [focusSignal, setFocusSignal] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
+  const [showHud, setShowHud] = useState(false);
   const [menu, setMenu] = useState<{ x: number; y: number; count: number } | null>(
     null,
   );
@@ -253,6 +254,9 @@ export function Canvas({
         const lb = stableToLive.current.get(sb);
         if (la && lb) await window.dw.connect(la, lb);
       }
+      // Put the camera back where it was left (before enabling saves, so the
+      // restore itself can't persist a stale viewport).
+      if (ws.layout.viewport) setViewport(ws.layout.viewport);
       loaded.current = true;
     })();
     return () => {
@@ -306,15 +310,37 @@ export function Canvas({
       const sb = liveToStable.get(e.b);
       if (sa && sb) edges.push([sa, sb]);
     }
-    const layout: WorkspaceLayout = { nodes: specs, edges };
+    const vp = getViewport();
+    const layout: WorkspaceLayout = {
+      nodes: specs,
+      edges,
+      viewport: {
+        x: Math.round(vp.x),
+        y: Math.round(vp.y),
+        zoom: Number(vp.zoom.toFixed(3)),
+      },
+    };
     void window.dw.saveLayout(workspaceId, layout);
-  }, [nodes, graph.edges, workspaceId]);
+  }, [nodes, graph.edges, workspaceId, getViewport]);
 
   useEffect(() => {
     if (!loaded.current) return;
     const t = window.setTimeout(persist, SAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [persist]);
+
+  // Panning/zooming doesn't change nodes, so the effect above won't fire — save
+  // the camera when the user stops moving it.
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
+  const cameraTimer = useRef<number | null>(null);
+  const onMoveEnd = useCallback(() => {
+    if (cameraTimer.current !== null) window.clearTimeout(cameraTimer.current);
+    cameraTimer.current = window.setTimeout(
+      () => persistRef.current(),
+      SAVE_DEBOUNCE_MS,
+    );
+  }, []);
 
   // ---- leash edges (derived from the authoritative graph) ------------------
   const nameById = useMemo(() => {
@@ -932,6 +958,8 @@ export function Canvas({
             })();
           }}
           onKillAll={killAll}
+          hudOn={showHud}
+          onToggleHud={() => setShowHud((v) => !v)}
         />
       )}
       <ReactFlow
@@ -949,6 +977,7 @@ export function Canvas({
         snapToGrid
         snapGrid={[20, 20]}
         onMove={recomputeTiers}
+        onMoveEnd={onMoveEnd}
         minZoom={0.1}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
@@ -968,7 +997,7 @@ export function Canvas({
           />
         )}
       </ReactFlow>
-      {isDev && <Hud />}
+      {isDev && showHud && <Hud />}
       <HistoryPanel pair={historyPair} onClose={() => setHistoryPair(null)} />
       <Composer
         target={composerTarget}

@@ -106,6 +106,8 @@ export interface WorkspaceLayout {
   nodes: NodeSpec[];
   /** Connections as unordered stable-id pairs. */
   edges: Array<[string, string]>;
+  /** Camera position, so returning to a workspace looks where you left off. */
+  viewport?: { x: number; y: number; zoom: number };
 }
 
 export interface WorkspaceMeta {

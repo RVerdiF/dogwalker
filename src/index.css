@@ -1202,3 +1202,9 @@ body,
 .dw-ws-actions {
   flex-wrap: wrap;
 }
+
+.dw-devbar button.dw-devbar-on {
+  background: #3a4a6a;
+  border-color: #8ab4ff;
+  color: #cfe0ff;
+}

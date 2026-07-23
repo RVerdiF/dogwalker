@@ -134,6 +134,7 @@ export function App() {
       const B = createdB
         ? (await window.dw.createWorkspace('bgtest-B', '🧪')).id
         : list[1].id;
+      const camera = { x: -300, y: -150, zoom: 0.75 };
       await window.dw.saveLayout(A, {
         nodes: [
           {
@@ -148,6 +149,7 @@ export function App() {
           },
         ],
         edges: [],
+        viewport: camera,
       });
       await refresh();
 
@@ -155,6 +157,13 @@ export function App() {
       await sleep(2500); // mount + spawn
       const live1 = await window.dw.listTerminals(A);
       const firstId = live1[0]?.id;
+      // The camera must be back where it was left.
+      const tr =
+        document.querySelector<HTMLElement>('.react-flow__viewport')?.style
+          .transform ?? '';
+      const cameraRestored =
+        tr.includes('translate(-300px, -150px)') && tr.includes('scale(0.75)');
+      const savedVp = (await window.dw.loadWorkspace(A)).layout.viewport;
 
       switchTo(B); // leave A — its terminals must keep running
       await sleep(1800);
@@ -176,6 +185,8 @@ export function App() {
             adoptedSameId: back.length === 1 && back[0].id === firstId,
             liveCountOnReturn: back.length,
             hibernated: afterHibernate.length === 0,
+            cameraRestored,
+            cameraPersisted: savedVp?.x === -300 && savedVp?.zoom === 0.75,
           }),
       );
       await window.dw.saveLayout(A, { nodes: [], edges: [] });
