@@ -238,7 +238,10 @@ follow-up on the same branch.
 - **Connections UI** — React Flow loose-mode handles create leashes; edges are
   derived from the graph; clicking a leash opens the message-history panel.
 - **Skill** (`skills/dogwalker/SKILL.md`) — teaches agents the CLI + reply-via-
-  `--stdin` heredoc contract.
+  `--stdin` heredoc contract. **Installed on startup** (`src/main/skillInstall.ts`)
+  into `~/.claude/skills/dogwalker/` so agents actually discover the CLI — without
+  it the shim is on PATH but no agent knows it exists. Other agents' skill
+  conventions come with their presets.
 
 **Validated** (`DW_BROKERTEST=1 npm start`, Windows, 2026-07-19): ask→inject→
 reply round-trip returns the exact reply body to the held caller; `check` and

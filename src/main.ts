@@ -6,6 +6,7 @@ import { GraphStore } from './main/graphStore';
 import { History } from './main/history';
 import { Broker } from './main/broker';
 import { createShimDir } from './main/shimDir';
+import { installSkill } from './main/skillInstall';
 import { runBrokerTest } from './main/brokerTest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -50,6 +51,7 @@ const createWindow = () => {
   const history = new History(path.join(app.getPath('userData'), 'history'));
   const notes = new NoteStore(app.getPath('userData'), graph);
   const shimDir = createShimDir();
+  installSkill();
   const socketPath = brokerPipePath();
 
   ptys = new PtyManager(mainWindow.webContents, graph, { socketPath, shimDir });
