@@ -153,6 +153,18 @@ function SettingsSection({ themes, settings, activeThemeName, onUpdateSettings }
         Follow system light/dark
       </label>
 
+      <div className="dw-section-head" style={{ marginTop: 8 }}>
+        <h2>Notifications</h2>
+      </div>
+      <label className="dw-toggle-row">
+        <input
+          type="checkbox"
+          checked={settings.notifyOnAttention}
+          onChange={(e) => onUpdateSettings({ notifyOnAttention: e.target.checked })}
+        />
+        Notify when a terminal needs attention (suppressed while it's selected)
+      </label>
+
       {settings.followSystem && (
         <div className="dw-light-picker">
           <span>Light theme:</span>

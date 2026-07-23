@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain, Notification } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { PtyManager } from './main/ptyManager';
@@ -95,6 +95,10 @@ const createWindow = () => {
   ipcMain.handle('note:unload', (_e, id: string) => notes.unload(id));
   ipcMain.handle('note:delete', (_e, id: string) => notes.delete(id));
 
+  ipcMain.on('notify', (_e, { title, body }: { title: string; body: string }) => {
+    if (Notification.isSupported()) new Notification({ title, body }).show();
+  });
+
   const settings = new SettingsStore(app.getPath('userData'));
   ipcMain.handle('settings:get', () => settings.get());
   ipcMain.handle('settings:set', (_e, partial: Partial<AppSettings>) =>
@@ -167,6 +171,7 @@ const createWindow = () => {
       process.env.DW_NOTETEST ? 'notetest=1' : '',
       process.env.DW_COMPOSERTEST ? 'composertest=1' : '',
       process.env.DW_THEMETEST ? 'themetest=1' : '',
+      process.env.DW_ATTENTIONTEST ? 'attentiontest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

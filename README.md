@@ -120,10 +120,10 @@ Free and open source. License file to be added (MIT intended).
 
 ## Status & roadmap
 
-Currently pre-v0.0.1. The full path — expectations, outputs, and exit criteria per version — is in [ROADMAP.md](ROADMAP.md):
+The full path — expectations, outputs, and exit criteria per version — is in [ROADMAP.md](ROADMAP.md):
 
 - [x] **v0.0.1 — Alpha**: spike — 15 live agent terminals on a React Flow canvas with renderer hot-swap (validates the stack) ✓ *passed 2026-07-19*
-- [ ] **v0.1 — Core loop**: workspaces, broker + `dogwalker` CLI (`ask` / `reply` / `check`) + agent skill, connections, notes, composer
+- [~] **v0.1 — Core loop**: broker + `dogwalker` CLI (`ask`/`reply`/`check`/`note`) + agent skill, connections, workspace persistence, app shell, notes, prompt composer, terminal themes, attention — *feature-complete on branch `v0.1-core-loop`; dogfooding + tag pending*
 - [ ] **v0.2 — Daily-driver comfort**: canvas completion, workspace shell, themes, memory limits
 - [ ] **v0.3 — File Tree & visual context**: four views, git ops, embedded editor, note images
 - [ ] **v0.4 — Portals**: embedded automatable browsers + `portal` CLI verbs

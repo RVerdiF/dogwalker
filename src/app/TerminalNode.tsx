@@ -17,6 +17,8 @@ export interface TerminalNodeData extends Record<string, unknown> {
   exited: boolean;
   /** Stable across restarts; used for persistence (live PTY id is ephemeral). */
   stableId: string;
+  /** Idle/waiting-for-input, per ARCHITECTURE.md §6. */
+  attention?: boolean;
 }
 
 export type TerminalFlowNode = Node<TerminalNodeData, 'terminal'>;
@@ -70,6 +72,7 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
       <Handle id="left" type="source" position={Position.Left} className="dw-handle" />
       <Handle id="sink" type="target" position={Position.Left} className="dw-handle-sink" />
       <div className="dw-drag dw-node-header">
+        {data.attention && <span className="dw-attention" title="Needs attention" />}
         <span className="dw-node-name">
           {data.name}
           {data.exited ? ' · exited' : ''}

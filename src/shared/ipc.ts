@@ -5,11 +5,12 @@ import type { ThemeSpec } from './themes';
 
 export type PresetId = 'shell' | 'claude' | 'codex' | 'gemini' | 'stress';
 
-/** Persisted app settings (currently just terminal theming). */
+/** Persisted app settings (terminal theming + notifications). */
 export interface AppSettings {
   themeName: string;
   lightThemeName: string;
   followSystem: boolean;
+  notifyOnAttention: boolean;
 }
 
 export interface SpawnOptions {
@@ -114,6 +115,10 @@ export interface DwApi {
   metrics(): Promise<ProcessMetric[]>;
   onData(cb: (batch: DataBatch) => void): () => void;
   onExit(cb: (id: string) => void): () => void;
+  /** A terminal started/stopped needing attention (ARCHITECTURE.md §6). */
+  onAttention(cb: (e: { id: string; value: boolean }) => void): () => void;
+  /** Show an OS notification (renderer gates this by focus + setting). */
+  notify(title: string, body: string): void;
 
   // Graph (authoritative in main; renderer reflects it).
   graph(): Promise<GraphSnapshot>;

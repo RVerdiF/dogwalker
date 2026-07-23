@@ -13,6 +13,11 @@ interface Entry {
   mirror: HeadlessTerminal;
   serializer: SerializeAddon;
   name: string;
+  // Attention state (ARCHITECTURE.md §6).
+  attention: boolean;
+  producedOutput: boolean;
+  hasEngaged: boolean;
+  quiesce: NodeJS.Timeout | null;
 }
 
 interface PtyEnv {
@@ -24,6 +29,8 @@ const SCROLLBACK = 2000;
 const FLUSH_MS = 16;
 /** Delay before auto-executing the preset command, letting the shell init. */
 const AUTOEXEC_DELAY_MS = 600;
+/** Idle-after-output window that flags a terminal as needing attention. */
+const QUIESCENCE_MS = 2500;
 
 /**
  * Owns every PTY and its headless mirror (ARCHITECTURE.md §3): the mirror is
@@ -73,10 +80,20 @@ export class PtyManager {
     const serializer = new SerializeAddon();
     mirror.loadAddon(serializer);
 
+    // Shell-integration marks refine detection when present: command start (C)
+    // clears attention, command end (D) raises it immediately.
+    mirror.parser.registerOscHandler(133, (payload) => {
+      const kind = payload[0];
+      if (kind === 'C') this.engage(id);
+      else if (kind === 'D') this.setAttention(id, true);
+      return true;
+    });
+
     proc.onData((data) => {
       mirror.write(data);
       this.pending.set(id, (this.pending.get(id) ?? '') + data);
       this.scheduleFlush();
+      this.onOutput(id);
     });
 
     proc.onExit(() => {
@@ -84,21 +101,69 @@ export class PtyManager {
       this.graph.removeNode(id);
     });
 
-    this.entries.set(id, { proc, mirror, serializer, name: opts.name });
+    this.entries.set(id, {
+      proc,
+      mirror,
+      serializer,
+      name: opts.name,
+      attention: false,
+      producedOutput: false,
+      hasEngaged: false,
+      quiesce: null,
+    });
     this.graph.addNode(id, opts.name, 'terminal', opts.preset);
 
     const command = presetCommand(opts.preset);
     if (command) {
       setTimeout(() => {
-        if (this.entries.has(id)) proc.write(command + '\r');
+        if (this.entries.has(id)) {
+          this.engage(id);
+          this.entries.get(id)?.proc.write(command + '\r');
+        }
       }, AUTOEXEC_DELAY_MS);
     }
 
     return { id };
   }
 
+  // ---- attention (ARCHITECTURE.md §6) --------------------------------------
+  /** Input ran — reset the attention baseline and mark the terminal engaged. */
+  private engage(id: string): void {
+    const e = this.entries.get(id);
+    if (!e) return;
+    e.producedOutput = false;
+    e.hasEngaged = true;
+    if (e.quiesce) {
+      clearTimeout(e.quiesce);
+      e.quiesce = null;
+    }
+    this.setAttention(id, false);
+  }
+
+  /** Output arrived — the agent is active; flag attention once it goes quiet. */
+  private onOutput(id: string): void {
+    const e = this.entries.get(id);
+    if (!e) return;
+    e.producedOutput = true;
+    if (e.attention) this.setAttention(id, false);
+    if (e.quiesce) clearTimeout(e.quiesce);
+    e.quiesce = setTimeout(() => {
+      if (e.producedOutput && e.hasEngaged) this.setAttention(id, true);
+    }, QUIESCENCE_MS);
+  }
+
+  private setAttention(id: string, value: boolean): void {
+    const e = this.entries.get(id);
+    if (!e || e.attention === value) return;
+    e.attention = value;
+    if (!this.target.isDestroyed()) this.target.send('pty:attention', { id, value });
+  }
+
   write(id: string, data: string): void {
-    this.entries.get(id)?.proc.write(data);
+    const entry = this.entries.get(id);
+    if (!entry) return;
+    this.engage(id); // typing/input clears attention and re-baselines
+    entry.proc.write(data);
   }
 
   /**
@@ -111,6 +176,7 @@ export class PtyManager {
   inject(id: string, body: string): boolean {
     const entry = this.entries.get(id);
     if (!entry) return false;
+    this.engage(id);
     const bracketed = entry.mirror.modes.bracketedPasteMode;
     const payload = bracketed ? `\x1b[200~${body}\x1b[201~\r` : `${body}\r`;
     entry.proc.write(payload);
@@ -127,6 +193,7 @@ export class PtyManager {
   kill(id: string): void {
     const entry = this.entries.get(id);
     if (!entry) return;
+    if (entry.quiesce) clearTimeout(entry.quiesce);
     this.entries.delete(id);
     this.pending.delete(id);
     entry.proc.kill();

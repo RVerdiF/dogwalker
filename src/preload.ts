@@ -23,6 +23,13 @@ const api: DwApi = {
     ipcRenderer.on('pty:exit', listener);
     return () => ipcRenderer.removeListener('pty:exit', listener);
   },
+  onAttention: (cb) => {
+    const listener = (_e: IpcRendererEvent, ev: { id: string; value: boolean }) =>
+      cb(ev);
+    ipcRenderer.on('pty:attention', listener);
+    return () => ipcRenderer.removeListener('pty:attention', listener);
+  },
+  notify: (title, body) => ipcRenderer.send('notify', { title, body }),
 
   graph: () => ipcRenderer.invoke('graph:get'),
   connect: (a, b) => ipcRenderer.invoke('graph:connect', { a, b }),

@@ -7,6 +7,7 @@ const DEFAULTS: AppSettings = {
   themeName: 'Dogwalker Dark',
   lightThemeName: 'GitHub Light',
   followSystem: false,
+  notifyOnAttention: true,
 };
 
 /**

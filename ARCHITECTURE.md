@@ -217,9 +217,9 @@ dev-tooling overhead. Packaged-build measurement moves to v0.7 hardening.
 
 ## 14. v0.1 progress — the core loop (in progress, branch `v0.1-core-loop`)
 
-The differentiating slice, workspace persistence, notes, the prompt composer,
-and terminal themes are built and validated; the rest of v0.1 (OSC 133
-attention) is follow-up on the same branch.
+All v0.1 outputs are built and validated: the messaging core (broker/CLI/skill/
+connections), workspace persistence, the app shell, notes, the prompt composer,
+terminal themes, and attention detection.
 
 **Built — messaging core**
 - **GraphStore** (`src/main/graphStore.ts`) — authoritative terminals + leashes;
@@ -327,3 +327,24 @@ path.
 **Validated** (`DW_THEMETEST=1`, Windows, 2026-07-22): 7 built-in themes;
 selecting Dracula recolors a live terminal and a newly spawned one; the choice
 persists; custom-theme listing works.
+
+**Built — attention detection**
+- **Detection** (`src/main/ptyManager.ts`, ARCHITECTURE.md §6) — on the headless
+  mirror, so it is focus-independent (invariant #8). OSC 133 refines it when
+  shell integration is present (C clears, D raises); the always-on fallback is
+  output quiescence: once a terminal has been *engaged* (input ran), going quiet
+  for 2.5 s after output raises attention. Input (`write`/`inject`) engages and
+  clears. Emits `pty:attention {id,value}`.
+- **UI** — a pulsing red dot in the terminal header (`data.attention`); **Shift+A**
+  cycles selection + viewport through terminals needing attention.
+- **Notification** — on rise, if the terminal isn't selected and the setting is
+  on, the renderer fires an Electron notification; focus suppresses only the
+  notification, never the dot. Toggle in the Panel's Settings section.
+
+**Validated** (`DW_ATTENTIONTEST=1`, Windows, 2026-07-22): a fresh shell does not
+nag; a run command raises attention after it goes quiet and the node shows the
+dot; a keystroke clears both.
+
+**v0.1 status: feature-complete on branch `v0.1-core-loop`.** Remaining before
+tagging v0.1 proper: exit-criteria dogfooding (the app used to build itself) and
+a pass over the README quick start — tracked in [ROADMAP.md](ROADMAP.md).

@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   themeName: 'Dogwalker Dark',
   lightThemeName: 'GitHub Light',
   followSystem: false,
+  notifyOnAttention: true,
 };
 
 function findTheme(themes: ThemeSpec[], name: string): ThemeSpec | undefined {
@@ -110,7 +111,11 @@ export function App() {
       <div className="dw-main">
         {activeId && (
           <ReactFlowProvider key={activeId}>
-            <Canvas workspaceId={activeId} isDev={IS_DEV} />
+            <Canvas
+              workspaceId={activeId}
+              isDev={IS_DEV}
+              notifyOnAttention={settings.notifyOnAttention}
+            />
           </ReactFlowProvider>
         )}
       </div>

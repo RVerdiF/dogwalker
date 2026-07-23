@@ -49,9 +49,10 @@ const SAVE_DEBOUNCE_MS = 400;
 interface Props {
   workspaceId: string;
   isDev: boolean;
+  notifyOnAttention: boolean;
 }
 
-export function Canvas({ workspaceId, isDev }: Props) {
+export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<DwNode>([]);
   const [graph, setGraph] = useState<GraphSnapshot>({ nodes: [], edges: [] });
   const [historyPair, setHistoryPair] = useState<{
@@ -68,6 +69,11 @@ export function Canvas({ workspaceId, isDev }: Props) {
   const loaded = useRef(false);
   const tearingDown = useRef(false);
   const stableToLive = useRef(new Map<string, string>());
+  // Latest values for event handlers registered once on mount.
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const notifyRef = useRef(notifyOnAttention);
+  notifyRef.current = notifyOnAttention;
 
   // ---- live PTY data / graph subscriptions ---------------------------------
   useEffect(() => {
@@ -83,11 +89,28 @@ export function Canvas({ workspaceId, isDev }: Props) {
         ),
       );
     });
+    const offAttention = window.dw.onAttention(({ id, value }) => {
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.type === 'terminal' && n.id === id
+            ? { ...n, data: { ...n.data, attention: value } }
+            : n,
+        ),
+      );
+      // Focus suppresses the notification, never the detection (invariant #8).
+      if (value && notifyRef.current) {
+        const node = nodesRef.current.find((n) => n.id === id);
+        if (node && !node.selected && node.type === 'terminal') {
+          window.dw.notify('Dogwalker', `${node.data.name} needs attention`);
+        }
+      }
+    });
     const offGraph = window.dw.onGraph(setGraph);
     void window.dw.graph().then(setGraph);
     return () => {
       offData();
       offExit();
+      offAttention();
       offGraph();
     };
   }, [setNodes]);
@@ -402,6 +425,40 @@ export function Canvas({ workspaceId, isDev }: Props) {
     })();
   }, []);
 
+  // Attention test: a command raises attention after it goes quiet; input clears
+  // it; the node reflects the dot.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('attentiontest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    void (async () => {
+      let lastVal: boolean | null = null;
+      const off = window.dw.onAttention(({ value }) => {
+        lastVal = value;
+      });
+      const term = await spawnNew('shell');
+      await sleep(1500); // shell init (no attention yet — never engaged)
+      const idleBeforeRun = lastVal;
+      window.dw.write(term, 'echo attn-check\r');
+      await sleep(3300); // > quiescence window
+      const roseTrue = lastVal === true;
+      const dotShown = !!document.querySelector('.dw-attention');
+      window.dw.write(term, 'x'); // a keystroke engages → clears attention
+      await sleep(500);
+      const clearedFalse = lastVal === false;
+      const dotGone = !document.querySelector('.dw-attention');
+      off();
+      console.log(
+        'ATTENTIONTEST RESULT ' +
+          JSON.stringify({ idleBeforeRun, roseTrue, dotShown, clearedFalse, dotGone }),
+      );
+      loaded.current = false;
+      window.dw.kill(term);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, spawnNew]);
+
   // Theme test: applying a theme recolors live terminals and new ones; the
   // selection persists.
   useEffect(() => {
@@ -676,17 +733,47 @@ export function Canvas({ workspaceId, isDev }: Props) {
     return name;
   }, [addNote, composerTarget]);
 
-  // Ctrl/⌘+Shift+P focuses the composer for the selected terminal.
+  // Ctrl/⌘+Shift+P focuses the composer; Shift+A cycles attention terminals.
+  const cycleAttention = useCallback(() => {
+    const list = nodesRef.current.filter(
+      (n) => n.type === 'terminal' && n.data.attention,
+    );
+    if (list.length === 0) return;
+    const curIdx = list.findIndex((n) => n.selected);
+    const next = list[(curIdx + 1) % list.length];
+    setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === next.id })));
+    const vp = getViewport();
+    const w = next.measured?.width ?? 560;
+    const h = next.measured?.height ?? 380;
+    setViewport({
+      x: window.innerWidth / 2 - (next.position.x + w / 2) * vp.zoom,
+      y: window.innerHeight / 2 - (next.position.y + h / 2) * vp.zoom,
+      zoom: vp.zoom,
+    });
+  }, [getViewport, setViewport, setNodes]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const typing =
+        e.target instanceof HTMLElement &&
+        (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT');
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         setFocusSignal((s) => s + 1);
+      } else if (
+        e.shiftKey &&
+        e.key.toLowerCase() === 'a' &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !typing
+      ) {
+        e.preventDefault();
+        cycleAttention();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [cycleAttention]);
 
   return (
     <div className="dw-canvas-host">
