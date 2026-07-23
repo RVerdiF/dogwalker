@@ -2,12 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
   ConnectionMode,
+  MiniMap,
   ReactFlow,
   useNodesState,
   useReactFlow,
   type Connection,
   type Edge,
   type EdgeMouseHandler,
+  type NodeMouseHandler,
 } from '@xyflow/react';
 import type {
   GraphSnapshot,
@@ -27,6 +29,15 @@ import { HistoryPanel } from './HistoryPanel';
 import { DevBar } from './DevBar';
 import { TerminalPalette } from './TerminalPalette';
 import { Composer, type ComposerTarget, type Mention } from './Composer';
+import { CanvasMenu } from './CanvasMenu';
+import {
+  align,
+  distribute,
+  tidy,
+  type AlignKind,
+  type Box,
+  type DistributeKind,
+} from './layoutOps';
 import { runSmoke } from './smoke';
 
 type DwNode = TerminalFlowNode | NoteFlowNode;
@@ -63,6 +74,10 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
   } | null>(null);
   const { getViewport, setViewport } = useReactFlow();
   const [focusSignal, setFocusSignal] = useState(0);
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [menu, setMenu] = useState<{ x: number; y: number; count: number } | null>(
+    null,
+  );
   const spawnCount = useRef(0);
   const tierPass = useRef(false);
   const harnessRan = useRef(false);
@@ -733,6 +748,107 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
     return name;
   }, [addNote, composerTarget]);
 
+  // ---- selection layout ops (PRODUCT.md §3.3) ------------------------------
+  const selectedBoxes = useCallback((): Box[] => {
+    return nodesRef.current
+      .filter((n) => n.selected)
+      .map((n) => ({
+        id: n.id,
+        x: n.position.x,
+        y: n.position.y,
+        w: n.measured?.width ?? (n.type === 'note' ? NOTE_W : NODE_W),
+        h: n.measured?.height ?? (n.type === 'note' ? NOTE_H : NODE_H),
+      }));
+  }, []);
+
+  const applyPlacement = useCallback(
+    (placement: Map<string, { x: number; y: number }>) => {
+      if (placement.size === 0) return;
+      setNodes((ns) =>
+        ns.map((n) => {
+          const p = placement.get(n.id);
+          return p ? { ...n, position: { x: Math.round(p.x), y: Math.round(p.y) } } : n;
+        }),
+      );
+    },
+    [setNodes],
+  );
+
+  const doAlign = useCallback(
+    (kind: AlignKind) => applyPlacement(align(selectedBoxes(), kind)),
+    [applyPlacement, selectedBoxes],
+  );
+  const doDistribute = useCallback(
+    (kind: DistributeKind) => applyPlacement(distribute(selectedBoxes(), kind)),
+    [applyPlacement, selectedBoxes],
+  );
+  const doTidy = useCallback(
+    () => applyPlacement(tidy(selectedBoxes())),
+    [applyPlacement, selectedBoxes],
+  );
+
+  const onNodeContextMenu = useCallback<NodeMouseHandler>(
+    (event, node) => {
+      event.preventDefault();
+      // Right-clicking outside the selection selects that node first.
+      let count = nodesRef.current.filter((n) => n.selected).length;
+      if (!nodesRef.current.find((n) => n.id === node.id)?.selected) {
+        setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === node.id })));
+        count = 1;
+      }
+      setMenu({ x: event.clientX, y: event.clientY, count });
+    },
+    [setNodes],
+  );
+
+  // Layout ops test: pure geometry + the canvas wiring that applies it.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('layouttest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    void (async () => {
+      const boxes: Box[] = [
+        { id: 'a', x: 10, y: 0, w: 100, h: 50 },
+        { id: 'b', x: 200, y: 30, w: 100, h: 50 },
+        { id: 'c', x: 400, y: 60, w: 100, h: 50 },
+      ];
+      const al = align(boxes, 'left');
+      const di = distribute(boxes, 'horizontal');
+      const ti = tidy(boxes, 40);
+
+      // Wiring: spawn two, select both, align them left.
+      const t1 = await spawnNew('shell');
+      const t2 = await spawnNew('shell');
+      await sleep(500);
+      setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === t1 || n.id === t2 })));
+      await sleep(300);
+      doAlign('left');
+      await sleep(400);
+      const xs = nodesRef.current.filter((n) => n.selected).map((n) => n.position.x);
+
+      console.log(
+        'LAYOUTTEST RESULT ' +
+          JSON.stringify({
+            pureAlignLeft: al.get('b')?.x === 10 && al.get('c')?.x === 10,
+            pureDistribute: Math.round(di.get('b')?.x ?? -1) === 205,
+            pureTidy:
+              ti.get('a')?.x === 10 &&
+              ti.get('b')?.x === 150 &&
+              ti.get('c')?.x === 10 &&
+              ti.get('c')?.y === 90,
+            wiringAligned: xs.length === 2 && xs[0] === xs[1],
+            xs,
+            minimap: !!document.querySelector('.react-flow__minimap'),
+          }),
+      );
+      loaded.current = false;
+      window.dw.kill(t1);
+      window.dw.kill(t2);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, spawnNew, setNodes, doAlign]);
+
   // Ctrl/⌘+Shift+P focuses the composer; Shift+A cycles attention terminals.
   const cycleAttention = useCallback(() => {
     const list = nodesRef.current.filter(
@@ -760,20 +876,23 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         setFocusSignal((s) => s + 1);
-      } else if (
-        e.shiftKey &&
-        e.key.toLowerCase() === 'a' &&
-        !e.ctrlKey &&
-        !e.metaKey &&
-        !typing
-      ) {
-        e.preventDefault();
-        cycleAttention();
+      } else if (e.shiftKey && !e.ctrlKey && !e.metaKey && !typing) {
+        const k = e.key.toLowerCase();
+        if (k === 'a') {
+          e.preventDefault();
+          cycleAttention();
+        } else if (k === 'm') {
+          e.preventDefault();
+          setShowMinimap((v) => !v);
+        } else if (k === 't') {
+          e.preventDefault();
+          doTidy();
+        }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cycleAttention]);
+  }, [cycleAttention, doTidy]);
 
   return (
     <div className="dw-canvas-host">
@@ -800,14 +919,30 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
         onConnect={onConnect}
         onEdgesDelete={onEdgesDelete}
         onEdgeClick={onEdgeClick}
+        onNodeContextMenu={onNodeContextMenu}
         connectionMode={ConnectionMode.Loose}
         connectionRadius={45}
+        snapToGrid
+        snapGrid={[20, 20]}
         onMove={recomputeTiers}
         minZoom={0.1}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} />
+        {showMinimap && (
+          <MiniMap
+            pannable
+            zoomable
+            className="dw-minimap"
+            maskColor="rgba(10, 10, 14, 0.7)"
+            nodeColor={(n) => (n.type === 'note' ? '#3a3726' : '#2e2e3a')}
+            nodeStrokeColor={(n) =>
+              n.type === 'note' ? '#e0cf7a' : n.data?.attention ? '#ff5555' : '#8ab4ff'
+            }
+            nodeStrokeWidth={3}
+          />
+        )}
       </ReactFlow>
       {isDev && <Hud />}
       <HistoryPanel pair={historyPair} onClose={() => setHistoryPair(null)} />
@@ -817,6 +952,26 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
         onNewNote={onComposerNewNote}
         focusSignal={focusSignal}
       />
+      {menu && (
+        <CanvasMenu
+          x={menu.x}
+          y={menu.y}
+          count={menu.count}
+          onAlign={(k) => {
+            doAlign(k);
+            setMenu(null);
+          }}
+          onDistribute={(k) => {
+            doDistribute(k);
+            setMenu(null);
+          }}
+          onTidy={() => {
+            doTidy();
+            setMenu(null);
+          }}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   );
 }

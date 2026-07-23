@@ -172,6 +172,7 @@ const createWindow = () => {
       process.env.DW_COMPOSERTEST ? 'composertest=1' : '',
       process.env.DW_THEMETEST ? 'themetest=1' : '',
       process.env.DW_ATTENTIONTEST ? 'attentiontest=1' : '',
+      process.env.DW_LAYOUTTEST ? 'layouttest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

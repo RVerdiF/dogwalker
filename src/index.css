@@ -1096,3 +1096,79 @@ body,
   border-radius: 4px;
   font-family: Consolas, monospace;
 }
+
+/* ---- Minimap ------------------------------------------------------------ */
+.dw-minimap {
+  background: rgba(22, 22, 28, 0.85) !important;
+  border: 1px solid #2e2e3a;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.dw-minimap .react-flow__minimap-mask {
+  fill: rgba(10, 10, 14, 0.6);
+}
+
+/* ---- Canvas context menu ------------------------------------------------ */
+.dw-ctxmenu {
+  position: fixed;
+  z-index: 40;
+  min-width: 210px;
+  padding: 5px;
+  background: rgba(34, 34, 44, 0.92);
+  backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+}
+
+.dw-ctxmenu-head {
+  padding: 5px 10px 7px;
+  font-size: 11px;
+  color: #8a8a99;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dw-ctxmenu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #e6e6ee;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dw-ctxmenu-item:hover:not(:disabled) {
+  background: rgba(138, 180, 255, 0.18);
+}
+
+.dw-ctxmenu-item:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.dw-ctxmenu-icon {
+  width: 14px;
+  text-align: center;
+  color: #9a9aa8;
+}
+
+.dw-ctxmenu-key {
+  margin-left: auto;
+  font-size: 11px;
+  color: #7a7a88;
+  font-family: Consolas, monospace;
+}
+
+.dw-ctxmenu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  background: rgba(255, 255, 255, 0.1);
+}
