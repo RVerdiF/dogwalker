@@ -8,6 +8,8 @@ export interface AskReq {
   from: string;
   target: string;
   body: string;
+  /** How long to wait for the target's answer, in ms (clamped by the broker). */
+  timeoutMs?: number;
 }
 export interface CheckReq {
   cmd: 'check';

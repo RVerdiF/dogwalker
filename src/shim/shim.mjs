@@ -36,9 +36,24 @@ async function buildRequest() {
   switch (cmd) {
     case 'ask': {
       const target = argv[1];
-      const body = argv.slice(2).join(' ');
-      if (!target || !body) die('usage: dogwalker ask <terminal> <message>');
-      return { cmd: 'ask', from, target, body };
+      const rest = argv.slice(2);
+      let timeoutMs;
+      const ti = rest.indexOf('--timeout');
+      if (ti >= 0) {
+        const secs = Number(rest[ti + 1]);
+        if (!Number.isFinite(secs) || secs <= 0) {
+          die('--timeout needs a positive number of seconds');
+        }
+        timeoutMs = Math.round(secs * 1000);
+        rest.splice(ti, 2);
+      }
+      const body = rest.join(' ');
+      if (!target || !body) {
+        die('usage: dogwalker ask <terminal> <message> [--timeout <seconds>]');
+      }
+      const req = { cmd: 'ask', from, target, body };
+      if (timeoutMs !== undefined) req.timeoutMs = timeoutMs;
+      return req;
     }
     case 'check': {
       const target = argv[1];

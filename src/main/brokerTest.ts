@@ -81,6 +81,12 @@ export async function runBrokerTest(
   await wait(1500);
   result.shimShellList = ptys.serialize(a).includes('reviewer');
 
+  // 8. shim ask with --timeout: lead asks reviewer (a shell) to echo; the
+  // captured response prints back to lead's stdout.
+  ptys.write(a, 'dogwalker ask reviewer "echo TIMEOUT_OK" --timeout 15\r');
+  await wait(6000);
+  result.shimAskTimeout = ptys.serialize(a).includes('TIMEOUT_OK');
+
   console.log('BROKERTEST RESULT ' + JSON.stringify(result));
 
   ptys.kill(a);

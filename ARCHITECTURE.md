@@ -105,7 +105,7 @@ Key properties:
 - **Atomic injection — no visual flash.** Paste-open + body + paste-close + CR go in **one PTY write**. The TUI reads the chunk in one iteration and its next painted frame already shows the message in history, never sitting in the input box. Never split the write or sleep between paste and Enter.
 - **Bracketed paste is conditional.** The headless mirror tracks DEC mode 2004. Target has it on (all modern agent TUIs) → paste-wrapped; off (bare shell) → plain write. Either way, no visible escape garbage.
 - **Response = output delta.** The broker diffs the target's plain-text buffer (no ANSI) before vs. after, returning the new lines (the echoed prompt + the answer); it falls back to the whole screen if scrollback rolled over.
-- **Timeout, never deadlock.** `ask` resolves when the target goes quiet or after 180 s; nothing waits on the target running a command.
+- **Timeout, never deadlock.** `ask` resolves when the target goes quiet or after its timeout — `--timeout <seconds>` per call (default 180 s, clamped 1 s–1 h); nothing waits on the target running a command.
 - **Message history**: every ask (and its captured response) and check is logged per connection edge and surfaced in the UI when clicking a leash — a replayable conversation log.
 
 ### 5.3 `check`

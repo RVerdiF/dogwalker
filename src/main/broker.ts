@@ -10,7 +10,9 @@ import {
   type BrokerResponse,
 } from '../shared/protocol';
 
-const ASK_TIMEOUT_MS = 180_000;
+const ASK_TIMEOUT_DEFAULT_MS = 180_000;
+const ASK_TIMEOUT_MIN_MS = 1_000;
+const ASK_TIMEOUT_MAX_MS = 3_600_000;
 
 /**
  * The single agent-facing authority (ARCHITECTURE.md §5). Every capability a
@@ -66,7 +68,7 @@ export class Broker {
     }
     switch (req.cmd) {
       case 'ask':
-        void this.handleAsk(socket, req.from, req.target, req.body);
+        void this.handleAsk(socket, req.from, req.target, req.body, req.timeoutMs);
         return;
       case 'check':
         return this.handleCheck(socket, req.from, req.target);
@@ -102,6 +104,7 @@ export class Broker {
     from: string,
     target: string,
     body: string,
+    timeoutMs?: number,
   ): Promise<void> {
     const to = this.graph.resolvePeer(from, target);
     if (!to) {
@@ -110,12 +113,16 @@ export class Broker {
         error: `no connected terminal named "${target}"`,
       });
     }
+    const timeout = Math.min(
+      ASK_TIMEOUT_MAX_MS,
+      Math.max(ASK_TIMEOUT_MIN_MS, timeoutMs ?? ASK_TIMEOUT_DEFAULT_MS),
+    );
     const msgId = crypto.randomBytes(3).toString('hex');
     this.history.append({ ts: Date.now(), kind: 'ask', from, to, msgId, body });
 
     const before = this.ptys.plainText(to);
     this.ptys.inject(to, body);
-    await this.ptys.awaitQuiet(to, ASK_TIMEOUT_MS);
+    await this.ptys.awaitQuiet(to, timeout);
     const after = this.ptys.plainText(to);
 
     // The response is the new output the target produced (echoed prompt + its

@@ -14,11 +14,13 @@ You can only reach terminals you are wired to. Run `dogwalker list` to see them.
 ## Commands
 
 - `dogwalker list` — names of the terminals you are connected to.
-- `dogwalker ask <name> <message>` — send a message to a connected terminal and
-  **wait for its answer**. The message is delivered to that terminal as if typed
-  there; Dogwalker waits until it finishes responding, then prints back whatever
-  it produced. Use this to delegate work or request a review, e.g.
-  `dogwalker ask reviewer "review auth.ts, focus on token expiry"`.
+- `dogwalker ask <name> <message> [--timeout <seconds>]` — send a message to a
+  connected terminal and **wait for its answer**. The message is delivered to
+  that terminal as if typed there; Dogwalker waits until it finishes responding,
+  then prints back whatever it produced. Use this to delegate work or request a
+  review, e.g. `dogwalker ask reviewer "review auth.ts, focus on token expiry"`.
+  `--timeout` sets how long to wait (default 180s); raise it for slow work,
+  e.g. `dogwalker ask builder "run the full suite" --timeout 600`.
 - `dogwalker check <name>` — print a connected terminal's current screen without
   interrupting it. Works on any terminal — another agent, a build, a dev server,
   a log tail.
