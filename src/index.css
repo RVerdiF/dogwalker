@@ -14,34 +14,178 @@ body,
   font-size: 13px;
 }
 
-.dw-root {
+/* ---- App shell ---------------------------------------------------------- */
+.dw-app {
   height: 100%;
   display: flex;
-  flex-direction: column;
 }
 
-.dw-root .react-flow {
+.dw-main {
   flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.dw-canvas-host {
+  position: absolute;
+  inset: 0;
+}
+
+.dw-canvas-host .react-flow {
   background: #101014;
 }
 
-.dw-toolbar {
+/* ---- Workspace rail ----------------------------------------------------- */
+.dw-rail {
+  width: 60px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  background: #131319;
+  border-right: 1px solid #23232e;
+}
+
+.dw-rail-brand {
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+
+.dw-rail-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  overflow-y: auto;
+}
+
+.dw-rail-ws,
+.dw-rail-add,
+.dw-rail-menu {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: #1e1e27;
+  color: #d6d6dd;
+  font-size: 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
+}
+
+.dw-rail-ws:hover,
+.dw-rail-add:hover,
+.dw-rail-menu:hover {
+  background: #26262f;
+  transform: translateY(-1px);
+}
+
+.dw-rail-ws.active {
+  border-color: #8ab4ff;
+  box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.2);
+}
+
+.dw-rail-add {
+  font-size: 24px;
+  color: #8a8a99;
+  border-style: dashed;
+  border-color: #3a3a48;
+  background: transparent;
+}
+
+.dw-rail-menu {
+  font-size: 18px;
+}
+
+/* ---- Terminal palette (floating glass, top-center) ---------------------- */
+.dw-palette {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 16;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 12px;
+  background: rgba(32, 32, 42, 0.6);
+  backdrop-filter: blur(22px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
+}
+
+.dw-palette-plus {
+  color: #8a8a99;
+  font-size: 15px;
+  margin-right: 2px;
+}
+
+.dw-palette-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #e6e6ee;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s, transform 0.12s, border-color 0.12s;
+}
+
+.dw-palette-chip:hover {
+  background: rgba(138, 180, 255, 0.16);
+  border-color: rgba(138, 180, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.dw-palette-chip-icon {
+  font-size: 14px;
+}
+
+.dw-palette-sep {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.14);
+  margin: 0 2px;
+}
+
+/* ---- Dev toolbar (dev only) --------------------------------------------- */
+.dw-devbar {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 15;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  background: #1a1a22;
-  border-bottom: 1px solid #2a2a35;
-  z-index: 10;
+  padding: 6px 10px;
+  background: rgba(26, 26, 34, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid #2a2a35;
+  border-radius: 10px;
 }
 
-.dw-logo {
-  font-weight: 600;
-  margin-right: 8px;
+.dw-devbar-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #101014;
+  background: #e0cf7a;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-.dw-toolbar select,
-.dw-toolbar button {
+.dw-devbar select,
+.dw-devbar button {
   background: #26262f;
   color: #d6d6dd;
   border: 1px solid #3a3a48;
@@ -51,18 +195,8 @@ body,
   cursor: pointer;
 }
 
-.dw-toolbar button:hover {
+.dw-devbar button:hover {
   background: #32323e;
-}
-
-.dw-mirror-info {
-  margin-left: 8px;
-  color: #8ab4ff;
-  font-family: Consolas, monospace;
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .dw-node {
@@ -97,6 +231,22 @@ body,
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dw-attention {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff5555;
+  box-shadow: 0 0 0 0 rgba(255, 85, 85, 0.6);
+  animation: dw-attention-pulse 1.6s ease-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes dw-attention-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 85, 85, 0.55); }
+  70% { box-shadow: 0 0 0 7px rgba(255, 85, 85, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 85, 85, 0); }
 }
 
 .dw-tier {
@@ -171,4 +321,778 @@ body,
 
 .dw-hud-fps.bad {
   color: #ff7a7a;
+}
+
+.dw-hint {
+  margin-left: 8px;
+  color: #6a6a78;
+  font-size: 12px;
+}
+
+/* Leashes */
+.dw-handle {
+  width: 12px;
+  height: 12px;
+  background: #8ab4ff;
+  border: 2px solid #16161c;
+  opacity: 0.35;
+  transition: opacity 0.12s, transform 0.12s;
+  z-index: 5;
+}
+
+.dw-node:hover .dw-handle,
+.dw-node-selected .dw-handle {
+  opacity: 1;
+}
+
+/* Enlarge the hit target on hover so grabbing/dropping a leash is forgiving. */
+.dw-handle:hover {
+  transform: scale(1.5);
+  opacity: 1;
+}
+
+/* Exists only so derived edges can resolve a target-type handle to mount.
+   Never a drag affordance — invisible and click-through. */
+.dw-handle-sink {
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.react-flow__edge .dw-leash-path {
+  stroke: #8ab4ff;
+  stroke-width: 2.5;
+}
+
+.react-flow__edge .dw-leash-path.selected {
+  stroke: #b98aff;
+  stroke-width: 3.5;
+}
+
+/* Widen the invisible interaction path so leashes are easy to click. */
+.react-flow__edge .react-flow__edge-interaction {
+  stroke-width: 20;
+}
+
+/* History panel */
+.dw-history {
+  position: fixed;
+  top: 60px;
+  right: 12px;
+  width: 380px;
+  max-height: 70vh;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: #16161c;
+  border: 1px solid #2e2e3a;
+  border-radius: 10px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.dw-history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #20202a;
+  border-bottom: 1px solid #2e2e3a;
+  font-weight: 600;
+}
+
+.dw-history-body {
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.dw-history-empty {
+  color: #6a6a78;
+  padding: 16px;
+  text-align: center;
+}
+
+.dw-msg {
+  border-left: 3px solid #3a3a48;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  background: #1b1b23;
+  border-radius: 0 6px 6px 0;
+}
+
+.dw-msg-ask {
+  border-left-color: #8ab4ff;
+}
+
+.dw-msg-reply {
+  border-left-color: #7fd79a;
+}
+
+.dw-msg-check {
+  border-left-color: #e0cf7a;
+}
+
+.dw-msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #8a8a99;
+  margin-bottom: 3px;
+}
+
+.dw-msg-kind {
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.dw-msg-time {
+  margin-left: auto;
+}
+
+.dw-msg-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: Consolas, monospace;
+  font-size: 12px;
+}
+
+/* ---- Glass sectioned menu (Panel) --------------------------------------- */
+.dw-panel-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 6, 10, 0.45);
+  backdrop-filter: blur(3px);
+}
+
+.dw-panel {
+  position: relative;
+  width: min(880px, 92vw);
+  height: min(620px, 88vh);
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(30, 30, 40, 0.72);
+  backdrop-filter: blur(28px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+.dw-panel-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.dw-panel-title {
+  font-size: 15px;
+  font-weight: 700;
+  padding: 4px 10px 14px;
+  color: #f0f0f5;
+}
+
+.dw-panel-navitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: #c8c8d4;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.dw-panel-navitem:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dw-panel-navitem.active {
+  background: rgba(138, 180, 255, 0.16);
+  color: #fff;
+}
+
+.dw-panel-navitem.soon {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.dw-panel-navicon {
+  font-size: 16px;
+}
+
+.dw-soon {
+  margin-left: auto;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #9a9aa8;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+
+.dw-panel-body {
+  padding: 24px 28px;
+  overflow-y: auto;
+}
+
+.dw-panel-placeholder {
+  color: #9a9aa8;
+  padding: 40px 8px;
+  text-align: center;
+}
+
+.dw-panel-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #c8c8d4;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.dw-panel-close:hover {
+  background: rgba(255, 122, 122, 0.2);
+  color: #ff9a9a;
+}
+
+.dw-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.dw-section-head h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #f0f0f5;
+}
+
+.dw-ws-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.dw-ws-card {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 12px;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.dw-ws-card.active {
+  border-color: rgba(138, 180, 255, 0.6);
+  background: rgba(138, 180, 255, 0.08);
+}
+
+.dw-ws-open {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #eaeaf0;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.dw-ws-card-icon {
+  font-size: 22px;
+}
+
+.dw-ws-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dw-ws-active-dot {
+  margin-left: auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7fd79a;
+}
+
+.dw-ws-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.dw-ws-edit {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.dw-ws-icon-input {
+  width: 40px;
+  text-align: center;
+}
+
+.dw-ws-name-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.dw-ws-edit input {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 7px;
+  color: #eaeaf0;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.dw-btn-primary {
+  background: #8ab4ff;
+  color: #0f0f16;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dw-btn-primary:hover {
+  background: #a3c4ff;
+}
+
+.dw-btn-small {
+  background: rgba(255, 255, 255, 0.08);
+  color: #d6d6dd;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.dw-btn-small:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.dw-btn-danger:hover {
+  background: rgba(255, 122, 122, 0.2);
+  color: #ff9a9a;
+  border-color: rgba(255, 122, 122, 0.4);
+}
+
+/* ---- Note node ---------------------------------------------------------- */
+.dw-note {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #201f17;
+  border: 1px solid #3a3726;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dw-note-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #2a2818;
+  border-bottom: 1px solid #3a3726;
+  cursor: grab;
+  user-select: none;
+}
+
+.dw-note-emoji {
+  font-size: 13px;
+}
+
+.dw-note-name {
+  flex: 1;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #e8dfae;
+}
+
+.dw-note-name-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #4a4630;
+  border-radius: 5px;
+  color: #f0e8c0;
+  padding: 2px 6px;
+  font-size: 13px;
+}
+
+.dw-note-mode,
+.dw-note .dw-close {
+  background: none;
+  border: none;
+  color: #a89a5f;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+  font-family: Consolas, monospace;
+}
+
+.dw-note-mode.on {
+  color: #e0cf7a;
+}
+
+.dw-note-mode:hover {
+  color: #f0e8c0;
+}
+
+.dw-note-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.dw-note-raw {
+  width: 100%;
+  height: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: #16150f;
+  color: #e8dfae;
+  padding: 10px;
+  font-family: Consolas, 'Cascadia Mono', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dw-note-md {
+  padding: 4px 12px;
+  color: #e8e4d4;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.dw-note-md h1,
+.dw-note-md h2,
+.dw-note-md h3 {
+  color: #f2ecd0;
+  margin: 0.6em 0 0.3em;
+}
+
+.dw-note-md h1 { font-size: 1.4em; }
+.dw-note-md h2 { font-size: 1.2em; }
+.dw-note-md h3 { font-size: 1.05em; }
+
+.dw-note-md code {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: Consolas, monospace;
+  font-size: 0.92em;
+}
+
+.dw-note-md pre {
+  background: #16150f;
+  padding: 10px;
+  border-radius: 7px;
+  overflow-x: auto;
+}
+
+.dw-note-md pre code {
+  background: none;
+  padding: 0;
+}
+
+.dw-note-md a {
+  color: #8ab4ff;
+}
+
+.dw-note-md table {
+  border-collapse: collapse;
+}
+
+.dw-note-md th,
+.dw-note-md td {
+  border: 1px solid #3a3726;
+  padding: 4px 8px;
+}
+
+.dw-note-md blockquote {
+  border-left: 3px solid #4a4630;
+  margin: 0.4em 0;
+  padding-left: 10px;
+  color: #c8be92;
+}
+
+.dw-note-empty {
+  color: #8a7f4f;
+  font-style: italic;
+}
+
+/* ---- Prompt composer (floating, bottom-center) -------------------------- */
+.dw-composer {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 22;
+  width: min(680px, 80%);
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  background: rgba(30, 30, 40, 0.72);
+  backdrop-filter: blur(24px) saturate(1.3);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 16px;
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.5);
+}
+
+.dw-composer-target {
+  align-self: center;
+  color: #8ab4ff;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dw-composer-input {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.dw-composer-textarea {
+  width: 100%;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #eaeaf0;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 6px 4px;
+}
+
+.dw-composer-textarea::placeholder {
+  color: #7a7a88;
+}
+
+.dw-composer-send {
+  align-self: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 11px;
+  background: #8ab4ff;
+  color: #0f0f16;
+  font-size: 16px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dw-composer-send:hover {
+  background: #a3c4ff;
+}
+
+/* Mention menu */
+.dw-mention-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  min-width: 200px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 5px;
+  background: rgba(36, 36, 48, 0.96);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+}
+
+.dw-mention-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #e6e6ee;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dw-mention-item:hover,
+.dw-mention-item.active {
+  background: rgba(138, 180, 255, 0.18);
+}
+
+.dw-mention-item.new {
+  color: #7fd79a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px 8px 0 0;
+}
+
+.dw-mention-icon {
+  font-size: 14px;
+}
+
+/* ---- Settings: theme gallery -------------------------------------------- */
+.dw-active-theme {
+  color: #9a9aa8;
+  font-size: 12px;
+}
+
+.dw-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.dw-theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.dw-theme-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dw-theme-card.active {
+  border-color: rgba(138, 180, 255, 0.7);
+  background: rgba(138, 180, 255, 0.1);
+}
+
+.dw-swatch {
+  position: relative;
+  height: 54px;
+  border-radius: 7px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.dw-swatch-text {
+  font-family: Consolas, monospace;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dw-swatch-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.dw-swatch-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dw-theme-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #d6d6dd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dw-theme-custom {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: #7fd79a;
+  border: 1px solid rgba(127, 215, 154, 0.4);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.dw-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #d6d6dd;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.dw-light-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #c8c8d4;
+  margin-bottom: 16px;
+}
+
+.dw-light-picker select {
+  background: rgba(0, 0, 0, 0.25);
+  color: #eaeaf0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-size: 13px;
+}
+
+.dw-settings-hint {
+  font-size: 12px;
+  color: #8a8a99;
+  line-height: 1.5;
+}
+
+.dw-settings-hint code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: Consolas, monospace;
 }

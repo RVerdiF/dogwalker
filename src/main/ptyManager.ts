@@ -4,26 +4,43 @@ import * as pty from 'node-pty';
 import type { WebContents } from 'electron';
 import { Terminal as HeadlessTerminal } from '@xterm/headless';
 import { SerializeAddon } from '@xterm/addon-serialize';
-import type { DataBatch, PresetId, SpawnOptions } from '../shared/ipc';
+import type { DataBatch, SpawnOptions } from '../shared/ipc';
 import { defaultShell, presetCommand } from './presets';
+import type { GraphStore } from './graphStore';
 
 interface Entry {
   proc: pty.IPty;
   mirror: HeadlessTerminal;
   serializer: SerializeAddon;
-  preset: PresetId;
+  name: string;
+  // Attention state (ARCHITECTURE.md §6).
+  attention: boolean;
+  producedOutput: boolean;
+  hasEngaged: boolean;
+  quiesce: NodeJS.Timeout | null;
+  /** Resolvers waiting for this terminal to next go quiet (used by `ask`). */
+  quietWaiters: Array<() => void>;
+}
+
+interface PtyEnv {
+  socketPath: string;
+  shimDir: string;
 }
 
 const SCROLLBACK = 2000;
 const FLUSH_MS = 16;
 /** Delay before auto-executing the preset command, letting the shell init. */
 const AUTOEXEC_DELAY_MS = 600;
+/** Idle-after-output window that flags a terminal as needing attention. */
+const QUIESCENCE_MS = 2500;
 
 /**
  * Owns every PTY and its headless mirror (ARCHITECTURE.md §3): the mirror is
  * the main-process source of truth for screen contents, independent of the
  * renderer's xterm instance — `serialize()` works even while the renderer
- * side is suspended (tier 3) or the workspace is hibernated.
+ * side is suspended (tier 3) or the workspace is hibernated. Also the sole
+ * writer to a PTY, so the broker's injected messages and the user's keystrokes
+ * share one path.
  */
 export class PtyManager {
   private entries = new Map<string, Entry>();
@@ -31,7 +48,11 @@ export class PtyManager {
   private pending = new Map<string, string>();
   private flushTimer: NodeJS.Timeout | null = null;
 
-  constructor(private target: WebContents) {}
+  constructor(
+    private target: WebContents,
+    private graph: GraphStore,
+    private env: PtyEnv,
+  ) {}
 
   spawn(opts: SpawnOptions): { id: string } {
     const id = `t${this.nextId++}`;
@@ -45,8 +66,10 @@ export class PtyManager {
       env: {
         ...process.env,
         DOGWALKER_TERMINAL_ID: id,
-        // Placeholder until the broker exists (v0.1); proves env injection.
-        DOGWALKER_SOCKET: path.join(os.tmpdir(), 'dogwalker.sock'),
+        DOGWALKER_SOCKET: this.env.socketPath,
+        // The shim dir goes first so `dogwalker`/`walk` resolve here and only
+        // inside canvas terminals (ARCHITECTURE.md §3, §5.1).
+        PATH: `${this.env.shimDir}${path.delimiter}${process.env.PATH ?? ''}`,
       },
     });
 
@@ -59,30 +82,142 @@ export class PtyManager {
     const serializer = new SerializeAddon();
     mirror.loadAddon(serializer);
 
+    // Shell-integration marks refine detection when present: command start (C)
+    // clears attention, command end (D) raises it immediately.
+    mirror.parser.registerOscHandler(133, (payload) => {
+      const kind = payload[0];
+      if (kind === 'C') this.engage(id);
+      else if (kind === 'D') this.setAttention(id, true);
+      return true;
+    });
+
     proc.onData((data) => {
       mirror.write(data);
       this.pending.set(id, (this.pending.get(id) ?? '') + data);
       this.scheduleFlush();
+      this.onOutput(id);
     });
 
     proc.onExit(() => {
       this.target.send('pty:exit', id);
+      this.graph.removeNode(id);
     });
 
-    this.entries.set(id, { proc, mirror, serializer, preset: opts.preset });
+    this.entries.set(id, {
+      proc,
+      mirror,
+      serializer,
+      name: opts.name,
+      attention: false,
+      producedOutput: false,
+      hasEngaged: false,
+      quiesce: null,
+      quietWaiters: [],
+    });
+    this.graph.addNode(id, opts.name, 'terminal', opts.preset);
 
     const command = presetCommand(opts.preset);
     if (command) {
       setTimeout(() => {
-        if (this.entries.has(id)) proc.write(command + '\r');
+        if (this.entries.has(id)) {
+          this.engage(id);
+          this.entries.get(id)?.proc.write(command + '\r');
+        }
       }, AUTOEXEC_DELAY_MS);
     }
 
     return { id };
   }
 
+  // ---- attention (ARCHITECTURE.md §6) --------------------------------------
+  /** Input ran — reset the attention baseline and mark the terminal engaged. */
+  private engage(id: string): void {
+    const e = this.entries.get(id);
+    if (!e) return;
+    e.producedOutput = false;
+    e.hasEngaged = true;
+    if (e.quiesce) {
+      clearTimeout(e.quiesce);
+      e.quiesce = null;
+    }
+    this.setAttention(id, false);
+  }
+
+  /** Output arrived — the agent is active; flag attention once it goes quiet. */
+  private onOutput(id: string): void {
+    const e = this.entries.get(id);
+    if (!e) return;
+    e.producedOutput = true;
+    if (e.attention) this.setAttention(id, false);
+    if (e.quiesce) clearTimeout(e.quiesce);
+    e.quiesce = setTimeout(() => {
+      if (e.producedOutput && e.hasEngaged) this.setAttention(id, true);
+    }, QUIESCENCE_MS);
+  }
+
+  private setAttention(id: string, value: boolean): void {
+    const e = this.entries.get(id);
+    if (!e || e.attention === value) return;
+    e.attention = value;
+    if (!this.target.isDestroyed()) this.target.send('pty:attention', { id, value });
+    if (value && e.quietWaiters.length) {
+      const waiters = e.quietWaiters;
+      e.quietWaiters = [];
+      for (const w of waiters) w();
+    }
+  }
+
+  /** Resolve when the terminal next goes quiet after output, or on timeout. */
+  awaitQuiet(id: string, timeoutMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      const e = this.entries.get(id);
+      if (!e) return resolve();
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(finish, timeoutMs);
+      e.quietWaiters.push(finish);
+    });
+  }
+
+  /** Plain-text snapshot of a terminal's buffer (no ANSI), for `ask` capture. */
+  plainText(id: string): string {
+    const e = this.entries.get(id);
+    if (!e) return '';
+    const buf = e.mirror.buffer.active;
+    const lines: string[] = [];
+    for (let i = 0; i < buf.length; i++) {
+      lines.push(buf.getLine(i)?.translateToString(true) ?? '');
+    }
+    return lines.join('\n').replace(/\n+$/, '');
+  }
+
   write(id: string, data: string): void {
-    this.entries.get(id)?.proc.write(data);
+    const entry = this.entries.get(id);
+    if (!entry) return;
+    this.engage(id); // typing/input clears attention and re-baselines
+    entry.proc.write(data);
+  }
+
+  /**
+   * Deliver a message to a terminal as if pasted by the user. Bracketed-paste
+   * open + body + close + CR go in ONE write so the TUI processes the whole
+   * paste and the submit in a single pass — no flash, no interleaving with the
+   * user (AGENTS.md invariant #3). Paste-wrap only when the target has DEC mode
+   * 2004 active; a bare shell gets a plain line.
+   */
+  inject(id: string, body: string): boolean {
+    const entry = this.entries.get(id);
+    if (!entry) return false;
+    this.engage(id);
+    const bracketed = entry.mirror.modes.bracketedPasteMode;
+    const payload = bracketed ? `\x1b[200~${body}\x1b[201~\r` : `${body}\r`;
+    entry.proc.write(payload);
+    return true;
   }
 
   resize(id: string, cols: number, rows: number): void {
@@ -95,14 +230,20 @@ export class PtyManager {
   kill(id: string): void {
     const entry = this.entries.get(id);
     if (!entry) return;
+    if (entry.quiesce) clearTimeout(entry.quiesce);
     this.entries.delete(id);
     this.pending.delete(id);
     entry.proc.kill();
     entry.mirror.dispose();
+    this.graph.removeNode(id);
   }
 
   killAll(): void {
     for (const id of [...this.entries.keys()]) this.kill(id);
+  }
+
+  has(id: string): boolean {
+    return this.entries.has(id);
   }
 
   serialize(id: string): string {

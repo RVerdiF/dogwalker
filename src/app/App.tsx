@@ -1,227 +1,141 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Background,
-  ReactFlow,
-  ReactFlowProvider,
-  useNodesState,
-  useReactFlow,
-} from '@xyflow/react';
-import type { PresetId } from '../shared/ipc';
-import { terminals, type Tier } from './terminalService';
-import { TerminalNode, type TerminalFlowNode } from './TerminalNode';
-import { Hud } from './Hud';
-import { runSmoke } from './smoke';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ReactFlowProvider } from '@xyflow/react';
+import type { AppSettings, WorkspaceMeta } from '../shared/ipc';
+import { BUILTIN_THEMES, type ThemeSpec } from '../shared/themes';
+import { terminals } from './terminalService';
+import { Canvas } from './Canvas';
+import { Sidebar } from './Sidebar';
+import { Panel } from './Panel';
 
-const nodeTypes = { terminal: TerminalNode };
+const IS_DEV = import.meta.env.DEV;
 
-const NODE_W = 560;
-const NODE_H = 380;
-const GRID_GAP_X = 620;
-const GRID_GAP_Y = 440;
-const GRID_COLS = 5;
-/** Below this zoom, terminal text is unreadable — everything drops to tier 2. */
-const READABLE_ZOOM = 0.5;
-const VIEWPORT_MARGIN_PX = 100;
-const MAX_TIER1 = 8;
+const DEFAULT_SETTINGS: AppSettings = {
+  themeName: 'Dogwalker Dark',
+  lightThemeName: 'GitHub Light',
+  followSystem: false,
+  notifyOnAttention: true,
+};
 
-const PRESETS: PresetId[] = ['shell', 'claude', 'codex', 'gemini', 'stress'];
-
-function Canvas() {
-  const [nodes, setNodes, onNodesChange] = useNodesState<TerminalFlowNode>([]);
-  const [preset, setPreset] = useState<PresetId>('shell');
-  const [mirrorInfo, setMirrorInfo] = useState('');
-  const { getViewport, setViewport } = useReactFlow();
-  const spawnCount = useRef(0);
-  const tierPass = useRef(false);
-  const smokeRan = useRef(false);
-
-  useEffect(() => {
-    const offData = window.dw.onData((batch) => {
-      for (const [id, data] of batch) terminals.write(id, data);
-    });
-    const offExit = window.dw.onExit((id) => {
-      setNodes((ns) =>
-        ns.map((n) => (n.id === id ? { ...n, data: { ...n.data, exited: true } } : n)),
-      );
-    });
-    return () => {
-      offData();
-      offExit();
-    };
-  }, [setNodes]);
-
-  const recomputeTiers = useCallback(() => {
-    if (tierPass.current) return;
-    tierPass.current = true;
-    requestAnimationFrame(() => {
-      tierPass.current = false;
-      const vp = getViewport();
-      setNodes((ns) => {
-        const rects = ns.map((n) => {
-          const w = (n.measured?.width ?? NODE_W) * vp.zoom;
-          const h = (n.measured?.height ?? NODE_H) * vp.zoom;
-          const x = n.position.x * vp.zoom + vp.x;
-          const y = n.position.y * vp.zoom + vp.y;
-          const visible =
-            x + w > -VIEWPORT_MARGIN_PX &&
-            y + h > -VIEWPORT_MARGIN_PX &&
-            x < window.innerWidth + VIEWPORT_MARGIN_PX &&
-            y < window.innerHeight + VIEWPORT_MARGIN_PX;
-          return { node: n, visible, area: w * h };
-        });
-
-        const tier1 = new Set<string>();
-        if (vp.zoom >= READABLE_ZOOM) {
-          rects
-            .filter((r) => r.visible)
-            .sort((a, b) => {
-              if (a.node.selected !== b.node.selected) return a.node.selected ? -1 : 1;
-              return b.area - a.area;
-            })
-            .slice(0, MAX_TIER1)
-            .forEach((r) => tier1.add(r.node.id));
-        }
-
-        const desired = new Map<string, Tier>();
-        for (const r of rects) {
-          desired.set(r.node.id, tier1.has(r.node.id) ? 1 : r.visible ? 2 : 3);
-        }
-
-        // Demotions free WebGL contexts before promotions claim them.
-        for (const [id, tier] of desired) if (tier === 3) terminals.setTier(id, 3);
-        for (const [id, tier] of desired) if (tier === 2) terminals.setTier(id, 2);
-        for (const [id, tier] of desired) if (tier === 1) terminals.setTier(id, 1);
-
-        let changed = false;
-        const next = ns.map((n) => {
-          const tier = desired.get(n.id) ?? 3;
-          if (n.data.tier === tier) return n;
-          changed = true;
-          return { ...n, data: { ...n.data, tier } };
-        });
-        if (changed) {
-          console.log(
-            `[tiers] zoom=${vp.zoom.toFixed(2)} x=${Math.round(vp.x)} y=${Math.round(vp.y)} ` +
-              `win=${window.innerWidth}x${window.innerHeight} → ` +
-              [...desired.entries()].map(([id, t]) => `${id}:${t}`).join(' '),
-          );
-        }
-        return changed ? next : ns;
-      });
-    });
-  }, [getViewport, setNodes]);
-
-  useEffect(() => {
-    recomputeTiers();
-  }, [nodes.length, recomputeTiers]);
-
-  // Safety tick: onMove can be swallowed by the rAF guard mid-transition,
-  // leaving the last viewport unclassified. Recompute is a no-op when nothing
-  // changed, so an idle tick is effectively free and self-heals any miss.
-  useEffect(() => {
-    const tick = window.setInterval(recomputeTiers, 500);
-    return () => window.clearInterval(tick);
-  }, [recomputeTiers]);
-
-  const spawnOne = useCallback(
-    async (p: PresetId) => {
-      const n = spawnCount.current++;
-      const cols = 80;
-      const rows = 24;
-      const { id } = await window.dw.spawn({ preset: p, cols, rows });
-      terminals.create(id);
-      const node: TerminalFlowNode = {
-        id,
-        type: 'terminal',
-        dragHandle: '.dw-drag',
-        position: {
-          x: (n % GRID_COLS) * GRID_GAP_X,
-          y: Math.floor(n / GRID_COLS) * GRID_GAP_Y,
-        },
-        style: { width: NODE_W, height: NODE_H },
-        data: { name: `${p}-${n + 1}`, preset: p, tier: 3 as Tier, exited: false },
-      };
-      setNodes((ns) => [...ns, node]);
-      return id;
-    },
-    [setNodes],
-  );
-
-  const spawn15 = useCallback(async () => {
-    for (let i = 0; i < 15; i++) await spawnOne(preset);
-  }, [preset, spawnOne]);
-
-  useEffect(() => {
-    if (smokeRan.current) return;
-    if (!new URLSearchParams(window.location.search).has('smoke')) return;
-    smokeRan.current = true;
-    void runSmoke({ spawn: spawnOne, setViewport, getViewport });
-  }, [spawnOne, setViewport, getViewport]);
-
-  const killAll = useCallback(() => {
-    setNodes((ns) => {
-      for (const n of ns) {
-        window.dw.kill(n.id);
-        terminals.dispose(n.id);
-      }
-      return [];
-    });
-    spawnCount.current = 0;
-  }, [setNodes]);
-
-  const mirrorCheck = useCallback(async () => {
-    const selected = nodes.find((n) => n.selected);
-    if (!selected) {
-      setMirrorInfo('mirror: select a terminal first');
-      return;
-    }
-    const snapshot = await window.dw.serialize(selected.id);
-    const lines = snapshot.split('\n');
-    const last = lines.filter((l) => l.trim()).slice(-1)[0] ?? '';
-    setMirrorInfo(
-      `mirror[${selected.id}] tier=${terminals.tierOf(selected.id)} ` +
-        `${snapshot.length}B ${lines.length} lines · last: ${last.slice(0, 60)}`,
-    );
-  }, [nodes]);
-
-  return (
-    <div className="dw-root">
-      <div className="dw-toolbar">
-        <span className="dw-logo">🐕 Dogwalker spike</span>
-        <select value={preset} onChange={(e) => setPreset(e.target.value as PresetId)}>
-          {PRESETS.map((p) => (
-            <option key={p} value={p}>
-              {p}
-            </option>
-          ))}
-        </select>
-        <button onClick={() => void spawnOne(preset)}>Spawn</button>
-        <button onClick={() => void spawn15()}>Spawn 15</button>
-        <button onClick={() => void mirrorCheck()}>Mirror check</button>
-        <button onClick={killAll}>Kill all</button>
-        {mirrorInfo && <span className="dw-mirror-info">{mirrorInfo}</span>}
-      </div>
-      <ReactFlow
-        nodes={nodes}
-        edges={[]}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onMove={recomputeTiers}
-        minZoom={0.1}
-        maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background gap={20} />
-      </ReactFlow>
-      <Hud />
-    </div>
-  );
+function findTheme(themes: ThemeSpec[], name: string): ThemeSpec | undefined {
+  return themes.find((t) => t.name === name);
 }
 
 export function App() {
+  const [workspaces, setWorkspaces] = useState<WorkspaceMeta[]>([]);
+  const [activeId, setActiveId] = useState<string>('');
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
+  const [themes, setThemes] = useState<ThemeSpec[]>(BUILTIN_THEMES);
+  const [osDark, setOsDark] = useState(
+    () => window.matchMedia('(prefers-color-scheme: dark)').matches,
+  );
+
+  const refresh = useCallback(async () => {
+    const { workspaces: list, active } = await window.dw.listWorkspaces();
+    setWorkspaces(list);
+    setActiveId((cur) => (list.some((w) => w.id === cur) ? cur : active));
+    return { list, active };
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    void window.dw.getSettings().then(setSettings);
+    void window.dw
+      .listCustomThemes()
+      .then((custom) => setThemes([...BUILTIN_THEMES, ...custom]));
+  }, [refresh]);
+
+  // Track the OS light/dark scheme for the follow-system option.
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (e: MediaQueryListEvent) => setOsDark(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  // Resolve and apply the active terminal theme.
+  const activeTheme = useMemo(() => {
+    if (settings.followSystem) {
+      const name = osDark ? settings.themeName : settings.lightThemeName;
+      return findTheme(themes, name) ?? findTheme(themes, settings.themeName);
+    }
+    return findTheme(themes, settings.themeName);
+  }, [settings, themes, osDark]);
+
+  useEffect(() => {
+    terminals.setTheme((activeTheme ?? BUILTIN_THEMES[0]).theme);
+  }, [activeTheme]);
+
+  const updateSettings = useCallback(async (partial: Partial<AppSettings>) => {
+    const next = await window.dw.setSettings(partial);
+    setSettings(next);
+  }, []);
+
+  const switchTo = useCallback((id: string) => {
+    setActiveId(id);
+    void window.dw.setActiveWorkspace(id);
+  }, []);
+
+  const create = useCallback(async () => {
+    const ws = await window.dw.createWorkspace('New workspace', '🐕');
+    await refresh();
+    switchTo(ws.id);
+  }, [refresh, switchTo]);
+
+  const rename = useCallback(
+    async (id: string, name: string, icon: string) => {
+      await window.dw.renameWorkspace(id, name, icon);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const remove = useCallback(
+    async (id: string) => {
+      await window.dw.deleteWorkspace(id);
+      const { active } = await refresh();
+      if (id === activeId) switchTo(active);
+    },
+    [refresh, activeId, switchTo],
+  );
+
   return (
-    <ReactFlowProvider>
-      <Canvas />
-    </ReactFlowProvider>
+    <div className="dw-app">
+      <Sidebar
+        workspaces={workspaces}
+        activeId={activeId}
+        onSwitch={switchTo}
+        onCreate={() => void create()}
+        onOpenMenu={() => setPanelOpen(true)}
+      />
+      <div className="dw-main">
+        {activeId && (
+          <ReactFlowProvider key={activeId}>
+            <Canvas
+              workspaceId={activeId}
+              isDev={IS_DEV}
+              notifyOnAttention={settings.notifyOnAttention}
+            />
+          </ReactFlowProvider>
+        )}
+      </div>
+      <Panel
+        open={panelOpen}
+        onClose={() => setPanelOpen(false)}
+        workspaces={workspaces}
+        activeId={activeId}
+        onSwitch={(id) => {
+          switchTo(id);
+          setPanelOpen(false);
+        }}
+        onCreate={() => void create()}
+        onRename={(id, name, icon) => void rename(id, name, icon)}
+        onDelete={(id) => void remove(id)}
+        themes={themes}
+        settings={settings}
+        activeThemeName={(activeTheme ?? BUILTIN_THEMES[0]).name}
+        onUpdateSettings={(p) => void updateSettings(p)}
+      />
+    </div>
   );
 }

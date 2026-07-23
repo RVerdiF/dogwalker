@@ -73,34 +73,40 @@ WebGL context budget: contexts are granted to tier-1 terminals only (focused fir
 - The `dogwalker` shim is a tiny static binary: parse argv → connect to `DOGWALKER_SOCKET` → send one JSON request (always carrying `DOGWALKER_TERMINAL_ID` as the caller) → stream the response to stdout → exit with the broker's status code. The shim dir also exposes it as `walk` (alias — same binary).
 - **No logic in the shim.** All authorization (is the target connected to the caller?), routing, and state live in the host broker. The CLI and any future surface are thin adapters over the same broker API.
 
-### 5.2 `ask` / `reply` — structured messaging, not screen scraping
+### 5.2 `ask` — structured messaging via captured output
 
 ```
 A: dogwalker ask reviewer "review auth.ts, focus on token expiry"
-        │ 1. shim → broker: {type: ask, from: A, target: reviewer, body}
+        │ 1. shim → broker: {cmd: ask, from: A, target: reviewer, body}
         │ 2. broker: validate connection graph (A ↔ reviewer wired?)
-        │ 3. broker: msg-id assigned; delivery text composed:
-        │    "[message from A, id 7f2c] review auth.ts … reply with:
-        │     dogwalker reply 7f2c --stdin <<'EOF' … EOF"
+        │ 3. broker: snapshot reviewer's plain-text buffer (baseline)
         │ 4. broker → reviewer's PTY: single atomic write of
-        │    ESC[200~ + delivery text + ESC[201~ + \r      (bracketed paste)
-        │ 5. reviewer's agent works, then runs:
-        │       dogwalker reply 7f2c --stdin <<'EOF'
-        │       done — two issues: …
-        │       EOF
-        │ 6. broker correlates by msg-id, logs to history,
-        ▼    unblocks A's shim with the reply on stdout (or times out).
+        │    ESC[200~ + body + ESC[201~ + \r      (bracketed paste)
+        │ 5. reviewer works and answers in its own terminal — normally,
+        │    running no command; the broker waits for it to go quiet
+        │    (the quiescence detector, §6), or times out (180 s).
+        │ 6. broker captures the output produced since the baseline,
+        ▼    logs it to history, returns it on A's stdout.
 ```
+
+**Why capture, not a `reply` command.** An earlier design made the target run
+`dogwalker reply <id>` to send a structured answer back. Real-world testing
+killed it: plain shells and uncooperative agents never replied (the asker hung),
+and `reply --stdin` without a heredoc deadlocked reading stdin — so *both* sides
+waited forever. Capturing the target's own output needs **no cooperation** and
+works with any agent, shell, or process. This reverses the earlier "screen is not
+transport" rule; it is the right call because our quiescence detector runs on the
+headless mirror and is **focus-independent** — so unlike screen-scraping designs
+that must freeze when the user selects the target, capture here is reliable even
+while the user interacts.
 
 Key properties:
 
-- **Byte-exact replies.** The reply arrives as stdin of a process over the socket — the target's screen contents, focus state, or user interaction are irrelevant to transport. (The screen still *shows* everything as a natural side effect: the delivered message appears in the target's chat history, and the reply command is visible in its TUI.)
 - **Atomic injection — no visual flash.** Paste-open + body + paste-close + CR go in **one PTY write**. The TUI reads the chunk in one iteration and its next painted frame already shows the message in history, never sitting in the input box. Never split the write or sleep between paste and Enter.
 - **Bracketed paste is conditional.** The headless mirror tracks DEC mode 2004. Target has it on (all modern agent TUIs) → paste-wrapped; off (bare shell) → plain write. Either way, no visible escape garbage.
-- **Politeness hold (refinement, not correctness):** if the user typed in the target within ~1 s, the broker delays injection until quiescent. Injection is atomic regardless; this only avoids sharing the input box with a half-typed user draft.
-- **`--stdin` heredoc is the canonical reply form** (taught by the skill): multi-line and quote-heavy replies never fight shell escaping. `--json` available on `ask` for structured consumption.
-- **Timeouts**: `ask` fails with a distinct exit code if no `reply` arrives in the window (agent forgot / crashed); the skill teaches agents to always reply via CLI.
-- **Message history**: every ask/reply/check is logged per connection edge (who, what, when, status) and surfaced in the UI when clicking a cable. This is the structural advantage over scraping designs — an exact, replayable conversation log.
+- **Response = output delta.** The broker diffs the target's plain-text buffer (no ANSI) before vs. after, returning the new lines (the echoed prompt + the answer); it falls back to the whole screen if scrollback rolled over.
+- **Timeout, never deadlock.** `ask` resolves when the target goes quiet or after its timeout — `--timeout <seconds>` per call (default 180 s, clamped 1 s–1 h); nothing waits on the target running a command.
+- **Message history**: every ask (and its captured response) and check is logged per connection edge and surfaced in the UI when clicking a leash — a replayable conversation log.
 
 ### 5.3 `check`
 Broker serializes the target's headless-mirror screen (xterm serialize addon) and returns it. Read-only, instant, works on **any** terminal — agent or not (builds, dev servers, log tails). No injection involved.
@@ -109,7 +115,7 @@ Broker serializes the target's headless-mirror screen (xterm serialize addon) an
 `note read|append|write`, `portal navigate|click|type|screenshot|js|dom|console`, `connect`/`disconnect`, `list`, and Walker's `recruit`/`dismiss`/`assign` are all broker methods gated by the connection graph and (for Walker verbs) the terminal's Walker flag. Recruiting = broker asks the workspace store to create a terminal node with the given preset/role, wires it, and auto-positions it near the recruiter.
 
 ### 5.5 The skill
-A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills/dogwalker/`) teaches agents: available verbs, the reply-via-`--stdin` contract, how to discover peers (`dogwalker list`), and role context location. Because we own both the skill and the broker, protocol evolution is a two-file change.
+A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills/dogwalker/`) teaches agents: available verbs, that answering an `ask` is just responding normally in their terminal (no command to run), how to discover peers (`dogwalker list`), and role context location. Because we own both the skill and the broker, protocol evolution is a two-file change.
 
 ## 6. Attention detection
 
@@ -117,7 +123,7 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
 - Fallback (no OSC 133): output quiescence heuristic (no PTY output for N seconds while a foreground child exists).
 - Detection runs on the headless mirror, so it works for offscreen and hibernation-adjacent states and is independent of UI focus.
 - **Focus only suppresses the notification**, never the detection: if the user is actively interacting with that terminal, don't notify them about the terminal they're looking at. Dot state stays truthful.
-- `ask` completion-waiting reuses the same lifecycle signals when it needs to know "target finished a turn" (e.g. for queued routines) — but reply transport never depends on it (see §5.2).
+- `ask` reuses exactly this quiescence signal to know when the target finished responding, then captures its output (see §5.2).
 
 ## 7. Images & the Prompt Composer
 
@@ -214,3 +220,137 @@ terminal (~170 MB for 5 continuously-flooding terminals), not the fixed
 dev-tooling overhead. Packaged-build measurement moves to v0.7 hardening.
 
 **Verdict: spike PASSED (2026-07-19).** The stack holds; v0.1 may begin.
+
+## 14. v0.1 progress — the core loop (in progress, branch `v0.1-core-loop`)
+
+All v0.1 outputs are built and validated: the messaging core (broker/CLI/skill/
+connections), workspace persistence, the app shell, notes, the prompt composer,
+terminal themes, and attention detection.
+
+**Built — messaging core**
+- **GraphStore** (`src/main/graphStore.ts`) — authoritative terminals + leashes;
+  the broker authorizes strictly against it.
+- **Broker** (`src/main/broker.ts`) — net server on a named pipe (Windows) /
+  unix socket; `ask` / `check` / `list` / `note` / `connect` / `disconnect`;
+  `ask` injects the message and returns the target's captured output after it
+  goes quiet (§5.2), so nothing waits on the target running a reply command.
+- **Shim** (`src/shim/shim.mjs` + `src/main/shimDir.ts`) — standalone `dogwalker`
+  /`walk` CLI materialized into a per-app shim dir prepended to each PTY's PATH;
+  no logic, just framing.
+- **Injection** — `PtyManager.inject()` does the one-write bracketed-paste
+  (gated on the mirror's DEC mode 2004), the sole PTY writer.
+- **History** (`src/main/history.ts`) — append-only JSONL per node pair; the UI
+  renders it when a leash is clicked.
+- **Connections UI** — React Flow loose-mode handles create leashes; edges are
+  derived from the graph; clicking a leash opens the message-history panel.
+- **Skill** (`skills/dogwalker/SKILL.md`) — teaches agents the CLI and that
+  answering an `ask` is just responding normally in their terminal. **Installed
+  on startup** (`src/main/skillInstall.ts`) into `~/.claude/skills/dogwalker/` so
+  agents actually discover the CLI — without it the shim is on PATH but no agent
+  knows it exists. Other agents' skill conventions come with their presets.
+
+**Validated** (`DW_BROKERTEST=1 npm start`, Windows): `ask` injects a message,
+waits for the target to go quiet, and returns its captured output; `check` and
+`list` work; an **unwired terminal is denied** (connection-graph auth); and the
+**real shim** run through a shell (`dogwalker list`) resolves via PATH and
+returns the peer — proving the CLI exists only inside canvas terminals.
+
+**Built — persistence & app shell**
+- **WorkspaceStore** (`src/main/workspaceStore.ts`) — workspaces as plain JSON
+  under `userData/workspaces` (metadata + layout: node specs with geometry +
+  connections as stable-id pairs), an `index.json` for order + active. Node
+  identity is a persistent `stableId` distinct from the ephemeral live PTY id.
+- **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
+  terminals from its specs, places them at saved geometry, and re-wires leashes;
+  layout is saved (debounced) on move/resize/add/remove/connect/disconnect.
+  Switching kills+respawns (keep-alive is v0.2). A `tearingDown` guard stops
+  persistence before teardown so killing terminals (which empties the graph)
+  can't clobber the stored layout with nodes-minus-edges.
+- **App shell** (`src/app/{App,Sidebar,Panel,DevBar}.tsx`) — a workspace rail
+  plus a glass, sectioned menu (Workspaces live; Agents/Presets/Roles/Settings
+  as placeholders for later versions). The old test toolbar is now `DevBar`,
+  rendered only under `import.meta.env.DEV`.
+
+**Validated** (`DW_PERSISTTEST=1`, two launches, Windows, 2026-07-19): launch 1
+saves 2 nodes + 1 leash (geometry, names, edge stable-id integrity all OK) and
+the layout **survives teardown** on disk; launch 2 restores 2 live terminals +
+1 live leash matching the saved specs.
+
+**Built — notes**
+- **GraphStore generalized** — nodes carry a `kind` (terminal|note); a note's
+  graph id is its stableId (no process). The broker authorizes note access the
+  same way — only a wired-up note is reachable.
+- **NoteStore** (`src/main/noteStore.ts`) — markdown files under
+  `userData/notes/<stableId>.md`, the single writer for both the editor and the
+  CLI; emits `update` so an open editor refreshes after an agent writes.
+- **`note` verb** (broker + shim) — `dogwalker note read|append|write <name>`,
+  gated by the connection graph. `note read --chain` follows note↔note leashes
+  (BFS, cycle-safe) and concatenates the connected note cluster — the mind-map
+  chain, reachable from an agent wired only to the entry note.
+- **NoteNode** (`src/app/NoteNode.tsx`) — a markdown sticky with raw/formatted
+  modes (react-markdown + remark-gfm), inline rename, delete-with-file; refreshes
+  on `note:update`. Notes are excluded from the terminal render ladder. Added to
+  the palette; image paste stays deferred to v0.3.
+
+**Validated** (`DW_NOTETEST=1`, Windows, 2026-07-19): an agent `note read`s a
+connected note's content off its own terminal and `note write`s it (file
+reflects the change via the single writer); `note read --chain` from an entry
+note pulls a downstream note the terminal is not directly wired to; the notes
+and the terminal↔note leash persist in the layout and restore.
+
+**Built — prompt composer**
+- **Composer** (`src/app/Composer.tsx`) — a floating editor bound to the selected
+  terminal. Enter submits via `sendPrompt` (atomic bracketed-paste inject, the
+  same path as ask delivery), Shift+Enter newlines. `@` opens a menu of the
+  terminal's connected terminals/notes plus "New note" (creates + wires + inserts
+  the reference). Pasted images are written to `tmp/dogwalker-drops` and the path
+  inserted — the uniform file-path mechanism every agent CLI reads.
+- **DraftStore** (`src/main/draftStore.ts`) — per-terminal drafts keyed by
+  stableId, persisted to `drafts.json`, so a draft survives workspace switches
+  and restarts.
+- Deferred to their features / v0.2: `@Walker` and portal mentions, nav-key
+  pass-through on an empty composer.
+
+**Validated** (`DW_COMPOSERTEST=1`, Windows, 2026-07-22): the composer shows for
+the selected terminal; `@` lists the connected note; a composed message reaches
+the terminal; the draft round-trips through disk; a pasted image yields a temp
+path.
+
+**Built — terminal themes**
+- **Theme model** (`src/shared/themes.ts`) — `ThemeSpec` (xterm ITheme + light/
+  dark appearance); 7 built-ins; a validator so a malformed custom theme can't
+  break the gallery.
+- **SettingsStore** (`src/main/settingsStore.ts`) — persists `{themeName,
+  lightThemeName, followSystem}` to `settings.json`; reads custom themes from
+  `userData/terminal-themes/*.json`.
+- **Apply** — `terminalService.setTheme` recolors every live terminal and any
+  spawned afterwards (`term.options.theme`). App resolves the active theme
+  (follow-system via `matchMedia`) and applies it globally, surviving the keyed
+  Canvas remounts.
+- **UI** — the Panel's Settings section: theme swatch gallery, follow-system
+  toggle, light-theme picker.
+
+**Validated** (`DW_THEMETEST=1`, Windows, 2026-07-22): 7 built-in themes;
+selecting Dracula recolors a live terminal and a newly spawned one; the choice
+persists; custom-theme listing works.
+
+**Built — attention detection**
+- **Detection** (`src/main/ptyManager.ts`, ARCHITECTURE.md §6) — on the headless
+  mirror, so it is focus-independent (invariant #8). OSC 133 refines it when
+  shell integration is present (C clears, D raises); the always-on fallback is
+  output quiescence: once a terminal has been *engaged* (input ran), going quiet
+  for 2.5 s after output raises attention. Input (`write`/`inject`) engages and
+  clears. Emits `pty:attention {id,value}`.
+- **UI** — a pulsing red dot in the terminal header (`data.attention`); **Shift+A**
+  cycles selection + viewport through terminals needing attention.
+- **Notification** — on rise, if the terminal isn't selected and the setting is
+  on, the renderer fires an Electron notification; focus suppresses only the
+  notification, never the dot. Toggle in the Panel's Settings section.
+
+**Validated** (`DW_ATTENTIONTEST=1`, Windows, 2026-07-22): a fresh shell does not
+nag; a run command raises attention after it goes quiet and the node shows the
+dot; a keystroke clears both.
+
+**v0.1 status: feature-complete on branch `v0.1-core-loop`.** Remaining before
+tagging v0.1 proper: exit-criteria dogfooding (the app used to build itself) and
+a pass over the README quick start — tracked in [ROADMAP.md](ROADMAP.md).

@@ -1,12 +1,24 @@
 import { memo, useEffect, useRef } from 'react';
-import { NodeResizer, useReactFlow, type Node, type NodeProps } from '@xyflow/react';
+import {
+  Handle,
+  NodeResizer,
+  Position,
+  useReactFlow,
+  type Node,
+  type NodeProps,
+} from '@xyflow/react';
+import type { PresetId } from '../shared/ipc';
 import { terminals, type Tier } from './terminalService';
 
 export interface TerminalNodeData extends Record<string, unknown> {
   name: string;
-  preset: string;
+  preset: PresetId;
   tier: Tier;
   exited: boolean;
+  /** Stable across restarts; used for persistence (live PTY id is ephemeral). */
+  stableId: string;
+  /** Idle/waiting-for-input, per ARCHITECTURE.md §6. */
+  attention?: boolean;
 }
 
 export type TerminalFlowNode = Node<TerminalNodeData, 'terminal'>;
@@ -47,7 +59,20 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
   return (
     <div className={`dw-node ${selected ? 'dw-node-selected' : ''}`}>
       <NodeResizer isVisible={selected} minWidth={320} minHeight={200} />
+      {/* Leashes are undirected. Four visible source handles (one per side):
+          with ConnectionMode.Loose each can both start and receive a drag, so
+          you can pull from — and drop onto — any side. The hidden "sink" target
+          handle exists only so a derived edge can resolve a target-type handle
+          and mount; React Flow won't render an edge otherwise. The leash itself
+          is a floating edge (FloatingLeash.tsx), so which handles it names is
+          irrelevant to how it looks. */}
+      <Handle id="top" type="source" position={Position.Top} className="dw-handle" />
+      <Handle id="right" type="source" position={Position.Right} className="dw-handle" />
+      <Handle id="bottom" type="source" position={Position.Bottom} className="dw-handle" />
+      <Handle id="left" type="source" position={Position.Left} className="dw-handle" />
+      <Handle id="sink" type="target" position={Position.Left} className="dw-handle-sink" />
       <div className="dw-drag dw-node-header">
+        {data.attention && <span className="dw-attention" title="Needs attention" />}
         <span className="dw-node-name">
           {data.name}
           {data.exited ? ' · exited' : ''}
