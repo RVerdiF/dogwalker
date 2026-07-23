@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Notification } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { PtyManager } from './main/ptyManager';
@@ -142,11 +142,31 @@ const createWindow = () => {
   );
   ipcMain.handle(
     'ws:rename',
-    (_e, { id, name, icon }: { id: string; name: string; icon: string }) =>
-      workspaces.rename(id, name, icon),
+    (
+      _e,
+      {
+        id,
+        name,
+        icon,
+        cwd,
+      }: { id: string; name: string; icon: string; cwd?: string },
+    ) => workspaces.rename(id, name, icon, cwd),
   );
   ipcMain.handle('ws:delete', (_e, id: string) => workspaces.remove(id));
   ipcMain.handle('ws:setActive', (_e, id: string) => workspaces.setActive(id));
+  ipcMain.handle('ws:listTerminals', (_e, workspaceId: string) =>
+    ptys?.listForWorkspace(workspaceId) ?? [],
+  );
+  ipcMain.handle('ws:hibernate', (_e, workspaceId: string) => {
+    ptys?.killWorkspace(workspaceId);
+  });
+  ipcMain.handle('sys:pickDirectory', async () => {
+    const res = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+    });
+    return res.canceled ? '' : res.filePaths[0];
+  });
+  ipcMain.handle('sys:openPath', (_e, p: string) => shell.openPath(p).then(() => undefined));
 
   // Dev visibility: renderer console mirrored to stdout (no devtools needed).
   wc.on('console-message', (event) => {
@@ -173,6 +193,7 @@ const createWindow = () => {
       process.env.DW_THEMETEST ? 'themetest=1' : '',
       process.env.DW_ATTENTIONTEST ? 'attentiontest=1' : '',
       process.env.DW_LAYOUTTEST ? 'layouttest=1' : '',
+      process.env.DW_BGTEST ? 'bgtest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

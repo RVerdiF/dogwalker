@@ -147,7 +147,8 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
 
 ## 10. Persistence & hibernation
 
-- Workspace file (JSON): node layout, terminal configs (preset, role, theme, limits), connections, floors, routines, drafts.
+- Workspace file (JSON): metadata (name, icon, **cwd** — terminals spawn there), node layout, terminal configs, connections, floors, routines, drafts.
+- **Background workspaces (v0.2)** — leaving a workspace no longer kills its terminals; agents keep working. Main owns terminal→workspace ownership, so returning **adopts** the live PTYs (replaying each headless mirror into a fresh xterm) instead of respawning. Releasing them is an explicit **hibernate**. Because background workspaces keep their nodes in the graph, the canvas renders only leashes whose both ends are present on it.
 - Notes are plain `.md` files owned by the user; the workspace file stores references + positions.
 - Hibernate: kill PTYs/portals, keep serialized screen snapshots and layout; resume respawns terminals (shell fresh, layout and scrollback snapshot restored visually). Startup loads only the active workspace.
 - Message history: append-only JSONL per workspace.

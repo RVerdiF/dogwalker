@@ -1172,3 +1172,33 @@ body,
   margin: 4px 6px;
   background: rgba(255, 255, 255, 0.1);
 }
+
+/* Workspace card: cwd + editor */
+.dw-ws-cwd {
+  margin: 6px 4px 0;
+  font-size: 11px;
+  color: #8a8a99;
+  font-family: Consolas, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+
+.dw-ws-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dw-ws-cwd-input {
+  flex: 1;
+  min-width: 0;
+  font-family: Consolas, monospace;
+  font-size: 12px;
+}
+
+.dw-ws-actions {
+  flex-wrap: wrap;
+}

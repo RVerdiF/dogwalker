@@ -4,7 +4,12 @@ import * as pty from 'node-pty';
 import type { WebContents } from 'electron';
 import { Terminal as HeadlessTerminal } from '@xterm/headless';
 import { SerializeAddon } from '@xterm/addon-serialize';
-import type { DataBatch, SpawnOptions } from '../shared/ipc';
+import type {
+  DataBatch,
+  LiveTerminal,
+  PresetId,
+  SpawnOptions,
+} from '../shared/ipc';
 import { defaultShell, presetCommand } from './presets';
 import type { GraphStore } from './graphStore';
 
@@ -13,6 +18,10 @@ interface Entry {
   mirror: HeadlessTerminal;
   serializer: SerializeAddon;
   name: string;
+  /** Ownership, so terminals survive a workspace switch and can be re-adopted. */
+  workspaceId: string;
+  stableId: string;
+  preset: PresetId;
   // Attention state (ARCHITECTURE.md §6).
   attention: boolean;
   producedOutput: boolean;
@@ -62,7 +71,7 @@ export class PtyManager {
       name: 'xterm-256color',
       cols: opts.cols,
       rows: opts.rows,
-      cwd: os.homedir(),
+      cwd: opts.cwd || os.homedir(),
       env: {
         ...process.env,
         DOGWALKER_TERMINAL_ID: id,
@@ -108,6 +117,9 @@ export class PtyManager {
       mirror,
       serializer,
       name: opts.name,
+      workspaceId: opts.workspaceId,
+      stableId: opts.stableId,
+      preset: opts.preset,
       attention: false,
       producedOutput: false,
       hasEngaged: false,
@@ -244,6 +256,24 @@ export class PtyManager {
 
   has(id: string): boolean {
     return this.entries.has(id);
+  }
+
+  /** Terminals still alive for a workspace, so a returning canvas adopts them. */
+  listForWorkspace(workspaceId: string): LiveTerminal[] {
+    const out: LiveTerminal[] = [];
+    for (const [id, e] of this.entries) {
+      if (e.workspaceId === workspaceId) {
+        out.push({ id, stableId: e.stableId, name: e.name, preset: e.preset });
+      }
+    }
+    return out;
+  }
+
+  /** Release every terminal of a workspace (hibernate). */
+  killWorkspace(workspaceId: string): void {
+    for (const [id, e] of [...this.entries]) {
+      if (e.workspaceId === workspaceId) this.kill(id);
+    }
   }
 
   serialize(id: string): string {

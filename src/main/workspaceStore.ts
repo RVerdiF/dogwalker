@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import type {
@@ -39,6 +40,7 @@ export class WorkspaceStore {
       id: 'w' + crypto.randomBytes(4).toString('hex'),
       name,
       icon,
+      cwd: os.homedir(),
       layout: { ...EMPTY_LAYOUT },
     };
   }
@@ -69,8 +71,8 @@ export class WorkspaceStore {
     const workspaces = index.order
       .filter((id) => fs.existsSync(this.filePath(id)))
       .map((id) => {
-        const { name, icon } = this.read(id);
-        return { id, name, icon };
+        const { name, icon, cwd } = this.read(id);
+        return { id, name, icon, cwd: cwd || os.homedir() };
       });
     return { workspaces, active: index.active };
   }
@@ -81,7 +83,7 @@ export class WorkspaceStore {
     index.order.push(ws.id);
     index.active = ws.id;
     this.writeIndex(index);
-    return { id: ws.id, name: ws.name, icon: ws.icon };
+    return { id: ws.id, name: ws.name, icon: ws.icon, cwd: ws.cwd };
   }
 
   load(id: string): WorkspaceFile {
@@ -95,11 +97,12 @@ export class WorkspaceStore {
     this.writeWorkspace(ws);
   }
 
-  rename(id: string, name: string, icon: string): void {
+  rename(id: string, name: string, icon: string, cwd?: string): void {
     if (!fs.existsSync(this.filePath(id))) return;
     const ws = this.read(id);
     ws.name = name;
     ws.icon = icon;
+    if (cwd !== undefined) ws.cwd = cwd || os.homedir();
     this.writeWorkspace(ws);
   }
 

@@ -9,8 +9,9 @@ interface Props {
   activeId: string;
   onSwitch: (id: string) => void;
   onCreate: () => void;
-  onRename: (id: string, name: string, icon: string) => void;
+  onRename: (id: string, name: string, icon: string, cwd?: string) => void;
   onDelete: (id: string) => void;
+  onHibernate: (id: string) => void;
   themes: ThemeSpec[];
   settings: AppSettings;
   activeThemeName: string;
@@ -90,6 +91,7 @@ function WorkspacesSection({
   onCreate,
   onRename,
   onDelete,
+  onHibernate,
 }: Props) {
   return (
     <div className="dw-section">
@@ -107,8 +109,9 @@ function WorkspacesSection({
             active={w.id === activeId}
             canDelete={workspaces.length > 1}
             onSwitch={() => onSwitch(w.id)}
-            onRename={(name, icon) => onRename(w.id, name, icon)}
+            onRename={(name, icon, cwd) => onRename(w.id, name, icon, cwd)}
             onDelete={() => onDelete(w.id)}
+            onHibernate={() => onHibernate(w.id)}
           />
         ))}
       </div>
@@ -213,49 +216,71 @@ function WorkspaceCard({
   onSwitch,
   onRename,
   onDelete,
+  onHibernate,
 }: {
   ws: WorkspaceMeta;
   active: boolean;
   canDelete: boolean;
   onSwitch: () => void;
-  onRename: (name: string, icon: string) => void;
+  onRename: (name: string, icon: string, cwd?: string) => void;
   onDelete: () => void;
+  onHibernate: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(ws.name);
   const [icon, setIcon] = useState(ws.icon);
+  const [cwd, setCwd] = useState(ws.cwd);
+
+  const save = () => {
+    onRename(name.trim() || ws.name, icon || ws.icon, cwd.trim() || ws.cwd);
+    setEditing(false);
+  };
 
   return (
     <div className={`dw-ws-card ${active ? 'active' : ''}`}>
       {editing ? (
-        <div className="dw-ws-edit">
-          <input
-            className="dw-ws-icon-input"
-            value={icon}
-            maxLength={2}
-            onChange={(e) => setIcon(e.target.value)}
-          />
-          <input
-            className="dw-ws-name-input"
-            value={name}
-            autoFocus
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                onRename(name.trim() || ws.name, icon || ws.icon);
-                setEditing(false);
-              }
-            }}
-          />
-          <button
-            className="dw-btn-small"
-            onClick={() => {
-              onRename(name.trim() || ws.name, icon || ws.icon);
-              setEditing(false);
-            }}
-          >
-            Save
-          </button>
+        <div className="dw-ws-editor">
+          <div className="dw-ws-edit">
+            <input
+              className="dw-ws-icon-input"
+              value={icon}
+              maxLength={2}
+              onChange={(e) => setIcon(e.target.value)}
+            />
+            <input
+              className="dw-ws-name-input"
+              value={name}
+              autoFocus
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && save()}
+            />
+          </div>
+          <div className="dw-ws-edit">
+            <input
+              className="dw-ws-cwd-input"
+              value={cwd}
+              placeholder="working directory"
+              onChange={(e) => setCwd(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && save()}
+            />
+            <button
+              className="dw-btn-small"
+              title="Choose folder"
+              onClick={() => {
+                void window.dw.pickDirectory().then((p) => p && setCwd(p));
+              }}
+            >
+              …
+            </button>
+          </div>
+          <div className="dw-ws-actions">
+            <button className="dw-btn-small" onClick={save}>
+              Save
+            </button>
+            <button className="dw-btn-small" onClick={() => setEditing(false)}>
+              Cancel
+            </button>
+          </div>
         </div>
       ) : (
         <>
@@ -264,9 +289,26 @@ function WorkspaceCard({
             <span className="dw-ws-card-name">{ws.name}</span>
             {active && <span className="dw-ws-active-dot" />}
           </button>
+          <div className="dw-ws-cwd" title={ws.cwd}>
+            {ws.cwd}
+          </div>
           <div className="dw-ws-actions">
             <button className="dw-btn-small" onClick={() => setEditing(true)}>
-              Rename
+              Edit
+            </button>
+            <button
+              className="dw-btn-small"
+              title="Open the working directory"
+              onClick={() => void window.dw.openPath(ws.cwd)}
+            >
+              Open
+            </button>
+            <button
+              className="dw-btn-small"
+              title="Release this workspace's terminals"
+              onClick={onHibernate}
+            >
+              Hibernate
             </button>
             {canDelete && (
               <button className="dw-btn-small dw-btn-danger" onClick={onDelete}>

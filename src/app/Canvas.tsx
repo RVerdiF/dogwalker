@@ -59,11 +59,17 @@ const SAVE_DEBOUNCE_MS = 400;
 
 interface Props {
   workspaceId: string;
+  workspaceCwd: string;
   isDev: boolean;
   notifyOnAttention: boolean;
 }
 
-export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
+export function Canvas({
+  workspaceId,
+  workspaceCwd,
+  isDev,
+  notifyOnAttention,
+}: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<DwNode>([]);
   const [graph, setGraph] = useState<GraphSnapshot>({ nodes: [], edges: [] });
   const [historyPair, setHistoryPair] = useState<{
@@ -132,14 +138,28 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
 
   // ---- spawn helpers -------------------------------------------------------
   const addTerminal = useCallback(
-    async (spec: TerminalSpec) => {
-      const { id } = await window.dw.spawn({
-        preset: spec.preset,
-        name: spec.name,
-        cols: 80,
-        rows: 24,
-      });
-      terminals.create(id);
+    async (spec: TerminalSpec, adoptId?: string) => {
+      // `adoptId` = a terminal still running from before a workspace switch:
+      // re-attach to it and replay its mirror instead of spawning a new one.
+      let id = adoptId ?? '';
+      if (id) {
+        terminals.create(id);
+        const snapshot = await window.dw.serialize(id);
+        if (snapshot) terminals.write(id, snapshot);
+      } else {
+        id = (
+          await window.dw.spawn({
+            preset: spec.preset,
+            name: spec.name,
+            cols: 80,
+            rows: 24,
+            workspaceId,
+            stableId: spec.stableId,
+            cwd: workspaceCwd,
+          })
+        ).id;
+        terminals.create(id);
+      }
       stableToLive.current.set(spec.stableId, id); // terminal graph id = live id
       const node: TerminalFlowNode = {
         id,
@@ -158,7 +178,7 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
       setNodes((ns) => [...ns, node]);
       return id;
     },
-    [setNodes],
+    [setNodes, workspaceId, workspaceCwd],
   );
 
   const addNoteNode = useCallback(
@@ -218,11 +238,15 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
     void (async () => {
       const ws = await window.dw.loadWorkspace(workspaceId);
       if (cancelled) return;
+      // Terminals kept running while this workspace was in the background.
+      const live = await window.dw.listTerminals(workspaceId);
+      const liveByStable = new Map(live.map((t) => [t.stableId, t.id]));
+      if (cancelled) return;
       spawnCount.current = ws.layout.nodes.length;
       for (const spec of ws.layout.nodes) {
         // Missing kind (pre-notes layouts) means terminal.
         if (spec.kind === 'note') await addNoteNode(spec);
-        else await addTerminal(spec as TerminalSpec);
+        else await addTerminal(spec as TerminalSpec, liveByStable.get(spec.stableId));
       }
       for (const [sa, sb] of ws.layout.edges) {
         const la = stableToLive.current.get(sa);
@@ -233,19 +257,16 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
     })();
     return () => {
       cancelled = true;
-      // Stop persistence BEFORE tearing down: teardown empties the graph
-      // (remove drops edges), and a debounced save must not clobber the stored
-      // layout with nodes-minus-edges. Switching kills terminals and unloads
-      // notes (keeping their files); keep-alive is v0.2.
+      // Stop persistence BEFORE tearing down, so a debounced save can't clobber
+      // the stored layout mid-teardown. Leaving a workspace does NOT kill its
+      // terminals or unload its notes — agents keep working in the background
+      // and are re-adopted on return; releasing them is an explicit hibernate.
+      // Only the renderer-side xterm instances are disposed here.
       tearingDown.current = true;
       loaded.current = false;
       setNodes((ns) => {
         for (const n of ns) {
-          if (n.type === 'note') void window.dw.unloadNote(n.id);
-          else {
-            window.dw.kill(n.id);
-            terminals.dispose(n.id);
-          }
+          if (n.type !== 'note') terminals.dispose(n.id);
         }
         return [];
       });
@@ -302,18 +323,21 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
     return m;
   }, [graph.nodes]);
 
-  const edges = useMemo<Edge[]>(
-    () =>
-      graph.edges.map((e) => ({
+  // Background workspaces keep their nodes in the graph, so only render leashes
+  // whose both ends are on THIS canvas.
+  const edges = useMemo<Edge[]>(() => {
+    const present = new Set(nodes.map((n) => n.id));
+    return graph.edges
+      .filter((e) => present.has(e.a) && present.has(e.b))
+      .map((e) => ({
         id: e.id,
         source: e.a,
         target: e.b,
         sourceHandle: 'right',
         targetHandle: 'sink',
         type: 'leash',
-      })),
-    [graph.edges],
-  );
+      }));
+  }, [graph.edges, nodes]);
 
   const onConnect = useCallback((c: Connection) => {
     if (c.source && c.target && c.source !== c.target) {

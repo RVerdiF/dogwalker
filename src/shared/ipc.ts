@@ -18,10 +18,23 @@ export interface SpawnOptions {
   name: string;
   cols: number;
   rows: number;
+  /** Owning workspace — terminals outlive a workspace switch (background). */
+  workspaceId: string;
+  /** Persistent node id, so a returning canvas can re-adopt this terminal. */
+  stableId: string;
+  cwd: string;
 }
 
 export interface SpawnResult {
   id: string;
+}
+
+/** A terminal already running for a workspace, offered for re-adoption. */
+export interface LiveTerminal {
+  id: string;
+  stableId: string;
+  name: string;
+  preset: PresetId;
 }
 
 /** [terminalId, chunk] pairs, batched per animation-ish frame in main. */
@@ -99,6 +112,8 @@ export interface WorkspaceMeta {
   id: string;
   name: string;
   icon: string;
+  /** Working directory terminals start in (PRODUCT.md §12). */
+  cwd: string;
 }
 
 export interface WorkspaceFile extends WorkspaceMeta {
@@ -136,9 +151,22 @@ export interface DwApi {
   createWorkspace(name: string, icon: string): Promise<WorkspaceMeta>;
   loadWorkspace(id: string): Promise<WorkspaceFile>;
   saveLayout(id: string, layout: WorkspaceLayout): Promise<void>;
-  renameWorkspace(id: string, name: string, icon: string): Promise<void>;
+  renameWorkspace(
+    id: string,
+    name: string,
+    icon: string,
+    cwd?: string,
+  ): Promise<void>;
   deleteWorkspace(id: string): Promise<void>;
   setActiveWorkspace(id: string): Promise<void>;
+  /** Terminals still running for a workspace (adopted instead of respawned). */
+  listTerminals(workspaceId: string): Promise<LiveTerminal[]>;
+  /** Release a workspace's terminals and notes; its layout is untouched. */
+  hibernateWorkspace(workspaceId: string): Promise<void>;
+  /** Native folder picker; resolves to the chosen path or ''. */
+  pickDirectory(): Promise<string>;
+  /** Open a path with the OS default handler (editor/file manager). */
+  openPath(path: string): Promise<void>;
 
   // Notes. A note is a markdown file keyed by stableId, registered in the graph
   // so it can be wired to terminals (and other notes) and reached by the CLI.

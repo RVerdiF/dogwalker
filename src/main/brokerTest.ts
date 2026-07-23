@@ -41,9 +41,10 @@ export async function runBrokerTest(
   graph: GraphStore,
   sock: string,
 ): Promise<void> {
-  const a = ptys.spawn({ preset: 'shell', name: 'lead', cols: 80, rows: 24 }).id;
-  const b = ptys.spawn({ preset: 'shell', name: 'reviewer', cols: 80, rows: 24 }).id;
-  const c = ptys.spawn({ preset: 'shell', name: 'stranger', cols: 80, rows: 24 }).id;
+  const base = { preset: 'shell' as const, cols: 80, rows: 24, workspaceId: 'test', cwd: '' };
+  const a = ptys.spawn({ ...base, name: 'lead', stableId: 'lead' }).id;
+  const b = ptys.spawn({ ...base, name: 'reviewer', stableId: 'reviewer' }).id;
+  const c = ptys.spawn({ ...base, name: 'stranger', stableId: 'stranger' }).id;
   graph.connect(a, b);
 
   const result: Record<string, unknown> = {};

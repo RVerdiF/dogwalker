@@ -52,10 +52,14 @@ const api: DwApi = {
   createWorkspace: (name, icon) => ipcRenderer.invoke('ws:create', { name, icon }),
   loadWorkspace: (id) => ipcRenderer.invoke('ws:load', id),
   saveLayout: (id, layout) => ipcRenderer.invoke('ws:saveLayout', { id, layout }),
-  renameWorkspace: (id, name, icon) =>
-    ipcRenderer.invoke('ws:rename', { id, name, icon }),
+  renameWorkspace: (id, name, icon, cwd) =>
+    ipcRenderer.invoke('ws:rename', { id, name, icon, cwd }),
   deleteWorkspace: (id) => ipcRenderer.invoke('ws:delete', id),
   setActiveWorkspace: (id) => ipcRenderer.invoke('ws:setActive', id),
+  listTerminals: (workspaceId) => ipcRenderer.invoke('ws:listTerminals', workspaceId),
+  hibernateWorkspace: (workspaceId) => ipcRenderer.invoke('ws:hibernate', workspaceId),
+  pickDirectory: () => ipcRenderer.invoke('sys:pickDirectory'),
+  openPath: (p) => ipcRenderer.invoke('sys:openPath', p),
 
   registerNote: (id, name) => ipcRenderer.invoke('note:register', { id, name }),
   renameNote: (id, name) => ipcRenderer.invoke('note:rename', { id, name }),
