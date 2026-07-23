@@ -18,6 +18,8 @@ interface Entry {
   producedOutput: boolean;
   hasEngaged: boolean;
   quiesce: NodeJS.Timeout | null;
+  /** Resolvers waiting for this terminal to next go quiet (used by `ask`). */
+  quietWaiters: Array<() => void>;
 }
 
 interface PtyEnv {
@@ -110,6 +112,7 @@ export class PtyManager {
       producedOutput: false,
       hasEngaged: false,
       quiesce: null,
+      quietWaiters: [],
     });
     this.graph.addNode(id, opts.name, 'terminal', opts.preset);
 
@@ -157,6 +160,40 @@ export class PtyManager {
     if (!e || e.attention === value) return;
     e.attention = value;
     if (!this.target.isDestroyed()) this.target.send('pty:attention', { id, value });
+    if (value && e.quietWaiters.length) {
+      const waiters = e.quietWaiters;
+      e.quietWaiters = [];
+      for (const w of waiters) w();
+    }
+  }
+
+  /** Resolve when the terminal next goes quiet after output, or on timeout. */
+  awaitQuiet(id: string, timeoutMs: number): Promise<void> {
+    return new Promise((resolve) => {
+      const e = this.entries.get(id);
+      if (!e) return resolve();
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(finish, timeoutMs);
+      e.quietWaiters.push(finish);
+    });
+  }
+
+  /** Plain-text snapshot of a terminal's buffer (no ANSI), for `ask` capture. */
+  plainText(id: string): string {
+    const e = this.entries.get(id);
+    if (!e) return '';
+    const buf = e.mirror.buffer.active;
+    const lines: string[] = [];
+    for (let i = 0; i < buf.length; i++) {
+      lines.push(buf.getLine(i)?.translateToString(true) ?? '');
+    }
+    return lines.join('\n').replace(/\n+$/, '');
   }
 
   write(id: string, data: string): void {

@@ -40,14 +40,6 @@ async function buildRequest() {
       if (!target || !body) die('usage: dogwalker ask <terminal> <message>');
       return { cmd: 'ask', from, target, body };
     }
-    case 'reply': {
-      const msgId = argv[1];
-      if (!msgId) die('usage: dogwalker reply <msg-id> [--stdin | <text>]');
-      const body = argv.includes('--stdin')
-        ? (await readStdin()).replace(/\n?EOF\s*$/, '').trimEnd()
-        : argv.slice(2).join(' ');
-      return { cmd: 'reply', from, msgId, body };
-    }
     case 'check': {
       const target = argv[1];
       if (!target) die('usage: dogwalker check <terminal>');
@@ -77,7 +69,7 @@ async function buildRequest() {
     }
     default:
       die(
-        'commands: ask <t> <msg> | reply <id> --stdin | check <t> | list | note read|append|write <n> | connect <t> | disconnect <t>',
+        'commands: ask <t> <msg> | check <t> | list | note read|append|write <n> | connect <t> | disconnect <t>',
       );
   }
 }

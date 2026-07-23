@@ -73,34 +73,40 @@ WebGL context budget: contexts are granted to tier-1 terminals only (focused fir
 - The `dogwalker` shim is a tiny static binary: parse argv → connect to `DOGWALKER_SOCKET` → send one JSON request (always carrying `DOGWALKER_TERMINAL_ID` as the caller) → stream the response to stdout → exit with the broker's status code. The shim dir also exposes it as `walk` (alias — same binary).
 - **No logic in the shim.** All authorization (is the target connected to the caller?), routing, and state live in the host broker. The CLI and any future surface are thin adapters over the same broker API.
 
-### 5.2 `ask` / `reply` — structured messaging, not screen scraping
+### 5.2 `ask` — structured messaging via captured output
 
 ```
 A: dogwalker ask reviewer "review auth.ts, focus on token expiry"
-        │ 1. shim → broker: {type: ask, from: A, target: reviewer, body}
+        │ 1. shim → broker: {cmd: ask, from: A, target: reviewer, body}
         │ 2. broker: validate connection graph (A ↔ reviewer wired?)
-        │ 3. broker: msg-id assigned; delivery text composed:
-        │    "[message from A, id 7f2c] review auth.ts … reply with:
-        │     dogwalker reply 7f2c --stdin <<'EOF' … EOF"
+        │ 3. broker: snapshot reviewer's plain-text buffer (baseline)
         │ 4. broker → reviewer's PTY: single atomic write of
-        │    ESC[200~ + delivery text + ESC[201~ + \r      (bracketed paste)
-        │ 5. reviewer's agent works, then runs:
-        │       dogwalker reply 7f2c --stdin <<'EOF'
-        │       done — two issues: …
-        │       EOF
-        │ 6. broker correlates by msg-id, logs to history,
-        ▼    unblocks A's shim with the reply on stdout (or times out).
+        │    ESC[200~ + body + ESC[201~ + \r      (bracketed paste)
+        │ 5. reviewer works and answers in its own terminal — normally,
+        │    running no command; the broker waits for it to go quiet
+        │    (the quiescence detector, §6), or times out (180 s).
+        │ 6. broker captures the output produced since the baseline,
+        ▼    logs it to history, returns it on A's stdout.
 ```
+
+**Why capture, not a `reply` command.** An earlier design made the target run
+`dogwalker reply <id>` to send a structured answer back. Real-world testing
+killed it: plain shells and uncooperative agents never replied (the asker hung),
+and `reply --stdin` without a heredoc deadlocked reading stdin — so *both* sides
+waited forever. Capturing the target's own output needs **no cooperation** and
+works with any agent, shell, or process. This reverses the earlier "screen is not
+transport" rule; it is the right call because our quiescence detector runs on the
+headless mirror and is **focus-independent** — so unlike screen-scraping designs
+that must freeze when the user selects the target, capture here is reliable even
+while the user interacts.
 
 Key properties:
 
-- **Byte-exact replies.** The reply arrives as stdin of a process over the socket — the target's screen contents, focus state, or user interaction are irrelevant to transport. (The screen still *shows* everything as a natural side effect: the delivered message appears in the target's chat history, and the reply command is visible in its TUI.)
 - **Atomic injection — no visual flash.** Paste-open + body + paste-close + CR go in **one PTY write**. The TUI reads the chunk in one iteration and its next painted frame already shows the message in history, never sitting in the input box. Never split the write or sleep between paste and Enter.
 - **Bracketed paste is conditional.** The headless mirror tracks DEC mode 2004. Target has it on (all modern agent TUIs) → paste-wrapped; off (bare shell) → plain write. Either way, no visible escape garbage.
-- **Politeness hold (refinement, not correctness):** if the user typed in the target within ~1 s, the broker delays injection until quiescent. Injection is atomic regardless; this only avoids sharing the input box with a half-typed user draft.
-- **`--stdin` heredoc is the canonical reply form** (taught by the skill): multi-line and quote-heavy replies never fight shell escaping. `--json` available on `ask` for structured consumption.
-- **Timeouts**: `ask` fails with a distinct exit code if no `reply` arrives in the window (agent forgot / crashed); the skill teaches agents to always reply via CLI.
-- **Message history**: every ask/reply/check is logged per connection edge (who, what, when, status) and surfaced in the UI when clicking a cable. This is the structural advantage over scraping designs — an exact, replayable conversation log.
+- **Response = output delta.** The broker diffs the target's plain-text buffer (no ANSI) before vs. after, returning the new lines (the echoed prompt + the answer); it falls back to the whole screen if scrollback rolled over.
+- **Timeout, never deadlock.** `ask` resolves when the target goes quiet or after 180 s; nothing waits on the target running a command.
+- **Message history**: every ask (and its captured response) and check is logged per connection edge and surfaced in the UI when clicking a leash — a replayable conversation log.
 
 ### 5.3 `check`
 Broker serializes the target's headless-mirror screen (xterm serialize addon) and returns it. Read-only, instant, works on **any** terminal — agent or not (builds, dev servers, log tails). No injection involved.
@@ -109,7 +115,7 @@ Broker serializes the target's headless-mirror screen (xterm serialize addon) an
 `note read|append|write`, `portal navigate|click|type|screenshot|js|dom|console`, `connect`/`disconnect`, `list`, and Walker's `recruit`/`dismiss`/`assign` are all broker methods gated by the connection graph and (for Walker verbs) the terminal's Walker flag. Recruiting = broker asks the workspace store to create a terminal node with the given preset/role, wires it, and auto-positions it near the recruiter.
 
 ### 5.5 The skill
-A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills/dogwalker/`) teaches agents: available verbs, the reply-via-`--stdin` contract, how to discover peers (`dogwalker list`), and role context location. Because we own both the skill and the broker, protocol evolution is a two-file change.
+A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills/dogwalker/`) teaches agents: available verbs, that answering an `ask` is just responding normally in their terminal (no command to run), how to discover peers (`dogwalker list`), and role context location. Because we own both the skill and the broker, protocol evolution is a two-file change.
 
 ## 6. Attention detection
 
@@ -117,7 +123,7 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
 - Fallback (no OSC 133): output quiescence heuristic (no PTY output for N seconds while a foreground child exists).
 - Detection runs on the headless mirror, so it works for offscreen and hibernation-adjacent states and is independent of UI focus.
 - **Focus only suppresses the notification**, never the detection: if the user is actively interacting with that terminal, don't notify them about the terminal they're looking at. Dot state stays truthful.
-- `ask` completion-waiting reuses the same lifecycle signals when it needs to know "target finished a turn" (e.g. for queued routines) — but reply transport never depends on it (see §5.2).
+- `ask` reuses exactly this quiescence signal to know when the target finished responding, then captures its output (see §5.2).
 
 ## 7. Images & the Prompt Composer
 
@@ -225,9 +231,9 @@ terminal themes, and attention detection.
 - **GraphStore** (`src/main/graphStore.ts`) — authoritative terminals + leashes;
   the broker authorizes strictly against it.
 - **Broker** (`src/main/broker.ts`) — net server on a named pipe (Windows) /
-  unix socket; `ask` / `reply` / `check` / `list` / `connect` / `disconnect`;
-  ask holds the caller's connection and unblocks on the peer's `reply`,
-  correlated by msg-id, with a 120 s timeout.
+  unix socket; `ask` / `check` / `list` / `note` / `connect` / `disconnect`;
+  `ask` injects the message and returns the target's captured output after it
+  goes quiet (§5.2), so nothing waits on the target running a reply command.
 - **Shim** (`src/shim/shim.mjs` + `src/main/shimDir.ts`) — standalone `dogwalker`
   /`walk` CLI materialized into a per-app shim dir prepended to each PTY's PATH;
   no logic, just framing.
@@ -237,14 +243,14 @@ terminal themes, and attention detection.
   renders it when a leash is clicked.
 - **Connections UI** — React Flow loose-mode handles create leashes; edges are
   derived from the graph; clicking a leash opens the message-history panel.
-- **Skill** (`skills/dogwalker/SKILL.md`) — teaches agents the CLI + reply-via-
-  `--stdin` heredoc contract. **Installed on startup** (`src/main/skillInstall.ts`)
-  into `~/.claude/skills/dogwalker/` so agents actually discover the CLI — without
-  it the shim is on PATH but no agent knows it exists. Other agents' skill
-  conventions come with their presets.
+- **Skill** (`skills/dogwalker/SKILL.md`) — teaches agents the CLI and that
+  answering an `ask` is just responding normally in their terminal. **Installed
+  on startup** (`src/main/skillInstall.ts`) into `~/.claude/skills/dogwalker/` so
+  agents actually discover the CLI — without it the shim is on PATH but no agent
+  knows it exists. Other agents' skill conventions come with their presets.
 
-**Validated** (`DW_BROKERTEST=1 npm start`, Windows, 2026-07-19): ask→inject→
-reply round-trip returns the exact reply body to the held caller; `check` and
+**Validated** (`DW_BROKERTEST=1 npm start`, Windows): `ask` injects a message,
+waits for the target to go quiet, and returns its captured output; `check` and
 `list` work; an **unwired terminal is denied** (connection-graph auth); and the
 **real shim** run through a shell (`dogwalker list`) resolves via PATH and
 returns the peer — proving the CLI exists only inside canvas terminals.

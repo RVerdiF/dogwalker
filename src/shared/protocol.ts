@@ -9,12 +9,6 @@ export interface AskReq {
   target: string;
   body: string;
 }
-export interface ReplyReq {
-  cmd: 'reply';
-  from: string;
-  msgId: string;
-  body: string;
-}
 export interface CheckReq {
   cmd: 'check';
   from: string;
@@ -41,7 +35,6 @@ export interface NoteReq {
 
 export type BrokerRequest =
   | AskReq
-  | ReplyReq
   | CheckReq
   | ListReq
   | ConnectReq

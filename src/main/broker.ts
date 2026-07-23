@@ -10,14 +10,7 @@ import {
   type BrokerResponse,
 } from '../shared/protocol';
 
-interface Pending {
-  socket: net.Socket;
-  from: string;
-  to: string;
-  timer: NodeJS.Timeout;
-}
-
-const ASK_TIMEOUT_MS = 120_000;
+const ASK_TIMEOUT_MS = 180_000;
 
 /**
  * The single agent-facing authority (ARCHITECTURE.md §5). Every capability a
@@ -27,7 +20,6 @@ const ASK_TIMEOUT_MS = 120_000;
  */
 export class Broker {
   private server: net.Server;
-  private pending = new Map<string, Pending>();
 
   constructor(
     private pipePath: string,
@@ -45,8 +37,6 @@ export class Broker {
   }
 
   close(): void {
-    for (const p of this.pending.values()) clearTimeout(p.timer);
-    this.pending.clear();
     this.server.close();
   }
 
@@ -76,9 +66,8 @@ export class Broker {
     }
     switch (req.cmd) {
       case 'ask':
-        return this.handleAsk(socket, req.from, req.target, req.body);
-      case 'reply':
-        return this.handleReply(socket, req.from, req.msgId, req.body);
+        void this.handleAsk(socket, req.from, req.target, req.body);
+        return;
       case 'check':
         return this.handleCheck(socket, req.from, req.target);
       case 'list':
@@ -100,12 +89,20 @@ export class Broker {
     }
   }
 
-  private handleAsk(
+  /**
+   * Send a message to a connected terminal and return whatever it produces in
+   * response (ARCHITECTURE.md §5.2). We inject the message, wait for the target
+   * to go quiet (the focus-independent quiescence detector, §6), then capture
+   * the plain-text output it produced. No cooperation from the target is needed
+   * — it works with any agent, shell, or process — so there is no `reply`
+   * command and nothing can deadlock waiting for one.
+   */
+  private async handleAsk(
     socket: net.Socket,
     from: string,
     target: string,
     body: string,
-  ): void {
+  ): Promise<void> {
     const to = this.graph.resolvePeer(from, target);
     if (!to) {
       return this.respond(socket, {
@@ -116,53 +113,24 @@ export class Broker {
     const msgId = crypto.randomBytes(3).toString('hex');
     this.history.append({ ts: Date.now(), kind: 'ask', from, to, msgId, body });
 
-    const fromName = this.graph.name(from);
-    const delivery =
-      `[dogwalker] message from ${fromName} (id ${msgId}). When done, reply with:\n` +
-      `dogwalker reply ${msgId} --stdin  (end with a line containing only EOF)\n` +
-      body;
-    this.ptys.inject(to, delivery);
+    const before = this.ptys.plainText(to);
+    this.ptys.inject(to, body);
+    await this.ptys.awaitQuiet(to, ASK_TIMEOUT_MS);
+    const after = this.ptys.plainText(to);
 
-    const timer = setTimeout(() => {
-      this.pending.delete(msgId);
-      this.respond(socket, { ok: false, error: 'timed out waiting for reply' });
-    }, ASK_TIMEOUT_MS);
-    this.pending.set(msgId, { socket, from, to, timer });
-  }
-
-  private handleReply(
-    socket: net.Socket,
-    from: string,
-    msgId: string,
-    body: string,
-  ): void {
-    const pending = this.pending.get(msgId);
-    if (!pending) {
-      return this.respond(socket, {
-        ok: false,
-        error: 'unknown or expired message id',
-      });
-    }
-    if (pending.to !== from) {
-      return this.respond(socket, {
-        ok: false,
-        error: 'only the addressed terminal may reply',
-      });
-    }
-    clearTimeout(pending.timer);
-    this.pending.delete(msgId);
+    // The response is the new output the target produced (echoed prompt + its
+    // answer). Falls back to the whole screen if scrollback rolled over.
+    const delta = after.startsWith(before) ? after.slice(before.length) : after;
+    const response = delta.trim();
     this.history.append({
       ts: Date.now(),
       kind: 'reply',
-      from,
-      to: pending.from,
+      from: to,
+      to: from,
       msgId,
-      body,
+      body: response,
     });
-    // Unblock the original asker on its held connection.
-    this.respond(pending.socket, { ok: true, data: { body } });
-    // Acknowledge the replier.
-    this.respond(socket, { ok: true });
+    this.respond(socket, { ok: true, data: { body: response } });
   }
 
   private handleCheck(socket: net.Socket, from: string, target: string): void {

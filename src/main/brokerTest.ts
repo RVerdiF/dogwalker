@@ -51,20 +51,18 @@ export async function runBrokerTest(
   await wait(2500); // let shells initialize
 
   // 1. ask (held) — broker injects delivery into reviewer's PTY.
-  const askPromise = rpc(sock, { cmd: 'ask', from: a, target: 'reviewer', body: 'review auth.ts' }, { hold: true });
-  await wait(600);
-
-  // 2. recover msgId from reviewer's screen (as an agent would read it).
-  const screen = ptys.serialize(b);
-  const msgId = /id ([0-9a-f]{6})/.exec(screen)?.[1] ?? '';
-  result.msgIdFound = msgId;
-  result.deliveryInjected = screen.includes('message from lead');
-
-  // 3. reply from reviewer → unblocks the asker.
-  const replyRes = await rpc(sock, { cmd: 'reply', from: b, msgId, body: 'LGTM, two nits' });
-  const askRes = await askPromise;
-  result.replyOk = replyRes.ok;
-  result.askReceived = (askRes.data as { body?: string })?.body;
+  // 1. ask — the broker injects the message into reviewer (a shell), waits for
+  // it to go quiet, and returns reviewer's output. A shell runs the message as a
+  // command, so a known echo comes back as the captured response.
+  const askRes = await rpc(sock, {
+    cmd: 'ask',
+    from: a,
+    target: 'reviewer',
+    body: 'echo ASK_CAPTURE_OK',
+  });
+  const askReceived = (askRes.data as { body?: string })?.body ?? '';
+  result.askOk = askRes.ok;
+  result.askCaptured = askReceived.includes('ASK_CAPTURE_OK');
 
   // 4. check — lead reads reviewer's screen.
   const checkRes = await rpc(sock, { cmd: 'check', from: a, target: 'reviewer' });
