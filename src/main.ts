@@ -13,6 +13,8 @@ import * as os from 'node:os';
 import { WorkspaceStore } from './main/workspaceStore';
 import { NoteStore } from './main/noteStore';
 import { DraftStore } from './main/draftStore';
+import { SettingsStore } from './main/settingsStore';
+import type { AppSettings } from './shared/ipc';
 import type {
   ProcessMetric,
   SpawnOptions,
@@ -93,6 +95,13 @@ const createWindow = () => {
   ipcMain.handle('note:unload', (_e, id: string) => notes.unload(id));
   ipcMain.handle('note:delete', (_e, id: string) => notes.delete(id));
 
+  const settings = new SettingsStore(app.getPath('userData'));
+  ipcMain.handle('settings:get', () => settings.get());
+  ipcMain.handle('settings:set', (_e, partial: Partial<AppSettings>) =>
+    settings.set(partial),
+  );
+  ipcMain.handle('themes:listCustom', () => settings.listCustomThemes());
+
   const drafts = new DraftStore(app.getPath('userData'));
   ipcMain.on(
     'compose:send',
@@ -157,6 +166,7 @@ const createWindow = () => {
       process.env.DW_PALETTETEST ? 'palettetest=1' : '',
       process.env.DW_NOTETEST ? 'notetest=1' : '',
       process.env.DW_COMPOSERTEST ? 'composertest=1' : '',
+      process.env.DW_THEMETEST ? 'themetest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

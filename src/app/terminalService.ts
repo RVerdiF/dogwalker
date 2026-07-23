@@ -1,6 +1,7 @@
-import { Terminal } from '@xterm/xterm';
+import { Terminal, type ITheme } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { BUILTIN_THEMES } from '../shared/themes';
 
 /**
  * The degradation ladder (ARCHITECTURE.md §4).
@@ -43,6 +44,13 @@ class TerminalService {
   private entries = new Map<string, Entry>();
   private webglCount = 0;
   private contextLossTotal = 0;
+  private theme: ITheme = BUILTIN_THEMES[0].theme;
+
+  /** Apply a theme to every live terminal and to any spawned afterwards. */
+  setTheme(theme: ITheme): void {
+    this.theme = theme;
+    for (const e of this.entries.values()) e.term.options.theme = theme;
+  }
 
   create(id: string): void {
     if (this.entries.has(id)) return;
@@ -51,11 +59,7 @@ class TerminalService {
       fontSize: 13,
       fontFamily: '"Cascadia Mono", Consolas, Menlo, monospace',
       allowProposedApi: true,
-      theme: {
-        background: '#16161c',
-        foreground: '#d6d6dd',
-        cursor: '#8ab4ff',
-      },
+      theme: this.theme,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -167,6 +171,11 @@ class TerminalService {
 
   tierOf(id: string): Tier | null {
     return this.entries.get(id)?.tier ?? null;
+  }
+
+  /** Test helper: the background color applied to a terminal. */
+  themeBg(id: string): string | undefined {
+    return this.entries.get(id)?.term.options.theme?.background;
   }
 
   private acquireWebgl(e: Entry): void {

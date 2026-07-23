@@ -1,7 +1,16 @@
 // Shared IPC contract between main, preload and renderer.
 // The spike keeps a single window; channels are flat strings.
 
+import type { ThemeSpec } from './themes';
+
 export type PresetId = 'shell' | 'claude' | 'codex' | 'gemini' | 'stress';
+
+/** Persisted app settings (currently just terminal theming). */
+export interface AppSettings {
+  themeName: string;
+  lightThemeName: string;
+  followSystem: boolean;
+}
 
 export interface SpawnOptions {
   preset: PresetId;
@@ -146,6 +155,12 @@ export interface DwApi {
   setDraft(stableId: string, text: string): void;
   /** Write a pasted image to a temp file; returns the absolute path to embed. */
   saveDropImage(name: string, bytes: Uint8Array): Promise<string>;
+
+  // Settings & themes.
+  getSettings(): Promise<AppSettings>;
+  setSettings(partial: Partial<AppSettings>): Promise<AppSettings>;
+  /** Custom terminal themes read from userData/terminal-themes/*.json. */
+  listCustomThemes(): Promise<ThemeSpec[]>;
 }
 
 declare global {

@@ -217,9 +217,9 @@ dev-tooling overhead. Packaged-build measurement moves to v0.7 hardening.
 
 ## 14. v0.1 progress — the core loop (in progress, branch `v0.1-core-loop`)
 
-The differentiating slice, workspace persistence, notes, and the prompt composer
-are built and validated; the rest of v0.1 (themes, OSC 133 attention) is
-follow-up on the same branch.
+The differentiating slice, workspace persistence, notes, the prompt composer,
+and terminal themes are built and validated; the rest of v0.1 (OSC 133
+attention) is follow-up on the same branch.
 
 **Built — messaging core**
 - **GraphStore** (`src/main/graphStore.ts`) — authoritative terminals + leashes;
@@ -309,3 +309,21 @@ and the terminal↔note leash persist in the layout and restore.
 the selected terminal; `@` lists the connected note; a composed message reaches
 the terminal; the draft round-trips through disk; a pasted image yields a temp
 path.
+
+**Built — terminal themes**
+- **Theme model** (`src/shared/themes.ts`) — `ThemeSpec` (xterm ITheme + light/
+  dark appearance); 7 built-ins; a validator so a malformed custom theme can't
+  break the gallery.
+- **SettingsStore** (`src/main/settingsStore.ts`) — persists `{themeName,
+  lightThemeName, followSystem}` to `settings.json`; reads custom themes from
+  `userData/terminal-themes/*.json`.
+- **Apply** — `terminalService.setTheme` recolors every live terminal and any
+  spawned afterwards (`term.options.theme`). App resolves the active theme
+  (follow-system via `matchMedia`) and applies it globally, surviving the keyed
+  Canvas remounts.
+- **UI** — the Panel's Settings section: theme swatch gallery, follow-system
+  toggle, light-theme picker.
+
+**Validated** (`DW_THEMETEST=1`, Windows, 2026-07-22): 7 built-in themes;
+selecting Dracula recolors a live terminal and a newly spawned one; the choice
+persists; custom-theme listing works.

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import type { WorkspaceMeta } from '../shared/ipc';
+import type { AppSettings, WorkspaceMeta } from '../shared/ipc';
+import type { ThemeSpec } from '../shared/themes';
 
 interface Props {
   open: boolean;
@@ -10,6 +11,10 @@ interface Props {
   onCreate: () => void;
   onRename: (id: string, name: string, icon: string) => void;
   onDelete: (id: string) => void;
+  themes: ThemeSpec[];
+  settings: AppSettings;
+  activeThemeName: string;
+  onUpdateSettings: (partial: Partial<AppSettings>) => void;
 }
 
 type SectionId = 'workspaces' | 'agents' | 'presets' | 'roles' | 'settings';
@@ -19,7 +24,7 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string; ready: boole
   { id: 'agents', label: 'Agents', icon: '🤖', ready: false },
   { id: 'presets', label: 'Presets', icon: '⚡', ready: false },
   { id: 'roles', label: 'Roles', icon: '🎭', ready: false },
-  { id: 'settings', label: 'Settings', icon: '⚙️', ready: false },
+  { id: 'settings', label: 'Settings', icon: '⚙️', ready: true },
 ];
 
 /**
@@ -62,6 +67,8 @@ export function Panel(props: Props) {
         <div className="dw-panel-body">
           {section === 'workspaces' ? (
             <WorkspacesSection {...props} />
+          ) : section === 'settings' ? (
+            <SettingsSection {...props} />
           ) : (
             <div className="dw-panel-placeholder">
               This section arrives in a later version.
@@ -103,6 +110,84 @@ function WorkspacesSection({
             onRename={(name, icon) => onRename(w.id, name, icon)}
             onDelete={() => onDelete(w.id)}
           />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SettingsSection({ themes, settings, activeThemeName, onUpdateSettings }: Props) {
+  const lightThemes = themes.filter((t) => t.appearance === 'light');
+  return (
+    <div className="dw-section">
+      <div className="dw-section-head">
+        <h2>Terminal theme</h2>
+        <span className="dw-active-theme">active: {activeThemeName}</span>
+      </div>
+
+      <div className="dw-theme-grid">
+        {themes.map((t) => (
+          <button
+            key={t.name}
+            className={`dw-theme-card ${
+              settings.themeName === t.name ? 'active' : ''
+            }`}
+            onClick={() => onUpdateSettings({ themeName: t.name })}
+            title={t.name}
+          >
+            <ThemeSwatch theme={t} />
+            <span className="dw-theme-name">
+              {t.name}
+              {!t.builtin && <span className="dw-theme-custom">custom</span>}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <label className="dw-toggle-row">
+        <input
+          type="checkbox"
+          checked={settings.followSystem}
+          onChange={(e) => onUpdateSettings({ followSystem: e.target.checked })}
+        />
+        Follow system light/dark
+      </label>
+
+      {settings.followSystem && (
+        <div className="dw-light-picker">
+          <span>Light theme:</span>
+          <select
+            value={settings.lightThemeName}
+            onChange={(e) => onUpdateSettings({ lightThemeName: e.target.value })}
+          >
+            {lightThemes.map((t) => (
+              <option key={t.name} value={t.name}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <p className="dw-settings-hint">
+        Drop custom <code>.json</code> themes in the app's{' '}
+        <code>terminal-themes</code> folder; they appear here after a restart.
+      </p>
+    </div>
+  );
+}
+
+function ThemeSwatch({ theme }: { theme: ThemeSpec }) {
+  const t = theme.theme;
+  const dots = [t.red, t.green, t.yellow, t.blue, t.magenta, t.cyan];
+  return (
+    <div className="dw-swatch" style={{ background: t.background }}>
+      <span className="dw-swatch-text" style={{ color: t.foreground }}>
+        Aa
+      </span>
+      <div className="dw-swatch-dots">
+        {dots.map((c, i) => (
+          <span key={i} style={{ background: c }} />
         ))}
       </div>
     </div>

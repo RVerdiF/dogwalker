@@ -957,3 +957,126 @@ body,
 .dw-mention-icon {
   font-size: 14px;
 }
+
+/* ---- Settings: theme gallery -------------------------------------------- */
+.dw-active-theme {
+  color: #9a9aa8;
+  font-size: 12px;
+}
+
+.dw-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.dw-theme-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.dw-theme-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.dw-theme-card.active {
+  border-color: rgba(138, 180, 255, 0.7);
+  background: rgba(138, 180, 255, 0.1);
+}
+
+.dw-swatch {
+  position: relative;
+  height: 54px;
+  border-radius: 7px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.dw-swatch-text {
+  font-family: Consolas, monospace;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.dw-swatch-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.dw-swatch-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.dw-theme-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #d6d6dd;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dw-theme-custom {
+  font-size: 9px;
+  text-transform: uppercase;
+  color: #7fd79a;
+  border: 1px solid rgba(127, 215, 154, 0.4);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.dw-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #d6d6dd;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.dw-light-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #c8c8d4;
+  margin-bottom: 16px;
+}
+
+.dw-light-picker select {
+  background: rgba(0, 0, 0, 0.25);
+  color: #eaeaf0;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 7px;
+  padding: 5px 8px;
+  font-size: 13px;
+}
+
+.dw-settings-hint {
+  font-size: 12px;
+  color: #8a8a99;
+  line-height: 1.5;
+}
+
+.dw-settings-hint code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: Consolas, monospace;
+}

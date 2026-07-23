@@ -69,6 +69,10 @@ const api: DwApi = {
     ipcRenderer.send('compose:setDraft', { stableId, text }),
   saveDropImage: (name, bytes) =>
     ipcRenderer.invoke('compose:saveImage', { name, bytes }),
+
+  getSettings: () => ipcRenderer.invoke('settings:get'),
+  setSettings: (partial) => ipcRenderer.invoke('settings:set', partial),
+  listCustomThemes: () => ipcRenderer.invoke('themes:listCustom'),
 };
 
 contextBridge.exposeInMainWorld('dw', api);

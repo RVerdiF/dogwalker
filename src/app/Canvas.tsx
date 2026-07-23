@@ -18,6 +18,7 @@ import type {
   WorkspaceLayout,
 } from '../shared/ipc';
 import { terminals, type Tier } from './terminalService';
+import { BUILTIN_THEMES } from '../shared/themes';
 import { TerminalNode, type TerminalFlowNode } from './TerminalNode';
 import { NoteNode, type NoteFlowNode } from './NoteNode';
 import { FloatingLeash } from './FloatingLeash';
@@ -400,6 +401,45 @@ export function Canvas({ workspaceId, isDev }: Props) {
       );
     })();
   }, []);
+
+  // Theme test: applying a theme recolors live terminals and new ones; the
+  // selection persists.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('themetest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    void (async () => {
+      const term = await spawnNew('shell');
+      await sleep(400);
+      const before = terminals.themeBg(term);
+      const dracula = BUILTIN_THEMES.find((t) => t.name === 'Dracula');
+      if (dracula) terminals.setTheme(dracula.theme);
+      const afterLive = terminals.themeBg(term);
+      const term2 = await spawnNew('shell');
+      await sleep(200);
+      const afterNew = terminals.themeBg(term2);
+      await window.dw.setSettings({ themeName: 'Dracula' });
+      const s = await window.dw.getSettings();
+      const custom = await window.dw.listCustomThemes();
+      console.log(
+        'THEMETEST RESULT ' +
+          JSON.stringify({
+            builtinCount: BUILTIN_THEMES.length,
+            before,
+            liveOk: afterLive === '#282a36',
+            newOk: afterNew === '#282a36',
+            persistOk: s.themeName === 'Dracula',
+            customIsList: Array.isArray(custom),
+          }),
+      );
+      loaded.current = false;
+      window.dw.kill(term);
+      window.dw.kill(term2);
+      await window.dw.setSettings({ themeName: 'Dogwalker Dark' });
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, spawnNew]);
 
   // Composer round-trip: select a terminal, drive its floating composer via the
   // DOM — @-mention menu, send — plus draft persistence and image temp files.
