@@ -424,6 +424,20 @@ export function Canvas({ workspaceId, isDev }: Props) {
       await sleep(1200);
       const afterWrite = await window.dw.readNote(noteId);
 
+      // Chaining: a second note wired to the first; --chain from the entry
+      // (only the entry is connected to the terminal) must pull both.
+      const note2 = await addNote();
+      await sleep(200);
+      await window.dw.connect(noteId, note2);
+      await window.dw.saveNote(note2, 'downstream detail 42');
+      await sleep(400);
+      window.dw.write(term, `dogwalker note read ${noteName} --chain\r`);
+      await sleep(1200);
+      const chainScreen = await window.dw.serialize(term);
+      const cliChain =
+        chainScreen.includes('agent wrote this') &&
+        chainScreen.includes('downstream detail 42');
+
       // Persistence: note spec + edge present after the debounce.
       await sleep(600);
       const saved = await window.dw.loadWorkspace(workspaceId);
@@ -436,13 +450,15 @@ export function Canvas({ workspaceId, isDev }: Props) {
             noteName,
             cliRead: readEcho,
             cliWrote: afterWrite.includes('agent wrote this'),
+            cliChain,
             notePersisted: !!noteSpec,
-            edgePersisted: saved.layout.edges.length === 1,
+            notesPersisted: saved.layout.nodes.filter((n) => n.kind === 'note').length,
           }),
       );
       loaded.current = false;
       window.dw.kill(term);
       await window.dw.deleteNote(noteId);
+      await window.dw.deleteNote(note2);
       await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
     })();
   }, [workspaceId, spawnNew, addNote]);

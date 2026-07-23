@@ -275,7 +275,9 @@ the layout **survives teardown** on disk; launch 2 restores 2 live terminals +
   `userData/notes/<stableId>.md`, the single writer for both the editor and the
   CLI; emits `update` so an open editor refreshes after an agent writes.
 - **`note` verb** (broker + shim) — `dogwalker note read|append|write <name>`,
-  gated by the connection graph.
+  gated by the connection graph. `note read --chain` follows note↔note leashes
+  (BFS, cycle-safe) and concatenates the connected note cluster — the mind-map
+  chain, reachable from an agent wired only to the entry note.
 - **NoteNode** (`src/app/NoteNode.tsx`) — a markdown sticky with raw/formatted
   modes (react-markdown + remark-gfm), inline rename, delete-with-file; refreshes
   on `note:update`. Notes are excluded from the terminal render ladder. Added to
@@ -283,5 +285,6 @@ the layout **survives teardown** on disk; launch 2 restores 2 live terminals +
 
 **Validated** (`DW_NOTETEST=1`, Windows, 2026-07-19): an agent `note read`s a
 connected note's content off its own terminal and `note write`s it (file
-reflects the change via the single writer); the note and its terminal↔note leash
-both persist in the layout and restore.
+reflects the change via the single writer); `note read --chain` from an entry
+note pulls a downstream note the terminal is not directly wired to; the notes
+and the terminal↔note leash persist in the layout and restore.

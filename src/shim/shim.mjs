@@ -65,14 +65,14 @@ async function buildRequest() {
       const op = argv[1];
       const target = argv[2];
       if (!['read', 'append', 'write'].includes(op) || !target) {
-        die('usage: dogwalker note read|append|write <note> [--stdin | <text>]');
+        die('usage: dogwalker note read|append|write <note> [--chain | --stdin | <text>]');
       }
-      let body;
-      if (op !== 'read') {
-        body = argv.includes('--stdin')
-          ? (await readStdin()).replace(/\n?EOF\s*$/, '').trimEnd()
-          : argv.slice(3).join(' ');
+      if (op === 'read') {
+        return { cmd: 'note', from, op, target, chain: argv.includes('--chain') };
       }
+      const body = argv.includes('--stdin')
+        ? (await readStdin()).replace(/\n?EOF\s*$/, '').trimEnd()
+        : argv.slice(3).join(' ');
       return { cmd: 'note', from, op, target, body };
     }
     default:

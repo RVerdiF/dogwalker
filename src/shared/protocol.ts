@@ -35,6 +35,8 @@ export interface NoteReq {
   op: 'read' | 'append' | 'write';
   target: string;
   body?: string;
+  /** read only: follow note↔note leashes and concatenate the whole chain. */
+  chain?: boolean;
 }
 
 export type BrokerRequest =

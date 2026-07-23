@@ -87,7 +87,14 @@ export class Broker {
       case 'disconnect':
         return this.handleWire(socket, req.cmd, req.from, req.target);
       case 'note':
-        return this.handleNote(socket, req.from, req.op, req.target, req.body);
+        return this.handleNote(
+          socket,
+          req.from,
+          req.op,
+          req.target,
+          req.body,
+          req.chain,
+        );
       default:
         return this.respond(socket, { ok: false, error: 'unknown command' });
     }
@@ -177,6 +184,31 @@ export class Broker {
     this.respond(socket, { ok: true, data: { screen } });
   }
 
+  /**
+   * Follow note↔note leashes from `entry` (BFS, cycle-safe) and concatenate the
+   * whole connected note cluster — the "mind-map of context" pattern
+   * (PRODUCT.md §6). Each note is delimited so the reading agent can tell them
+   * apart. Only note-kind neighbors are followed, so the caller terminal (and
+   * any wired agents) are never pulled in.
+   */
+  private readChain(entry: string): string {
+    const visited = new Set<string>();
+    const order: string[] = [];
+    const queue = [entry];
+    while (queue.length) {
+      const cur = queue.shift() as string;
+      if (visited.has(cur)) continue;
+      visited.add(cur);
+      order.push(cur);
+      for (const nb of this.graph.neighbors(cur)) {
+        if (!visited.has(nb) && this.graph.kindOf(nb) === 'note') queue.push(nb);
+      }
+    }
+    return order
+      .map((id) => `===== NOTE: ${this.graph.name(id)} =====\n${this.notes.read(id)}`)
+      .join('\n\n');
+  }
+
   private handleList(socket: net.Socket, from: string): void {
     const peers = [...this.graph.neighbors(from)].map((id) => ({
       id,
@@ -217,6 +249,7 @@ export class Broker {
     op: 'read' | 'append' | 'write',
     target: string,
     body?: string,
+    chain?: boolean,
   ): void {
     // Only notes the caller is wired to are reachable.
     const noteId = this.graph.resolvePeer(from, target, 'note');
@@ -227,13 +260,15 @@ export class Broker {
       });
     }
     if (op === 'read') {
-      const content = this.notes.read(noteId);
+      const content = chain
+        ? this.readChain(noteId)
+        : this.notes.read(noteId);
       this.history.append({
         ts: Date.now(),
         kind: 'check',
         from,
         to: noteId,
-        body: '(read note)',
+        body: chain ? '(read note chain)' : '(read note)',
       });
       return this.respond(socket, { ok: true, data: { content } });
     }
