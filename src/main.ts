@@ -7,8 +7,11 @@ import { History } from './main/history';
 import { Broker } from './main/broker';
 import { createShimDir } from './main/shimDir';
 import { runBrokerTest } from './main/brokerTest';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
 import { WorkspaceStore } from './main/workspaceStore';
 import { NoteStore } from './main/noteStore';
+import { DraftStore } from './main/draftStore';
 import type {
   ProcessMetric,
   SpawnOptions,
@@ -88,6 +91,29 @@ const createWindow = () => {
   ipcMain.handle('note:unload', (_e, id: string) => notes.unload(id));
   ipcMain.handle('note:delete', (_e, id: string) => notes.delete(id));
 
+  const drafts = new DraftStore(app.getPath('userData'));
+  ipcMain.on(
+    'compose:send',
+    (_e, { id, text }: { id: string; text: string }) => ptys?.inject(id, text),
+  );
+  ipcMain.handle('compose:getDraft', (_e, stableId: string) => drafts.get(stableId));
+  ipcMain.on(
+    'compose:setDraft',
+    (_e, { stableId, text }: { stableId: string; text: string }) =>
+      drafts.set(stableId, text),
+  );
+  ipcMain.handle(
+    'compose:saveImage',
+    (_e, { name, bytes }: { name: string; bytes: Uint8Array }) => {
+      const dir = path.join(os.tmpdir(), 'dogwalker-drops');
+      fs.mkdirSync(dir, { recursive: true });
+      const safe = name.replace(/[^\w.-]/g, '_') || 'image.png';
+      const file = path.join(dir, `${Date.now()}-${safe}`);
+      fs.writeFileSync(file, Buffer.from(bytes));
+      return file;
+    },
+  );
+
   const workspaces = new WorkspaceStore(app.getPath('userData'));
   ipcMain.handle('ws:list', () => workspaces.list());
   ipcMain.handle('ws:create', (_e, { name, icon }: { name: string; icon: string }) =>
@@ -128,6 +154,7 @@ const createWindow = () => {
       process.env.DW_PERSISTTEST ? 'persisttest=1' : '',
       process.env.DW_PALETTETEST ? 'palettetest=1' : '',
       process.env.DW_NOTETEST ? 'notetest=1' : '',
+      process.env.DW_COMPOSERTEST ? 'composertest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

@@ -25,6 +25,7 @@ import { Hud } from './Hud';
 import { HistoryPanel } from './HistoryPanel';
 import { DevBar } from './DevBar';
 import { TerminalPalette } from './TerminalPalette';
+import { Composer, type ComposerTarget, type Mention } from './Composer';
 import { runSmoke } from './smoke';
 
 type DwNode = TerminalFlowNode | NoteFlowNode;
@@ -59,6 +60,7 @@ export function Canvas({ workspaceId, isDev }: Props) {
     bName: string;
   } | null>(null);
   const { getViewport, setViewport } = useReactFlow();
+  const [focusSignal, setFocusSignal] = useState(0);
   const spawnCount = useRef(0);
   const tierPass = useRef(false);
   const harnessRan = useRef(false);
@@ -156,17 +158,19 @@ export function Canvas({ workspaceId, isDev }: Props) {
     [addTerminal],
   );
 
-  const addNote = useCallback(() => {
+  const addNote = useCallback(async () => {
     const n = spawnCount.current++;
-    return addNoteNode({
+    const name = `note-${n + 1}`;
+    const id = await addNoteNode({
       kind: 'note',
       stableId: crypto.randomUUID(),
-      name: `note-${n + 1}`,
+      name,
       x: (n % GRID_COLS) * GRID_GAP_X,
       y: Math.floor(n / GRID_COLS) * GRID_GAP_Y,
       w: NOTE_W,
       h: NOTE_H,
     });
+    return { id, name };
   }, [addNoteNode]);
 
   // ---- load this workspace's layout, then wire its connections -------------
@@ -397,6 +401,78 @@ export function Canvas({ workspaceId, isDev }: Props) {
     })();
   }, []);
 
+  // Composer round-trip: select a terminal, drive its floating composer via the
+  // DOM — @-mention menu, send — plus draft persistence and image temp files.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('composertest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const setNativeValue = (el: HTMLTextAreaElement, value: string) => {
+      const setter = Object.getOwnPropertyDescriptor(
+        HTMLTextAreaElement.prototype,
+        'value',
+      )?.set;
+      setter?.call(el, value);
+      el.setSelectionRange(value.length, value.length);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    void (async () => {
+      const term = await spawnNew('shell');
+      const { id: noteId, name: noteName } = await addNote();
+      await window.dw.connect(term, noteId);
+      setNodes((ns) =>
+        ns.map((n) => ({ ...n, selected: n.id === term })),
+      );
+      await sleep(1800); // composer render + shell init
+
+      const ta = document.querySelector<HTMLTextAreaElement>('.dw-composer-textarea');
+      // @-mention menu lists the connected note.
+      let mentionOk = false;
+      if (ta) {
+        ta.focus();
+        setNativeValue(ta, '@');
+        await sleep(200);
+        const items = [...document.querySelectorAll('.dw-mention-item')].map(
+          (b) => b.textContent ?? '',
+        );
+        mentionOk = items.some((t) => t.includes(noteName));
+        // Escape the menu, then compose and send a message.
+        ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+        setNativeValue(ta, 'hello from composer');
+        await sleep(200);
+        ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+        await sleep(1000);
+      }
+      const sent = (await window.dw.serialize(term)).includes('hello from composer');
+
+      // Draft persistence + image temp file.
+      window.dw.setDraft('composertest-key', 'persist me');
+      await sleep(150);
+      const draft = await window.dw.getDraft('composertest-key');
+      const imgPath = await window.dw.saveDropImage(
+        'shot.png',
+        new Uint8Array([137, 80, 78, 71]),
+      );
+
+      console.log(
+        'COMPOSERTEST RESULT ' +
+          JSON.stringify({
+            composerShown: !!ta,
+            mentionOk,
+            sent,
+            draftOk: draft === 'persist me',
+            imgOk: imgPath.endsWith('shot.png'),
+          }),
+      );
+      loaded.current = false;
+      window.dw.setDraft('composertest-key', '');
+      window.dw.kill(term);
+      await window.dw.deleteNote(noteId);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, spawnNew, addNote, setNodes]);
+
   // Notes round-trip: create a terminal + note, wire them, exercise the CLI
   // `note` verb through the real shim, and confirm the note persists in layout.
   useEffect(() => {
@@ -406,7 +482,7 @@ export function Canvas({ workspaceId, isDev }: Props) {
     const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
     void (async () => {
       const term = await spawnNew('shell');
-      const noteId = await addNote();
+      const { id: noteId } = await addNote();
       await sleep(300);
       const g0 = await window.dw.graph();
       const noteName = g0.nodes.find((n) => n.id === noteId)?.name ?? '';
@@ -426,7 +502,7 @@ export function Canvas({ workspaceId, isDev }: Props) {
 
       // Chaining: a second note wired to the first; --chain from the entry
       // (only the entry is connected to the terminal) must pull both.
-      const note2 = await addNote();
+      const { id: note2 } = await addNote();
       await sleep(200);
       await window.dw.connect(noteId, note2);
       await window.dw.saveNote(note2, 'downstream detail 42');
@@ -532,6 +608,46 @@ export function Canvas({ workspaceId, isDev }: Props) {
     spawnCount.current = 0;
   }, [setNodes]);
 
+  // ---- prompt composer -----------------------------------------------------
+  // The composer follows the single selected terminal.
+  const composerTarget = useMemo<ComposerTarget | null>(() => {
+    const sel = nodes.filter((n) => n.selected && n.type === 'terminal');
+    if (sel.length !== 1) return null;
+    const n = sel[0];
+    return { id: n.id, stableId: n.data.stableId, name: n.data.name };
+  }, [nodes]);
+
+  // Mentions = the target terminal's connected terminals and notes.
+  const composerMentions = useMemo<Mention[]>(() => {
+    if (!composerTarget) return [];
+    const peers = new Set<string>();
+    for (const e of graph.edges) {
+      if (e.a === composerTarget.id) peers.add(e.b);
+      else if (e.b === composerTarget.id) peers.add(e.a);
+    }
+    return graph.nodes
+      .filter((n) => peers.has(n.id) && (n.kind === 'terminal' || n.kind === 'note'))
+      .map((n) => ({ name: n.name, kind: n.kind as 'terminal' | 'note' }));
+  }, [composerTarget, graph]);
+
+  const onComposerNewNote = useCallback(async () => {
+    const { id, name } = await addNote();
+    if (composerTarget) await window.dw.connect(composerTarget.id, id);
+    return name;
+  }, [addNote, composerTarget]);
+
+  // Ctrl/⌘+Shift+P focuses the composer for the selected terminal.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
+        e.preventDefault();
+        setFocusSignal((s) => s + 1);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   return (
     <div className="dw-canvas-host">
       <TerminalPalette
@@ -568,6 +684,12 @@ export function Canvas({ workspaceId, isDev }: Props) {
       </ReactFlow>
       {isDev && <Hud />}
       <HistoryPanel pair={historyPair} onClose={() => setHistoryPair(null)} />
+      <Composer
+        target={composerTarget}
+        mentions={composerMentions}
+        onNewNote={onComposerNewNote}
+        focusSignal={focusSignal}
+      />
     </div>
   );
 }

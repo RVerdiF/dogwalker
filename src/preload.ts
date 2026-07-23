@@ -61,6 +61,14 @@ const api: DwApi = {
     ipcRenderer.on('note:update', listener);
     return () => ipcRenderer.removeListener('note:update', listener);
   },
+
+  sendPrompt: (terminalId, text) =>
+    ipcRenderer.send('compose:send', { id: terminalId, text }),
+  getDraft: (stableId) => ipcRenderer.invoke('compose:getDraft', stableId),
+  setDraft: (stableId, text) =>
+    ipcRenderer.send('compose:setDraft', { stableId, text }),
+  saveDropImage: (name, bytes) =>
+    ipcRenderer.invoke('compose:saveImage', { name, bytes }),
 };
 
 contextBridge.exposeInMainWorld('dw', api);

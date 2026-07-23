@@ -138,6 +138,14 @@ export interface DwApi {
   deleteNote(id: string): Promise<void>;
   /** Fires when a note's content changes out-of-band (e.g. an agent wrote it). */
   onNoteUpdate(cb: (id: string) => void): () => void;
+
+  // Prompt composer.
+  /** Submit a composed prompt to a terminal (atomic bracketed-paste inject). */
+  sendPrompt(terminalId: string, text: string): void;
+  getDraft(stableId: string): Promise<string>;
+  setDraft(stableId: string, text: string): void;
+  /** Write a pasted image to a temp file; returns the absolute path to embed. */
+  saveDropImage(name: string, bytes: Uint8Array): Promise<string>;
 }
 
 declare global {

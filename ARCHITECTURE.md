@@ -217,9 +217,9 @@ dev-tooling overhead. Packaged-build measurement moves to v0.7 hardening.
 
 ## 14. v0.1 progress — the core loop (in progress, branch `v0.1-core-loop`)
 
-The differentiating slice, workspace persistence, and notes are built and
-validated; the rest of v0.1 (composer, themes, OSC 133 attention) is follow-up
-on the same branch.
+The differentiating slice, workspace persistence, notes, and the prompt composer
+are built and validated; the rest of v0.1 (themes, OSC 133 attention) is
+follow-up on the same branch.
 
 **Built — messaging core**
 - **GraphStore** (`src/main/graphStore.ts`) — authoritative terminals + leashes;
@@ -288,3 +288,21 @@ connected note's content off its own terminal and `note write`s it (file
 reflects the change via the single writer); `note read --chain` from an entry
 note pulls a downstream note the terminal is not directly wired to; the notes
 and the terminal↔note leash persist in the layout and restore.
+
+**Built — prompt composer**
+- **Composer** (`src/app/Composer.tsx`) — a floating editor bound to the selected
+  terminal. Enter submits via `sendPrompt` (atomic bracketed-paste inject, the
+  same path as ask delivery), Shift+Enter newlines. `@` opens a menu of the
+  terminal's connected terminals/notes plus "New note" (creates + wires + inserts
+  the reference). Pasted images are written to `tmp/dogwalker-drops` and the path
+  inserted — the uniform file-path mechanism every agent CLI reads.
+- **DraftStore** (`src/main/draftStore.ts`) — per-terminal drafts keyed by
+  stableId, persisted to `drafts.json`, so a draft survives workspace switches
+  and restarts.
+- Deferred to their features / v0.2: `@Walker` and portal mentions, nav-key
+  pass-through on an empty composer.
+
+**Validated** (`DW_COMPOSERTEST=1`, Windows, 2026-07-22): the composer shows for
+the selected terminal; `@` lists the connected note; a composed message reaches
+the terminal; the draft round-trips through disk; a pasted image yields a temp
+path.
