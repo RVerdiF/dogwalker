@@ -194,6 +194,7 @@ const createWindow = () => {
       process.env.DW_ATTENTIONTEST ? 'attentiontest=1' : '',
       process.env.DW_LAYOUTTEST ? 'layouttest=1' : '',
       process.env.DW_BGTEST ? 'bgtest=1' : '',
+      process.env.DW_SWITCHTEST ? 'switchtest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

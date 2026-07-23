@@ -194,6 +194,77 @@ export function App() {
     })();
   }, [refresh, switchTo]);
 
+  // Diagnostic: seed two workspaces with distinct content + cameras, then
+  // A → B → A, dumping both files and the live camera at each step.
+  const switchRan = useRef(false);
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('switchtest')) return;
+    if (switchRan.current) return;
+    switchRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const term = (stableId: string, name: string, x: number) => ({
+      kind: 'terminal' as const,
+      stableId,
+      name,
+      preset: 'shell' as const,
+      x,
+      y: 0,
+      w: 560,
+      h: 380,
+    });
+    const camOf = () =>
+      document.querySelector<HTMLElement>('.react-flow__viewport')?.style.transform ??
+      '';
+    void (async () => {
+      const { workspaces: list } = await window.dw.listWorkspaces();
+      const A = list[0].id;
+      const B = list[1]?.id ?? (await window.dw.createWorkspace('switch-B', '🧪')).id;
+      // A deliberately has NO saved camera: returning to it must land at the
+      // origin, not inherit B's camera.
+      await window.dw.saveLayout(A, {
+        nodes: [term('sw-a', 'termA', 0)],
+        edges: [],
+      });
+      await window.dw.saveLayout(B, {
+        nodes: [term('sw-b', 'termB', 40)],
+        edges: [],
+        viewport: { x: -800, y: -800, zoom: 1.5 },
+      });
+      await refresh();
+
+      const snap = async (label: string) => {
+        const fa = (await window.dw.loadWorkspace(A)).layout;
+        const fb = (await window.dw.loadWorkspace(B)).layout;
+        return {
+          step: label,
+          Anodes: fa.nodes.length,
+          Avp: fa.viewport,
+          Bnodes: fb.nodes.length,
+          Bvp: fb.viewport,
+          dom: camOf(),
+        };
+      };
+
+      switchTo(A);
+      await sleep(3000);
+      const s1 = await snap('afterOpenA');
+
+      // Move A's camera and switch away IMMEDIATELY — inside the save debounce.
+      // The pending save must be flushed on the way out, not dropped.
+      const rf = document.querySelector<HTMLElement>('.react-flow__viewport');
+      if (rf) rf.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: -200 }));
+      switchTo(B);
+      await sleep(3000);
+      const s2 = await snap('afterOpenB');
+
+      switchTo(A);
+      await sleep(3000);
+      const s3 = await snap('afterReturnA');
+
+      console.log('SWITCHTEST ' + JSON.stringify([s1, s2, s3]));
+    })();
+  }, [refresh, switchTo]);
+
   const remove = useCallback(
     async (id: string) => {
       await window.dw.deleteWorkspace(id);

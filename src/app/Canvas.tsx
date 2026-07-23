@@ -91,6 +91,8 @@ export function Canvas({
   const loaded = useRef(false);
   const tearingDown = useRef(false);
   const stableToLive = useRef(new Map<string, string>());
+  /** Latest persist(), so teardown can flush before the canvas goes away. */
+  const persistRef = useRef<() => void>(() => undefined);
   // Latest values for event handlers registered once on mount.
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
@@ -255,12 +257,17 @@ export function Canvas({
         if (la && lb) await window.dw.connect(la, lb);
       }
       // Put the camera back where it was left (before enabling saves, so the
-      // restore itself can't persist a stale viewport).
-      if (ws.layout.viewport) setViewport(ws.layout.viewport);
+      // restore itself can't persist a stale viewport). Always set it — a
+      // workspace with no saved camera must land at the origin, never inherit
+      // whatever the previous workspace was showing.
+      setViewport(ws.layout.viewport ?? { x: 0, y: 0, zoom: 1 });
       loaded.current = true;
     })();
     return () => {
       cancelled = true;
+      // Flush the pending debounced save FIRST: leaving a workspace seconds
+      // after moving the camera or adding a node must not lose those changes.
+      persistRef.current();
       // Stop persistence BEFORE tearing down, so a debounced save can't clobber
       // the stored layout mid-teardown. Leaving a workspace does NOT kill its
       // terminals or unload its notes — agents keep working in the background
@@ -331,7 +338,6 @@ export function Canvas({
 
   // Panning/zooming doesn't change nodes, so the effect above won't fire — save
   // the camera when the user stops moving it.
-  const persistRef = useRef(persist);
   persistRef.current = persist;
   const cameraTimer = useRef<number | null>(null);
   const onMoveEnd = useCallback(() => {
