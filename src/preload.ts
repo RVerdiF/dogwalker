@@ -30,6 +30,7 @@ const api: DwApi = {
     return () => ipcRenderer.removeListener('pty:attention', listener);
   },
   notify: (title, body) => ipcRenderer.send('notify', { title, body }),
+  setMemoryLimit: (id, mb) => ipcRenderer.send('pty:memoryLimit', { id, mb }),
 
   graph: () => ipcRenderer.invoke('graph:get'),
   connect: (a, b) => ipcRenderer.invoke('graph:connect', { a, b }),

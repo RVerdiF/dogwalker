@@ -1208,3 +1208,68 @@ body,
   border-color: #8ab4ff;
   color: #cfe0ff;
 }
+
+/* ---- Empty state -------------------------------------------------------- */
+.dw-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 460px;
+  text-align: center;
+  color: #8a8a99;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.dw-empty-emoji {
+  font-size: 44px;
+  opacity: 0.85;
+}
+
+.dw-empty h2 {
+  margin: 10px 0 8px;
+  font-size: 18px;
+  color: #d6d6dd;
+}
+
+.dw-empty p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.dw-empty code {
+  background: rgba(255, 255, 255, 0.07);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: Consolas, monospace;
+}
+
+/* Memory-limit chips in the context menu */
+.dw-limit-row {
+  display: flex;
+  gap: 4px;
+  padding: 2px 10px 6px;
+}
+
+.dw-limit-chip {
+  flex: 1;
+  padding: 4px 0;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #d6d6dd;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.dw-limit-chip:hover {
+  background: rgba(138, 180, 255, 0.18);
+}
+
+.dw-limit-chip.active {
+  background: rgba(138, 180, 255, 0.28);
+  border-color: #8ab4ff;
+  color: #fff;
+}

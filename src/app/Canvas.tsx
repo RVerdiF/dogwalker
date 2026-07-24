@@ -149,6 +149,7 @@ export function Canvas({
         terminals.create(id);
         const snapshot = await window.dw.serialize(id);
         if (snapshot) terminals.write(id, snapshot);
+        window.dw.setMemoryLimit(id, spec.memoryLimitMB ?? 0);
       } else {
         id = (
           await window.dw.spawn({
@@ -159,6 +160,7 @@ export function Canvas({
             workspaceId,
             stableId: spec.stableId,
             cwd: workspaceCwd,
+            memoryLimitMB: spec.memoryLimitMB ?? 0,
           })
         ).id;
         terminals.create(id);
@@ -176,6 +178,7 @@ export function Canvas({
           tier: 3 as Tier,
           exited: false,
           stableId: spec.stableId,
+          memoryLimitMB: spec.memoryLimitMB ?? 0,
         },
       };
       setNodes((ns) => [...ns, node]);
@@ -309,7 +312,12 @@ export function Canvas({
       };
       return n.type === 'note'
         ? { ...base, kind: 'note' as const }
-        : { ...base, kind: 'terminal' as const, preset: n.data.preset };
+        : {
+            ...base,
+            kind: 'terminal' as const,
+            preset: n.data.preset,
+            memoryLimitMB: n.data.memoryLimitMB ?? 0,
+          };
     });
     const edges: Array<[string, string]> = [];
     for (const e of graph.edges) {
@@ -843,6 +851,29 @@ export function Canvas({
     [applyPlacement, selectedBoxes],
   );
 
+  /** The single selected terminal, when there is exactly one (for its limit). */
+  const soleTerminal = useMemo(() => {
+    const sel = nodes.filter((n) => n.selected);
+    return sel.length === 1 && sel[0].type === 'terminal'
+      ? (sel[0] as TerminalFlowNode)
+      : null;
+  }, [nodes]);
+
+  const setMemoryLimit = useCallback(
+    (mb: number) => {
+      if (!soleTerminal) return;
+      window.dw.setMemoryLimit(soleTerminal.id, mb);
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === soleTerminal.id && n.type === 'terminal'
+            ? { ...n, data: { ...n.data, memoryLimitMB: mb } }
+            : n,
+        ),
+      );
+    },
+    [soleTerminal, setNodes],
+  );
+
   const onNodeContextMenu = useCallback<NodeMouseHandler>(
     (event, node) => {
       event.preventDefault();
@@ -989,6 +1020,17 @@ export function Canvas({
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} />
+        {nodes.length === 0 && loaded.current && (
+          <div className="dw-empty">
+            <div className="dw-empty-emoji">🐕</div>
+            <h2>This workspace is empty</h2>
+            <p>
+              Add a terminal from the palette above — pick an agent or a plain
+              shell. Drag from a node's side handle to another to put them on a
+              leash; wired agents can then talk with <code>dogwalker ask</code>.
+            </p>
+          </div>
+        )}
         {showMinimap && (
           <MiniMap
             pannable
@@ -1016,6 +1058,11 @@ export function Canvas({
           x={menu.x}
           y={menu.y}
           count={menu.count}
+          memoryLimitMB={soleTerminal ? soleTerminal.data.memoryLimitMB ?? 0 : null}
+          onMemoryLimit={(mb) => {
+            setMemoryLimit(mb);
+            setMenu(null);
+          }}
           onAlign={(k) => {
             doAlign(k);
             setMenu(null);

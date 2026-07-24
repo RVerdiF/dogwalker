@@ -5,11 +5,16 @@ interface Props {
   x: number;
   y: number;
   count: number;
+  /** Set when exactly one terminal is selected: its current limit in MB (0=off). */
+  memoryLimitMB?: number | null;
   onAlign: (kind: AlignKind) => void;
   onDistribute: (kind: DistributeKind) => void;
   onTidy: () => void;
+  onMemoryLimit: (mb: number) => void;
   onClose: () => void;
 }
+
+const LIMITS = [0, 512, 1024, 2048, 4096];
 
 const ALIGN: Array<{ kind: AlignKind; label: string; icon: string }> = [
   { kind: 'left', label: 'Align left', icon: '⇤' },
@@ -25,9 +30,11 @@ export function CanvasMenu({
   x,
   y,
   count,
+  memoryLimitMB,
   onAlign,
   onDistribute,
   onTidy,
+  onMemoryLimit,
   onClose,
 }: Props) {
   useEffect(() => {
@@ -73,6 +80,29 @@ export function CanvasMenu({
         Tidy
         <span className="dw-ctxmenu-key">⇧T</span>
       </button>
+
+      {memoryLimitMB !== null && memoryLimitMB !== undefined && (
+        <>
+          <div className="dw-ctxmenu-sep" />
+          <div className="dw-ctxmenu-head">Memory limit</div>
+          <div className="dw-limit-row">
+            {LIMITS.map((mb) => (
+              <button
+                key={mb}
+                className={`dw-limit-chip ${memoryLimitMB === mb ? 'active' : ''}`}
+                onClick={() => onMemoryLimit(mb)}
+                title={
+                  mb === 0
+                    ? 'No limit'
+                    : `Kill the heaviest child past ${mb} MB (the shell survives)`
+                }
+              >
+                {mb === 0 ? 'Off' : mb >= 1024 ? `${mb / 1024}G` : `${mb}M`}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

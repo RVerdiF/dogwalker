@@ -23,6 +23,8 @@ export interface SpawnOptions {
   /** Persistent node id, so a returning canvas can re-adopt this terminal. */
   stableId: string;
   cwd: string;
+  /** 0 = off. Above it, the heaviest child process is killed. */
+  memoryLimitMB?: number;
 }
 
 export interface SpawnResult {
@@ -92,6 +94,8 @@ interface BaseSpec {
 export interface TerminalSpec extends BaseSpec {
   kind: 'terminal';
   preset: PresetId;
+  /** Runaway guard in MB; 0/absent = off. */
+  memoryLimitMB?: number;
 }
 
 /** A note's persisted layout; its markdown body lives in a file keyed by id. */
@@ -136,6 +140,8 @@ export interface DwApi {
   onAttention(cb: (e: { id: string; value: boolean }) => void): () => void;
   /** Show an OS notification (renderer gates this by focus + setting). */
   notify(title: string, body: string): void;
+  /** Runaway guard for a terminal, in MB (0 turns it off). */
+  setMemoryLimit(id: string, mb: number): void;
 
   // Graph (authoritative in main; renderer reflects it).
   graph(): Promise<GraphSnapshot>;

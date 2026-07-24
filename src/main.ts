@@ -14,6 +14,8 @@ import { WorkspaceStore } from './main/workspaceStore';
 import { NoteStore } from './main/noteStore';
 import { DraftStore } from './main/draftStore';
 import { SettingsStore } from './main/settingsStore';
+import { seedFirstRun } from './main/firstRun';
+import { runMemTest } from './main/memTest';
 import type { AppSettings } from './shared/ipc';
 import type {
   ProcessMetric,
@@ -130,6 +132,7 @@ const createWindow = () => {
   );
 
   const workspaces = new WorkspaceStore(app.getPath('userData'));
+  seedFirstRun(workspaces, notes);
   ipcMain.handle('ws:list', () => workspaces.list());
   ipcMain.handle('ws:create', (_e, { name, icon }: { name: string; icon: string }) =>
     workspaces.create(name, icon),
@@ -205,6 +208,10 @@ const createWindow = () => {
     );
   }
 
+  if (process.env.DW_MEMTEST && ptys) {
+    void runMemTest(ptys, workspaces);
+  }
+
   if (process.env.DW_BROKERTEST) {
     void runBrokerTest(ptys, graph, socketPath);
   }
@@ -220,6 +227,9 @@ ipcMain.on(
     ptys?.resize(id, cols, rows),
 );
 ipcMain.on('pty:kill', (_e, id: string) => ptys?.kill(id));
+ipcMain.on('pty:memoryLimit', (_e, { id, mb }: { id: string; mb: number }) =>
+  ptys?.setMemoryLimit(id, mb),
+);
 ipcMain.handle('mirror:serialize', (_e, id: string) => ptys?.serialize(id) ?? '');
 ipcMain.handle('perf:metrics', (): ProcessMetric[] =>
   app.getAppMetrics().map((m) => ({
