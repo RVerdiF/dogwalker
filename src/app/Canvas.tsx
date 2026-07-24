@@ -14,6 +14,7 @@ import {
   type NodeMouseHandler,
 } from '@xyflow/react';
 import type {
+  FileTreeSpec,
   GraphSnapshot,
   NodeSpec,
   NoteSpec,
@@ -26,6 +27,7 @@ import { BUILTIN_THEMES } from '../shared/themes';
 import { TerminalNode, type TerminalFlowNode } from './TerminalNode';
 import { NoteNode, type NoteFlowNode } from './NoteNode';
 import { GroupNode, type GroupFlowNode } from './GroupNode';
+import { FileTreeNode, type FileTreeFlowNode } from './FileTreeNode';
 import { FloatingLeash } from './FloatingLeash';
 import { Hud } from './Hud';
 import { HistoryPanel } from './HistoryPanel';
@@ -44,9 +46,14 @@ import {
 import { snapMove, type Guide, type SnapBox } from './snapping';
 import { runSmoke } from './smoke';
 
-type DwNode = TerminalFlowNode | NoteFlowNode | GroupFlowNode;
+type DwNode = TerminalFlowNode | NoteFlowNode | GroupFlowNode | FileTreeFlowNode;
 
-const nodeTypes = { terminal: TerminalNode, note: NoteNode, group: GroupNode };
+const nodeTypes = {
+  terminal: TerminalNode,
+  note: NoteNode,
+  group: GroupNode,
+  filetree: FileTreeNode,
+};
 const edgeTypes = { leash: FloatingLeash };
 
 const GROUP_PAD = 28;
@@ -75,6 +82,8 @@ const NODE_W = 560;
 const NODE_H = 380;
 const NOTE_W = 320;
 const NOTE_H = 240;
+const FT_W = 340;
+const FT_H = 380;
 const GRID_GAP_X = 620;
 const GRID_GAP_Y = 440;
 const GRID_COLS = 5;
@@ -249,6 +258,38 @@ export function Canvas({
     [setNodes],
   );
 
+  const addFileTreeNode = useCallback(
+    (spec: FileTreeSpec) => {
+      // A file tree is pure layout — no graph/CLI node, id === stableId.
+      stableToLive.current.set(spec.stableId, spec.stableId);
+      const node: FileTreeFlowNode = {
+        id: spec.stableId,
+        type: 'filetree',
+        dragHandle: '.dw-drag',
+        position: { x: spec.x, y: spec.y },
+        style: { width: spec.w, height: spec.h },
+        data: { name: spec.name, stableId: spec.stableId, rootPath: spec.rootPath },
+      };
+      setNodes((ns) => [...ns, node]);
+      return spec.stableId;
+    },
+    [setNodes],
+  );
+
+  const addFileTree = useCallback(() => {
+    const n = spawnCount.current++;
+    addFileTreeNode({
+      kind: 'filetree',
+      stableId: crypto.randomUUID(),
+      name: 'files',
+      rootPath: workspaceCwd || '.',
+      x: (n % GRID_COLS) * GRID_GAP_X,
+      y: Math.floor(n / GRID_COLS) * GRID_GAP_Y,
+      w: FT_W,
+      h: FT_H,
+    });
+  }, [addFileTreeNode, workspaceCwd]);
+
   const spawnNew = useCallback(
     (preset: PresetId) => {
       const n = spawnCount.current++;
@@ -301,6 +342,7 @@ export function Canvas({
         // Missing kind (pre-notes layouts) means terminal.
         if (spec.kind === 'group') continue;
         if (spec.kind === 'note') await addNoteNode(spec);
+        else if (spec.kind === 'filetree') addFileTreeNode(spec);
         else await addTerminal(spec as TerminalSpec, liveByStable.get(spec.stableId));
       }
       // Re-attach members now that every node exists.
@@ -345,7 +387,7 @@ export function Canvas({
       loaded.current = false;
       setNodes((ns) => {
         for (const n of ns) {
-          if (n.type !== 'note') terminals.dispose(n.id);
+          if (n.type === 'terminal') terminals.dispose(n.id);
         }
         return [];
       });
@@ -382,6 +424,8 @@ export function Canvas({
       };
       if (n.type === 'group') return { ...base, kind: 'group' as const };
       if (n.type === 'note') return { ...base, kind: 'note' as const };
+      if (n.type === 'filetree')
+        return { ...base, kind: 'filetree' as const, rootPath: n.data.rootPath };
       return {
         ...base,
         kind: 'terminal' as const,
@@ -1276,6 +1320,43 @@ export function Canvas({
     })();
   }, [workspaceId, spawnNew, setNodes, groupSelection, ungroup]);
 
+  // File Tree node: add one, confirm it lists a real directory over IPC and
+  // that it survives a persist/restore round-trip with its root intact.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('fsnodetest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    void (async () => {
+      addFileTree();
+      await sleep(400);
+      const node = nodesRef.current.find((n) => n.type === 'filetree');
+      const root = (node?.data as { rootPath?: string })?.rootPath ?? '';
+      // The renderer→main readDir path returns this workspace's directory.
+      const listing = await window.dw.readDir(root || '.');
+      const listsDir = !listing.error && Array.isArray(listing.entries);
+
+      await sleep(700); // let the debounced save land
+      const saved = (await window.dw.loadWorkspace(workspaceId)).layout;
+      const ftSpec = saved.nodes.find((n) => n.kind === 'filetree') as
+        | { rootPath?: string }
+        | undefined;
+
+      console.log(
+        'FSNODETEST RESULT ' +
+          JSON.stringify({
+            nodeAdded: !!node,
+            listsDir,
+            entryCount: listing.entries.length,
+            persisted: !!ftSpec,
+            rootPersisted: !!ftSpec && ftSpec.rootPath === root,
+          }),
+      );
+      loaded.current = false;
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, addFileTree]);
+
   // Layout ops test: pure geometry + the canvas wiring that applies it.
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has('layouttest')) return;
@@ -1387,6 +1468,7 @@ export function Canvas({
       <TerminalPalette
         onSpawn={(p) => void spawnNew(p)}
         onAddNote={() => void addNote()}
+        onAddFileTree={() => addFileTree()}
       />
       {isDev && (
         <DevBar

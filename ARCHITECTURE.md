@@ -264,6 +264,12 @@ returns the peer — proving the CLI exists only inside canvas terminals.
   partitions the rail into sections (migrated from the pre-divider `order`
   array). Node identity is a persistent `stableId` distinct from the ephemeral
   live PTY id.
+- **FsService** (`src/main/fsService.ts`) — the File Tree node's disk access
+  (PRODUCT.md §8). The sandboxed renderer never touches the filesystem directly;
+  `readDir`/`readFile`/`writeFile`/`create`/`rename`/`remove`/`stat` all cross
+  IPC to here. Listings sort folders-first and degrade a read failure to an
+  `error` field rather than throwing across the bridge. File Tree nodes are pure
+  layout (kind `filetree`, a `rootPath`), never graph/CLI nodes.
 - **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
   terminals from its specs, places them at saved geometry, and re-wires leashes;
   layout is saved (debounced) on move/resize/add/remove/connect/disconnect.

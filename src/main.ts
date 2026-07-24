@@ -16,6 +16,8 @@ import { DraftStore } from './main/draftStore';
 import { SettingsStore } from './main/settingsStore';
 import { seedFirstRun } from './main/firstRun';
 import { runMemTest } from './main/memTest';
+import { FsService } from './main/fsService';
+import { runFsTest } from './main/fsTest';
 import type { AppSettings } from './shared/ipc';
 import type {
   ProcessMetric,
@@ -184,6 +186,21 @@ const createWindow = () => {
   });
   ipcMain.handle('sys:openPath', (_e, p: string) => shell.openPath(p).then(() => undefined));
 
+  const fsService = new FsService();
+  ipcMain.handle('fs:readDir', (_e, dir: string) => fsService.readDir(dir));
+  ipcMain.handle('fs:readFile', (_e, file: string) => fsService.readFile(file));
+  ipcMain.handle('fs:writeFile', (_e, { file, content }: { file: string; content: string }) =>
+    fsService.writeFile(file, content),
+  );
+  ipcMain.handle('fs:create', (_e, { target, isDir }: { target: string; isDir: boolean }) =>
+    fsService.create(target, isDir),
+  );
+  ipcMain.handle('fs:rename', (_e, { from, to }: { from: string; to: string }) =>
+    fsService.rename(from, to),
+  );
+  ipcMain.handle('fs:remove', (_e, target: string) => fsService.remove(target));
+  ipcMain.handle('fs:stat', (_e, target: string) => fsService.stat(target));
+
   // Dev visibility: renderer console mirrored to stdout (no devtools needed).
   wc.on('console-message', (event) => {
     console.log(`[renderer:${event.level}] ${event.message}`);
@@ -214,6 +231,7 @@ const createWindow = () => {
       process.env.DW_GROUPTEST ? 'grouptest=1' : '',
       process.env.DW_SNAPTEST ? 'snaptest=1' : '',
       process.env.DW_SIDEBARTEST ? 'sidebartest=1' : '',
+      process.env.DW_FSNODETEST ? 'fsnodetest=1' : '',
     ]
       .filter(Boolean)
       .join('&');
@@ -226,6 +244,10 @@ const createWindow = () => {
 
   if (process.env.DW_MEMTEST && ptys) {
     void runMemTest(ptys, workspaces);
+  }
+
+  if (process.env.DW_FSTEST) {
+    void runFsTest(fsService);
   }
 
   if (process.env.DW_BROKERTEST) {

@@ -67,6 +67,14 @@ const api: DwApi = {
   pickDirectory: () => ipcRenderer.invoke('sys:pickDirectory'),
   openPath: (p) => ipcRenderer.invoke('sys:openPath', p),
 
+  readDir: (dir) => ipcRenderer.invoke('fs:readDir', dir),
+  readFile: (file) => ipcRenderer.invoke('fs:readFile', file),
+  writeFile: (file, content) => ipcRenderer.invoke('fs:writeFile', { file, content }),
+  createEntry: (target, isDir) => ipcRenderer.invoke('fs:create', { target, isDir }),
+  renameEntry: (from, to) => ipcRenderer.invoke('fs:rename', { from, to }),
+  removeEntry: (target) => ipcRenderer.invoke('fs:remove', target),
+  statEntry: (target) => ipcRenderer.invoke('fs:stat', target),
+
   registerNote: (id, name) => ipcRenderer.invoke('note:register', { id, name }),
   renameNote: (id, name) => ipcRenderer.invoke('note:rename', { id, name }),
   readNote: (id) => ipcRenderer.invoke('note:read', id),

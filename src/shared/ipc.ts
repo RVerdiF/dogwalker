@@ -113,7 +113,31 @@ export interface GroupSpec extends BaseSpec {
   kind: 'group';
 }
 
-export type NodeSpec = TerminalSpec | NoteSpec | GroupSpec;
+/** A File Tree node rooted at a directory (PRODUCT.md §8). Pure layout. */
+export interface FileTreeSpec extends BaseSpec {
+  kind: 'filetree';
+  /** Directory the tree is rooted at; defaults to the workspace cwd. */
+  rootPath: string;
+}
+
+export type NodeSpec = TerminalSpec | NoteSpec | GroupSpec | FileTreeSpec;
+
+/** One entry in a directory listing (File Tree). */
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+  /** Modified time, ms since epoch. */
+  mtime: number;
+}
+
+/** A directory's immediate children, or an error if it couldn't be read. */
+export interface DirListing {
+  path: string;
+  entries: FileEntry[];
+  error?: string;
+}
 
 /** Everything needed to reconstruct a workspace's canvas. */
 export interface WorkspaceLayout {
@@ -206,6 +230,18 @@ export interface DwApi {
   pickDirectory(): Promise<string>;
   /** Open a path with the OS default handler (editor/file manager). */
   openPath(path: string): Promise<void>;
+
+  // File Tree file-system access (main is the only process that touches disk).
+  readDir(dir: string): Promise<DirListing>;
+  readFile(file: string): Promise<string>;
+  writeFile(file: string, content: string): Promise<void>;
+  /** Create a file or directory (parents made as needed); returns its path. */
+  createEntry(target: string, isDir: boolean): Promise<string>;
+  /** Rename or move an entry. */
+  renameEntry(from: string, to: string): Promise<void>;
+  /** Delete an entry (recursive for directories). */
+  removeEntry(target: string): Promise<void>;
+  statEntry(target: string): Promise<FileEntry | null>;
 
   // Notes. A note is a markdown file keyed by stableId, registered in the graph
   // so it can be wired to terminals (and other notes) and reached by the CLI.
