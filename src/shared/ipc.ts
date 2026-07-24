@@ -150,6 +150,47 @@ export interface DirListing {
   error?: string;
 }
 
+/** A changed file in `git status` (porcelain codes for index + worktree). */
+export interface GitFileStatus {
+  path: string;
+  /** Staged (index) status code, e.g. 'M', 'A', 'D', ' '. */
+  index: string;
+  /** Worktree status code. */
+  work: string;
+}
+
+/** Working-tree summary for a File Tree's repo (PRODUCT.md §8). */
+export interface GitStatus {
+  isRepo: boolean;
+  branch: string;
+  ahead: number;
+  behind: number;
+  files: GitFileStatus[];
+  error?: string;
+}
+
+export interface GitBranch {
+  name: string;
+  current: boolean;
+}
+
+/** One commit for the graph view; `parents`/`refs` drive the lanes. */
+export interface GitCommit {
+  hash: string;
+  parents: string[];
+  refs: string[];
+  author: string;
+  subject: string;
+  /** Commit time, seconds since epoch. */
+  time: number;
+}
+
+/** The result of a git operation the branch menu invokes. */
+export interface GitResult {
+  ok: boolean;
+  output: string;
+}
+
 /** Everything needed to reconstruct a workspace's canvas. */
 export interface WorkspaceLayout {
   nodes: NodeSpec[];
@@ -255,6 +296,22 @@ export interface DwApi {
   /** Delete an entry (recursive for directories). */
   removeEntry(target: string): Promise<void>;
   statEntry(target: string): Promise<FileEntry | null>;
+
+  // Git, scoped to a File Tree's directory (system `git`, ARCHITECTURE.md §1).
+  gitStatus(cwd: string): Promise<GitStatus>;
+  gitBranches(cwd: string): Promise<GitBranch[]>;
+  gitLog(cwd: string, limit: number): Promise<GitCommit[]>;
+  /** Unified diff of uncommitted changes (whole repo, or one file). */
+  gitDiff(cwd: string, file?: string): Promise<string>;
+  gitCommit(cwd: string, message: string): Promise<GitResult>;
+  gitCheckout(cwd: string, branch: string): Promise<GitResult>;
+  gitCreateBranch(cwd: string, name: string): Promise<GitResult>;
+  gitMerge(cwd: string, branch: string): Promise<GitResult>;
+  gitStash(cwd: string): Promise<GitResult>;
+  gitStashPop(cwd: string): Promise<GitResult>;
+  gitFetch(cwd: string): Promise<GitResult>;
+  gitPull(cwd: string): Promise<GitResult>;
+  gitPush(cwd: string): Promise<GitResult>;
 
   // Notes. A note is a markdown file keyed by stableId, registered in the graph
   // so it can be wired to terminals (and other notes) and reached by the CLI.

@@ -5,8 +5,13 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import type { FileEntry } from '../shared/ipc';
+import type { FileEntry, GitStatus } from '../shared/ipc';
 import { setFileDrag } from './dnd';
+import { GitDiffView } from './GitDiffView';
+import { GitGraphView } from './GitGraphView';
+import { GitBranchMenu } from './GitBranchMenu';
+
+type View = 'list' | 'diff' | 'graph';
 
 export interface FileTreeNodeData extends Record<string, unknown> {
   name: string;
@@ -78,8 +83,21 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
   const [menu, setMenu] = useState<Menu | null>(null);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [confirmDel, setConfirmDel] = useState<FileEntry | null>(null);
+  const [view, setView] = useState<View>('list');
+  const [git, setGit] = useState<GitStatus | null>(null);
+  const [showBranch, setShowBranch] = useState(false);
+  const [gitReload, setGitReload] = useState(0);
   const hostRef = useRef<HTMLDivElement>(null);
   const { deleteElements } = useReactFlow();
+
+  const refreshGit = useCallback(() => {
+    void window.dw.gitStatus(root).then(setGit);
+  }, [root]);
+
+  // Load git status for the root; a non-repo simply has no git chrome.
+  useEffect(() => {
+    refreshGit();
+  }, [refreshGit, gitReload]);
 
   const load = useCallback(async (dir: string) => {
     const listing = await window.dw.readDir(dir);
@@ -264,7 +282,15 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
         >
           …
         </button>
-        <button className="dw-ft-btn nodrag" title="Refresh" onClick={() => void load(root)}>
+        <button
+          className="dw-ft-btn nodrag"
+          title="Refresh"
+          onClick={() => {
+            void load(root);
+            refreshGit();
+            setGitReload((k) => k + 1);
+          }}
+        >
           ⟳
         </button>
         <button className="dw-close nodrag" onClick={close} title="Remove file tree">
@@ -272,9 +298,71 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
         </button>
       </div>
 
-      <div className="dw-ft-body nowheel nodrag">
-        {rows.length ? rows : <div className="dw-ft-empty">Empty folder</div>}
+      <div className="dw-ft-subbar nodrag">
+        <div className="dw-ft-tabs">
+          <button
+            className={`dw-ft-tab ${view === 'list' ? 'active' : ''}`}
+            onClick={() => setView('list')}
+          >
+            List
+          </button>
+          {git?.isRepo && (
+            <>
+              <button
+                className={`dw-ft-tab ${view === 'diff' ? 'active' : ''}`}
+                onClick={() => setView('diff')}
+              >
+                Diff
+                {git.files.length > 0 && (
+                  <span className="dw-ft-tab-badge">{git.files.length}</span>
+                )}
+              </button>
+              <button
+                className={`dw-ft-tab ${view === 'graph' ? 'active' : ''}`}
+                onClick={() => setView('graph')}
+              >
+                Graph
+              </button>
+            </>
+          )}
+        </div>
+        {git?.isRepo && (
+          <button
+            className="dw-git-chip"
+            title="Branch & git operations"
+            onClick={() => setShowBranch((s) => !s)}
+          >
+            <span className="dw-git-chip-icon"></span>
+            {git.branch || 'detached'}
+            {git.files.length > 0 && <span className="dw-git-chip-dot" />}
+          </button>
+        )}
       </div>
+
+      <div className="dw-ft-body nowheel nodrag">
+        {view === 'diff' && git?.isRepo ? (
+          <GitDiffView cwd={root} reloadKey={gitReload} />
+        ) : view === 'graph' && git?.isRepo ? (
+          <GitGraphView cwd={root} />
+        ) : rows.length ? (
+          rows
+        ) : (
+          <div className="dw-ft-empty">Empty folder</div>
+        )}
+      </div>
+
+      {showBranch && git?.isRepo && (
+        <GitBranchMenu
+          cwd={root}
+          status={git}
+          onClose={() => setShowBranch(false)}
+          onChanged={() => {
+            refreshGit();
+            setGitReload((k) => k + 1);
+            void load(root);
+          }}
+        />
+      )}
 
       {menu && (
         <FileMenu

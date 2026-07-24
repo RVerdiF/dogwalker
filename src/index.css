@@ -1011,6 +1011,316 @@ body,
   justify-content: flex-end;
 }
 
+/* ---- File Tree git sub-bar, tabs, branch chip -------------------------- */
+.dw-ft-subbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #14161b;
+  border-bottom: 1px solid #23262e;
+}
+
+.dw-ft-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.dw-ft-tab {
+  border: none;
+  background: transparent;
+  color: #8b90a0;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dw-ft-tab:hover {
+  color: #cfd3dc;
+  background: #20242c;
+}
+
+.dw-ft-tab.active {
+  color: #e6e8ee;
+  background: #2a2f3a;
+}
+
+.dw-ft-tab-badge {
+  background: #4b5568;
+  color: #e6e8ee;
+  border-radius: 8px;
+  padding: 0 5px;
+  font-size: 10px;
+}
+
+.dw-git-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #33465f;
+  background: #17202c;
+  color: #9dc0f0;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dw-git-chip:hover {
+  background: #1c2836;
+}
+
+.dw-git-chip-icon::before {
+  content: '⑂';
+  font-size: 12px;
+}
+
+.dw-git-chip-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #e0a35a;
+}
+
+/* ---- Branch menu -------------------------------------------------------- */
+.dw-git-menu {
+  position: absolute;
+  right: 8px;
+  top: 66px;
+  z-index: 30;
+  width: 86%;
+  max-height: 76%;
+  overflow: auto;
+  background: #171a21;
+  border: 1px solid #333a47;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+}
+
+.dw-git-menu-head {
+  color: #cfd3dc;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dw-git-ab,
+.dw-git-dirty {
+  color: #8b90a0;
+  font-size: 11px;
+}
+
+.dw-git-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+  max-height: 130px;
+  overflow: auto;
+}
+
+.dw-git-hint {
+  color: #e0a35a;
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.dw-git-branch {
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #c3c7d1;
+  padding: 3px 6px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.dw-git-branch:hover:not(:disabled) {
+  background: #222833;
+}
+
+.dw-git-branch.current {
+  color: #7ee0a8;
+}
+
+.dw-git-branch:disabled {
+  cursor: default;
+}
+
+.dw-git-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.dw-git-actions .dw-btn-small.active {
+  border-color: #8ab4ff;
+  color: #cfe0ff;
+}
+
+.dw-git-prompt {
+  margin-bottom: 8px;
+}
+
+.dw-git-result {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 120px;
+  overflow: auto;
+}
+
+.dw-git-result.ok {
+  background: #16241a;
+  color: #9be0b4;
+}
+
+.dw-git-result.err {
+  background: #2a1618;
+  color: #f0a0a0;
+}
+
+.dw-git-menu-close {
+  position: absolute;
+  right: 6px;
+  top: 4px;
+  border: none;
+  background: transparent;
+  color: #8b90a0;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* ---- Diff view (side-by-side) ------------------------------------------ */
+.dw-git-diff,
+.dw-git-graph {
+  font-size: 12px;
+}
+
+.dw-git-diff-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  background: #191c22;
+  border-bottom: 1px solid #23262e;
+  cursor: pointer;
+  position: sticky;
+  top: 0;
+}
+
+.dw-git-diff-path {
+  color: #cfd3dc;
+  font-weight: 600;
+}
+
+.dw-git-diff-body {
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.dw-diff-hunk {
+  color: #7c93c0;
+  background: #12151b;
+  padding: 1px 8px;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.dw-diff-row {
+  display: grid;
+  grid-template-columns: 34px 1fr 34px 1fr;
+  white-space: pre;
+}
+
+.dw-diff-gutter {
+  color: #565d6b;
+  text-align: right;
+  padding: 0 4px;
+  user-select: none;
+}
+
+.dw-diff-side {
+  padding: 0 6px;
+  overflow-x: auto;
+}
+
+.dw-diff-del .dw-diff-old {
+  background: #2a1618;
+  color: #f0b0b0;
+}
+
+.dw-diff-add .dw-diff-new {
+  background: #16241a;
+  color: #a6e0b8;
+}
+
+.dw-diff-context .dw-diff-side {
+  color: #aab0bd;
+}
+
+/* ---- Graph view --------------------------------------------------------- */
+.dw-git-graph-row {
+  display: flex;
+  align-items: center;
+}
+
+.dw-git-graph-svg {
+  flex-shrink: 0;
+}
+
+.dw-git-graph-msg {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  padding-right: 8px;
+}
+
+.dw-git-ref {
+  background: #23324a;
+  color: #9dc0f0;
+  border-radius: 8px;
+  padding: 0 6px;
+  font-size: 10px;
+}
+
+.dw-git-subject {
+  color: #d0d4dd;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dw-git-author {
+  color: #6f7686;
+  font-size: 11px;
+}
+
+.dw-git-hash {
+  color: #565d6b;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+}
+
 /* ---- Preview node (drag-to-canvas) ------------------------------------- */
 .dw-preview {
   width: 100%;

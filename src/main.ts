@@ -18,6 +18,8 @@ import { seedFirstRun } from './main/firstRun';
 import { runMemTest } from './main/memTest';
 import { FsService } from './main/fsService';
 import { runFsTest } from './main/fsTest';
+import { GitService } from './main/gitService';
+import { runGitTest } from './main/gitTest';
 import type { AppSettings } from './shared/ipc';
 import type {
   ProcessMetric,
@@ -202,6 +204,33 @@ const createWindow = () => {
   ipcMain.handle('fs:remove', (_e, target: string) => fsService.remove(target));
   ipcMain.handle('fs:stat', (_e, target: string) => fsService.stat(target));
 
+  const git = new GitService();
+  ipcMain.handle('git:status', (_e, cwd: string) => git.status(cwd));
+  ipcMain.handle('git:branches', (_e, cwd: string) => git.branches(cwd));
+  ipcMain.handle('git:log', (_e, { cwd, limit }: { cwd: string; limit: number }) =>
+    git.log(cwd, limit),
+  );
+  ipcMain.handle('git:diff', (_e, { cwd, file }: { cwd: string; file?: string }) =>
+    git.diff(cwd, file),
+  );
+  ipcMain.handle('git:commit', (_e, { cwd, message }: { cwd: string; message: string }) =>
+    git.commit(cwd, message),
+  );
+  ipcMain.handle('git:checkout', (_e, { cwd, branch }: { cwd: string; branch: string }) =>
+    git.checkout(cwd, branch),
+  );
+  ipcMain.handle('git:createBranch', (_e, { cwd, name }: { cwd: string; name: string }) =>
+    git.createBranch(cwd, name),
+  );
+  ipcMain.handle('git:merge', (_e, { cwd, branch }: { cwd: string; branch: string }) =>
+    git.merge(cwd, branch),
+  );
+  ipcMain.handle('git:stash', (_e, cwd: string) => git.stash(cwd));
+  ipcMain.handle('git:stashPop', (_e, cwd: string) => git.stashPop(cwd));
+  ipcMain.handle('git:fetch', (_e, cwd: string) => git.fetch(cwd));
+  ipcMain.handle('git:pull', (_e, cwd: string) => git.pull(cwd));
+  ipcMain.handle('git:push', (_e, cwd: string) => git.push(cwd));
+
   // Dev visibility: renderer console mirrored to stdout (no devtools needed).
   wc.on('console-message', (event) => {
     console.log(`[renderer:${event.level}] ${event.message}`);
@@ -250,6 +279,10 @@ const createWindow = () => {
 
   if (process.env.DW_FSTEST) {
     void runFsTest(fsService);
+  }
+
+  if (process.env.DW_GITTEST) {
+    void runGitTest(git);
   }
 
   if (process.env.DW_BROKERTEST) {

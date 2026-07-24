@@ -274,6 +274,14 @@ returns the peer — proving the CLI exists only inside canvas terminals.
   they type the path into its PTY; dropped on the canvas a folder opens a File
   Tree rooted there and a file becomes a read-only `preview` node (images via a
   base64 `readImage`, text as a head).
+- **GitService** (`src/main/gitService.ts`) — shells out to the system `git`
+  (ARCHITECTURE.md §1) scoped to a File Tree's directory: status, branches, log,
+  diff, and the branch-menu operations (commit, checkout, branch, merge, stash,
+  fetch/pull/push). Reads degrade to empty/`isRepo:false`; operations return
+  `{ ok, output }` so the UI shows git's own message on a conflict or missing
+  upstream. Two pure renderer helpers keep the hard parts testable: `gitGraph.ts`
+  (`computeLanes` — column + segment layout for the graph view) and `diffParse.ts`
+  (`parseDiff` — unified diff → side-by-side rows).
 - **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
   terminals from its specs, places them at saved geometry, and re-wires leashes;
   layout is saved (debounced) on move/resize/add/remove/connect/disconnect.
