@@ -69,6 +69,7 @@ const api: DwApi = {
 
   readDir: (dir) => ipcRenderer.invoke('fs:readDir', dir),
   readFile: (file) => ipcRenderer.invoke('fs:readFile', file),
+  readImage: (file) => ipcRenderer.invoke('fs:readImage', file),
   writeFile: (file, content) => ipcRenderer.invoke('fs:writeFile', { file, content }),
   createEntry: (target, isDir) => ipcRenderer.invoke('fs:create', { target, isDir }),
   renameEntry: (from, to) => ipcRenderer.invoke('fs:rename', { from, to }),

@@ -964,6 +964,126 @@ body,
   white-space: normal;
 }
 
+.dw-ft-row[draggable='true'] {
+  cursor: default;
+}
+
+/* In-node file menu + prompt/confirm boxes */
+.dw-ft-menu {
+  position: absolute;
+  z-index: 20;
+}
+
+.dw-ft-prompt {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%);
+  z-index: 25;
+  background: #1b1e25;
+  border: 1px solid #363b46;
+  border-radius: 8px;
+  padding: 12px;
+  width: 82%;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+
+.dw-ft-prompt-title {
+  font-size: 12px;
+  color: #cfd3dc;
+  margin-bottom: 8px;
+}
+
+.dw-ft-prompt-input {
+  width: 100%;
+  background: #0f1114;
+  border: 1px solid #3a3f4b;
+  border-radius: 6px;
+  color: #e6e8ee;
+  font-size: 13px;
+  padding: 5px 8px;
+  margin-bottom: 10px;
+}
+
+.dw-ft-prompt-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ---- Preview node (drag-to-canvas) ------------------------------------- */
+.dw-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #16181d;
+  border: 1px solid #2a2e37;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dw-preview.dw-node-selected {
+  border-color: #8ab4ff;
+  box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.2);
+}
+
+.dw-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #1d2027;
+  border-bottom: 1px solid #2a2e37;
+  cursor: grab;
+  user-select: none;
+}
+
+.dw-preview-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 13px;
+  color: #cfd3dc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dw-preview-body {
+  flex: 1;
+  overflow: auto;
+  display: flex;
+}
+
+.dw-preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+  object-fit: contain;
+}
+
+.dw-preview-text {
+  margin: 0;
+  padding: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #c3c7d1;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, "Cascadia Code", "Fira Code", monospace;
+}
+
+.dw-preview-error {
+  padding: 10px;
+  color: #e0a35a;
+}
+
+/* A terminal highlights when a file is dragged over it (drag-to-agent). */
+.dw-node.dw-drop-over {
+  outline: 2px dashed #8ab4ff;
+  outline-offset: -2px;
+}
+
 .dw-note-header {
   display: flex;
   align-items: center;

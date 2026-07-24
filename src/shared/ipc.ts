@@ -120,7 +120,18 @@ export interface FileTreeSpec extends BaseSpec {
   rootPath: string;
 }
 
-export type NodeSpec = TerminalSpec | NoteSpec | GroupSpec | FileTreeSpec;
+/** A read-only file preview dropped on the canvas (PRODUCT.md §8). */
+export interface PreviewSpec extends BaseSpec {
+  kind: 'preview';
+  filePath: string;
+}
+
+export type NodeSpec =
+  | TerminalSpec
+  | NoteSpec
+  | GroupSpec
+  | FileTreeSpec
+  | PreviewSpec;
 
 /** One entry in a directory listing (File Tree). */
 export interface FileEntry {
@@ -235,6 +246,8 @@ export interface DwApi {
   readDir(dir: string): Promise<DirListing>;
   readFile(file: string): Promise<string>;
   writeFile(file: string, content: string): Promise<void>;
+  /** Read an image as a `data:` URI for previewing (empty string if it fails). */
+  readImage(file: string): Promise<string>;
   /** Create a file or directory (parents made as needed); returns its path. */
   createEntry(target: string, isDir: boolean): Promise<string>;
   /** Rename or move an entry. */

@@ -269,7 +269,11 @@ returns the peer — proving the CLI exists only inside canvas terminals.
   `readDir`/`readFile`/`writeFile`/`create`/`rename`/`remove`/`stat` all cross
   IPC to here. Listings sort folders-first and degrade a read failure to an
   `error` field rather than throwing across the bridge. File Tree nodes are pure
-  layout (kind `filetree`, a `rootPath`), never graph/CLI nodes.
+  layout (kind `filetree`, a `rootPath`), never graph/CLI nodes. File rows are
+  native HTML5 drags (`src/app/dnd.ts` carries the path): dropped on a terminal
+  they type the path into its PTY; dropped on the canvas a folder opens a File
+  Tree rooted there and a file becomes a read-only `preview` node (images via a
+  base64 `readImage`, text as a head).
 - **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
   terminals from its specs, places them at saved geometry, and re-wires leashes;
   layout is saved (debounced) on move/resize/add/remove/connect/disconnect.

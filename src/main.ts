@@ -189,6 +189,7 @@ const createWindow = () => {
   const fsService = new FsService();
   ipcMain.handle('fs:readDir', (_e, dir: string) => fsService.readDir(dir));
   ipcMain.handle('fs:readFile', (_e, file: string) => fsService.readFile(file));
+  ipcMain.handle('fs:readImage', (_e, file: string) => fsService.readImage(file));
   ipcMain.handle('fs:writeFile', (_e, { file, content }: { file: string; content: string }) =>
     fsService.writeFile(file, content),
   );
@@ -232,6 +233,7 @@ const createWindow = () => {
       process.env.DW_SNAPTEST ? 'snaptest=1' : '',
       process.env.DW_SIDEBARTEST ? 'sidebartest=1' : '',
       process.env.DW_FSNODETEST ? 'fsnodetest=1' : '',
+      process.env.DW_FILEOPSTEST ? 'fileopstest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

@@ -62,6 +62,30 @@ export class FsService {
     return fsp.readFile(path.resolve(expand(file)), 'utf8');
   }
 
+  /** Read an image file as a base64 `data:` URI; '' if unreadable/too big. */
+  async readImage(file: string): Promise<string> {
+    const abs = path.resolve(expand(file));
+    const MIME: Record<string, string> = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.bmp': 'image/bmp',
+      '.svg': 'image/svg+xml',
+    };
+    const mime = MIME[path.extname(abs).toLowerCase()];
+    if (!mime) return '';
+    try {
+      const st = await fsp.stat(abs);
+      if (st.size > 12 * 1024 * 1024) return ''; // guard against huge files
+      const buf = await fsp.readFile(abs);
+      return `data:${mime};base64,${buf.toString('base64')}`;
+    } catch {
+      return '';
+    }
+  }
+
   async writeFile(file: string, content: string): Promise<void> {
     await fsp.writeFile(path.resolve(expand(file)), content, 'utf8');
   }

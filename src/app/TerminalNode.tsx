@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import {
   Handle,
   NodeResizer,
@@ -9,6 +9,7 @@ import {
 } from '@xyflow/react';
 import type { PresetId } from '../shared/ipc';
 import { terminals, type Tier } from './terminalService';
+import { getFileDrag } from './dnd';
 
 export interface TerminalNodeData extends Record<string, unknown> {
   name: string;
@@ -29,7 +30,28 @@ const TIER_LABELS: Record<Tier, string> = { 1: 'GL', 2: 'DOM', 3: 'ZZZ' };
 
 function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) {
   const bodyRef = useRef<HTMLDivElement>(null);
+  const [dropOver, setDropOver] = useState(false);
   const { deleteElements } = useReactFlow();
+
+  // A file dragged from a File Tree node lands here as its path, typed into the
+  // terminal (not submitted) so the agent — or the user — can act on it.
+  const onDragOver = (e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/x-dogwalker-file')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      setDropOver(true);
+    }
+  };
+  const onDrop = (e: React.DragEvent) => {
+    const path = getFileDrag(e);
+    setDropOver(false);
+    if (!path) return;
+    e.preventDefault();
+    e.stopPropagation();
+    // Quote paths with spaces so they arrive as a single shell token.
+    const token = /\s/.test(path) ? `"${path}"` : path;
+    window.dw.write(id, token + ' ');
+  };
 
   useEffect(() => {
     const el = bodyRef.current;
@@ -59,7 +81,14 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
   };
 
   return (
-    <div className={`dw-node ${selected ? 'dw-node-selected' : ''}`}>
+    <div
+      className={`dw-node ${selected ? 'dw-node-selected' : ''} ${
+        dropOver ? 'dw-drop-over' : ''
+      }`}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragLeave={() => setDropOver(false)}
+    >
       <NodeResizer isVisible={selected} minWidth={320} minHeight={200} />
       {/* Leashes are undirected. Four visible source handles (one per side):
           with ConnectionMode.Loose each can both start and receive a drag, so

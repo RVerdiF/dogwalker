@@ -19,6 +19,7 @@ import type {
   NodeSpec,
   NoteSpec,
   PresetId,
+  PreviewSpec,
   TerminalSpec,
   WorkspaceLayout,
 } from '../shared/ipc';
@@ -28,6 +29,8 @@ import { TerminalNode, type TerminalFlowNode } from './TerminalNode';
 import { NoteNode, type NoteFlowNode } from './NoteNode';
 import { GroupNode, type GroupFlowNode } from './GroupNode';
 import { FileTreeNode, type FileTreeFlowNode } from './FileTreeNode';
+import { PreviewNode, type PreviewFlowNode } from './PreviewNode';
+import { getFileDrag, setFileDrag } from './dnd';
 import { FloatingLeash } from './FloatingLeash';
 import { Hud } from './Hud';
 import { HistoryPanel } from './HistoryPanel';
@@ -46,13 +49,19 @@ import {
 import { snapMove, type Guide, type SnapBox } from './snapping';
 import { runSmoke } from './smoke';
 
-type DwNode = TerminalFlowNode | NoteFlowNode | GroupFlowNode | FileTreeFlowNode;
+type DwNode =
+  | TerminalFlowNode
+  | NoteFlowNode
+  | GroupFlowNode
+  | FileTreeFlowNode
+  | PreviewFlowNode;
 
 const nodeTypes = {
   terminal: TerminalNode,
   note: NoteNode,
   group: GroupNode,
   filetree: FileTreeNode,
+  preview: PreviewNode,
 };
 const edgeTypes = { leash: FloatingLeash };
 
@@ -84,6 +93,8 @@ const NOTE_W = 320;
 const NOTE_H = 240;
 const FT_W = 340;
 const FT_H = 380;
+const PV_W = 320;
+const PV_H = 300;
 const GRID_GAP_X = 620;
 const GRID_GAP_Y = 440;
 const GRID_COLS = 5;
@@ -113,7 +124,7 @@ export function Canvas({
     aName: string;
     bName: string;
   } | null>(null);
-  const { getViewport, setViewport } = useReactFlow();
+  const { getViewport, setViewport, screenToFlowPosition } = useReactFlow();
   const [focusSignal, setFocusSignal] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
   const [showHud, setShowHud] = useState(false);
@@ -290,6 +301,87 @@ export function Canvas({
     });
   }, [addFileTreeNode, workspaceCwd]);
 
+  const addPreviewNode = useCallback(
+    (spec: PreviewSpec) => {
+      stableToLive.current.set(spec.stableId, spec.stableId);
+      const node: PreviewFlowNode = {
+        id: spec.stableId,
+        type: 'preview',
+        dragHandle: '.dw-drag',
+        position: { x: spec.x, y: spec.y },
+        style: { width: spec.w, height: spec.h },
+        data: { name: spec.name, stableId: spec.stableId, filePath: spec.filePath },
+      };
+      setNodes((ns) => [...ns, node]);
+      return spec.stableId;
+    },
+    [setNodes],
+  );
+
+  const baseName = (p: string) =>
+    p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
+
+  // A file dragged from a File Tree onto empty canvas becomes a preview node,
+  // centered on the drop point.
+  const addPreviewAt = useCallback(
+    (filePath: string, at: { x: number; y: number }) => {
+      spawnCount.current++;
+      addPreviewNode({
+        kind: 'preview',
+        stableId: crypto.randomUUID(),
+        name: baseName(filePath),
+        filePath,
+        x: at.x - PV_W / 2,
+        y: at.y - 20,
+        w: PV_W,
+        h: PV_H,
+      });
+    },
+    [addPreviewNode],
+  );
+
+  // Resolve a canvas drop: a folder opens a File Tree rooted at it, a file
+  // becomes a preview. Extracted (and stat-driven) so the branch is testable.
+  const handleFileDrop = useCallback(
+    async (filePath: string, at: { x: number; y: number }) => {
+      const st = await window.dw.statEntry(filePath);
+      if (st?.isDir) {
+        spawnCount.current++;
+        addFileTreeNode({
+          kind: 'filetree',
+          stableId: crypto.randomUUID(),
+          name: baseName(filePath),
+          rootPath: filePath,
+          x: at.x - FT_W / 2,
+          y: at.y - 20,
+          w: FT_W,
+          h: FT_H,
+        });
+      } else {
+        addPreviewAt(filePath, at);
+      }
+    },
+    [addFileTreeNode, addPreviewAt],
+  );
+
+  const onCanvasDrop = useCallback(
+    (e: React.DragEvent) => {
+      const path = getFileDrag(e);
+      if (!path) return;
+      e.preventDefault();
+      const at = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      void handleFileDrop(path, at);
+    },
+    [screenToFlowPosition, handleFileDrop],
+  );
+
+  const onCanvasDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/x-dogwalker-file')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+
   const spawnNew = useCallback(
     (preset: PresetId) => {
       const n = spawnCount.current++;
@@ -343,6 +435,7 @@ export function Canvas({
         if (spec.kind === 'group') continue;
         if (spec.kind === 'note') await addNoteNode(spec);
         else if (spec.kind === 'filetree') addFileTreeNode(spec);
+        else if (spec.kind === 'preview') addPreviewNode(spec);
         else await addTerminal(spec as TerminalSpec, liveByStable.get(spec.stableId));
       }
       // Re-attach members now that every node exists.
@@ -426,6 +519,8 @@ export function Canvas({
       if (n.type === 'note') return { ...base, kind: 'note' as const };
       if (n.type === 'filetree')
         return { ...base, kind: 'filetree' as const, rootPath: n.data.rootPath };
+      if (n.type === 'preview')
+        return { ...base, kind: 'preview' as const, filePath: n.data.filePath };
       return {
         ...base,
         kind: 'terminal' as const,
@@ -1357,6 +1452,92 @@ export function Canvas({
     })();
   }, [workspaceId, addFileTree]);
 
+  // File ops + drag: the create/rename/delete round-trip through renderer IPC,
+  // the drag-data contract, a drag-to-canvas preview node (persisted), and a
+  // path injected into a terminal (proven via the headless mirror).
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('fileopstest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const sep = workspaceCwd.includes('\\') ? '\\' : '/';
+    const base = workspaceCwd.replace(/[\\/]+$/, '') + sep + 'dw-fileopstest';
+    const join = (...parts: string[]) => parts.join(sep);
+    void (async () => {
+      const results: Record<string, unknown> = {};
+
+      // --- File ops round-trip (create / rename / move / delete) ------------
+      await window.dw.removeEntry(base); // clean any stale run
+      await window.dw.createEntry(join(base, 'sub'), true);
+      await window.dw.createEntry(join(base, 'a.txt'), false);
+      await window.dw.writeFile(join(base, 'a.txt'), 'walker');
+      let list = await window.dw.readDir(base);
+      results.created = list.entries.map((e) => e.name).join(',') === 'sub,a.txt';
+
+      await window.dw.renameEntry(join(base, 'a.txt'), join(base, 'b.txt'));
+      list = await window.dw.readDir(base);
+      results.renamed =
+        list.entries.some((e) => e.name === 'b.txt') &&
+        !list.entries.some((e) => e.name === 'a.txt');
+
+      await window.dw.renameEntry(join(base, 'b.txt'), join(base, 'sub', 'b.txt'));
+      const subList = await window.dw.readDir(join(base, 'sub'));
+      results.moved = subList.entries.some((e) => e.name === 'b.txt');
+
+      await window.dw.removeEntry(join(base, 'sub', 'b.txt'));
+      results.deleted = !(await window.dw.readDir(join(base, 'sub'))).entries.length;
+
+      // --- Drag-data contract (setFileDrag/getFileDrag) --------------------
+      const dt = new DataTransfer();
+      const fakeStart = { dataTransfer: dt } as unknown as React.DragEvent;
+      setFileDrag(fakeStart, join(base, 'sub'));
+      const fakeDrop = { dataTransfer: dt } as unknown as React.DragEvent;
+      results.dragRoundTrip = getFileDrag(fakeDrop) === join(base, 'sub');
+
+      // --- Drag-to-canvas: a file → preview, a folder → File Tree ----------
+      const previewPath = join(base, 'pv.txt');
+      await window.dw.createEntry(previewPath, false);
+      await window.dw.writeFile(previewPath, 'preview me');
+      await handleFileDrop(previewPath, { x: 100, y: 100 });
+      await sleep(300);
+      const pv = nodesRef.current.find((n) => n.type === 'preview');
+      results.previewFromFile =
+        !!pv && (pv.data as { filePath?: string }).filePath === previewPath;
+
+      await handleFileDrop(join(base, 'sub'), { x: 400, y: 100 });
+      await sleep(300);
+      const droppedTree = nodesRef.current.find(
+        (n) => n.type === 'filetree' && (n.data as { rootPath?: string }).rootPath === join(base, 'sub'),
+      );
+      results.folderFromDrop = !!droppedTree;
+
+      await sleep(700);
+      const saved = (await window.dw.loadWorkspace(workspaceId)).layout;
+      const pvSpec = saved.nodes.find((n) => n.kind === 'preview') as
+        | { filePath?: string }
+        | undefined;
+      results.previewPersisted = !!pvSpec && pvSpec.filePath === previewPath;
+
+      // --- Drag-to-terminal: a path written in reaches the PTY mirror ------
+      const marker = join(base, 'DROPMARK');
+      const term = await spawnNew('shell');
+      await sleep(1500);
+      const token = /\s/.test(marker) ? `"${marker}"` : marker;
+      window.dw.write(term, token + ' ');
+      await sleep(1200);
+      const screen = await window.dw.serialize(term);
+      results.injectedIntoTerminal = screen.includes('DROPMARK');
+
+      console.log('FILEOPSTEST RESULT ' + JSON.stringify(results));
+
+      // Cleanup.
+      loaded.current = false;
+      window.dw.kill(term);
+      await window.dw.removeEntry(base);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, workspaceCwd, handleFileDrop, spawnNew]);
+
   // Layout ops test: pure geometry + the canvas wiring that applies it.
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has('layouttest')) return;
@@ -1503,6 +1684,8 @@ export function Canvas({
         minZoom={0.1}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
+        onDrop={onCanvasDrop}
+        onDragOver={onCanvasDragOver}
       >
         <Background gap={20} />
         <ViewportPortal>
