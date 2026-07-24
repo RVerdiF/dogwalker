@@ -6,9 +6,11 @@ import {
   ReactFlow,
   useNodesState,
   useReactFlow,
+  ViewportPortal,
   type Connection,
   type Edge,
   type EdgeMouseHandler,
+  type OnNodeDrag,
   type NodeMouseHandler,
 } from '@xyflow/react';
 import type {
@@ -39,6 +41,7 @@ import {
   type Box,
   type DistributeKind,
 } from './layoutOps';
+import { snapMove, type Guide, type SnapBox } from './snapping';
 import { runSmoke } from './smoke';
 
 type DwNode = TerminalFlowNode | NoteFlowNode | GroupFlowNode;
@@ -108,6 +111,7 @@ export function Canvas({
   const [menu, setMenu] = useState<{ x: number; y: number; count: number } | null>(
     null,
   );
+  const [guides, setGuides] = useState<Guide[]>([]);
   const spawnCount = useRef(0);
   const tierPass = useRef(false);
   const harnessRan = useRef(false);
@@ -1060,6 +1064,59 @@ export function Canvas({
     [soleTerminal, setNodes],
   );
 
+  // ---- magnetic snapping (PRODUCT.md §3.3) ---------------------------------
+  const onNodeDrag = useCallback<OnNodeDrag>(
+    (_evt, node) => {
+      // Single-node drags only; a multi-selection moves as a rigid block.
+      if (nodesRef.current.filter((n) => n.selected).length > 1) return;
+      const byId = new Map(nodesRef.current.map((n) => [n.id, n]));
+      const size = (n: DwNode): SnapBox => ({
+        x: 0,
+        y: 0,
+        w: n.measured?.width ?? (n.type === 'note' ? NOTE_W : n.type === 'group' ? 300 : NODE_W),
+        h: n.measured?.height ?? (n.type === 'note' ? NOTE_H : n.type === 'group' ? 200 : NODE_H),
+      });
+      const abs = absPos(node as DwNode, byId);
+      const moving: SnapBox = { ...size(node as DwNode), x: abs.x, y: abs.y };
+      // Snap against sibling top-level nodes (skip self, its own children, groups
+      // it belongs to).
+      const others: SnapBox[] = nodesRef.current
+        .filter(
+          (n) =>
+            n.id !== node.id &&
+            n.parentId === node.parentId &&
+            n.parentId !== node.id,
+        )
+        .map((n) => {
+          const a = absPos(n, byId);
+          return { ...size(n), x: a.x, y: a.y };
+        });
+      if (others.length === 0) return;
+
+      const res = snapMove(moving, others);
+      setGuides(res.guides);
+      if (res.x === abs.x && res.y === abs.y) return;
+
+      // Convert the snapped absolute position back to the node's frame.
+      let nx = res.x;
+      let ny = res.y;
+      if (node.parentId) {
+        const p = byId.get(node.parentId);
+        if (p) {
+          const pa = absPos(p, byId);
+          nx -= pa.x;
+          ny -= pa.y;
+        }
+      }
+      setNodes((ns) =>
+        ns.map((n) => (n.id === node.id ? { ...n, position: { x: nx, y: ny } } : n)),
+      );
+    },
+    [setNodes],
+  );
+
+  const onNodeDragStop = useCallback(() => setGuides([]), []);
+
   const onNodeContextMenu = useCallback<NodeMouseHandler>(
     (event, node) => {
       event.preventDefault();
@@ -1073,6 +1130,70 @@ export function Canvas({
     },
     [setNodes],
   );
+
+  // Magnetic snapping: pure geometry + a real drag that snaps to a neighbour.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('snaptest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    void (async () => {
+      // Pure cases.
+      const near = snapMove({ x: 105, y: 0, w: 100, h: 50 }, [
+        { x: 100, y: 0, w: 100, h: 50 },
+      ]);
+      // Both axes far, so nothing snaps and no guides appear.
+      const far = snapMove({ x: 120, y: 300, w: 100, h: 50 }, [
+        { x: 100, y: 0, w: 100, h: 50 },
+      ]);
+      const none = snapMove({ x: 300, y: 300, w: 100, h: 50 }, []);
+      // Centers coincide at x=50; nearest line pair is center↔center (diff 0),
+      // so x doesn't move and a center guide is emitted.
+      const center = snapMove({ x: 0, y: 0, w: 100, h: 50 }, [
+        { x: 20, y: 0, w: 60, h: 50 },
+      ]);
+
+      // Live: place B, drop A within threshold of B's left edge, drive a drag.
+      const a = await spawnNew('shell');
+      const b = await spawnNew('shell');
+      await sleep(500);
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === b
+            ? { ...n, position: { x: 400, y: 0 } }
+            : n.id === a
+              ? { ...n, position: { x: 405, y: 320 } }
+              : n,
+        ),
+      );
+      await sleep(200);
+      const aNode = nodesRef.current.find((n) => n.id === a);
+      if (aNode) {
+        const dragged = { ...aNode, position: { x: 405, y: 320 } };
+        onNodeDrag(new MouseEvent('mousemove'), dragged, [dragged]);
+      }
+      await sleep(200);
+      const aAfter = nodesRef.current.find((n) => n.id === a)?.position.x;
+
+      console.log(
+        'SNAPTEST RESULT ' +
+          JSON.stringify({
+            pureSnaps: near.x === 100 && near.guides.length > 0,
+            pureNoSnapFar: far.x === 120 && far.guides.length === 0,
+            pureNoNeighbours: none.x === 300 && none.guides.length === 0,
+            pureCenter:
+              center.x === 0 &&
+              center.guides.some((g) => g.axis === 'x' && Math.round(g.at) === 50),
+            liveSnapped: aAfter === 400,
+            liveX: aAfter,
+          }),
+      );
+      loaded.current = false;
+      window.dw.kill(a);
+      window.dw.kill(b);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, spawnNew, setNodes, onNodeDrag]);
 
   // Groups: group two nodes, move the frame, persist/restore, then ungroup.
   useEffect(() => {
@@ -1289,6 +1410,8 @@ export function Canvas({
         onEdgesDelete={onEdgesDelete}
         onEdgeClick={onEdgeClick}
         onNodeContextMenu={onNodeContextMenu}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
         connectionMode={ConnectionMode.Loose}
         connectionRadius={45}
         snapToGrid
@@ -1300,6 +1423,33 @@ export function Canvas({
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} />
+        <ViewportPortal>
+          {guides.map((g, i) =>
+            g.axis === 'x' ? (
+              <div
+                key={i}
+                className="dw-guide"
+                style={{
+                  position: 'absolute',
+                  transform: `translate(${g.at}px, ${g.from}px)`,
+                  width: 1,
+                  height: g.to - g.from,
+                }}
+              />
+            ) : (
+              <div
+                key={i}
+                className="dw-guide"
+                style={{
+                  position: 'absolute',
+                  transform: `translate(${g.from}px, ${g.at}px)`,
+                  width: g.to - g.from,
+                  height: 1,
+                }}
+              />
+            ),
+          )}
+        </ViewportPortal>
         {nodes.length === 0 && loaded.current && (
           <div className="dw-empty">
             <div className="dw-empty-emoji">🐕</div>

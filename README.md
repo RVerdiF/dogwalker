@@ -34,7 +34,7 @@ Dogwalker gives you one infinite canvas per project where every terminal is a li
 
 ## Features
 
-- **Infinite canvas** — Figma-style pan/zoom, groups, snapping, align/tidy, minimap, freehand drawing for architecture sketches.
+- **Infinite canvas** — Figma-style pan/zoom, groups, snapping, align/tidy, minimap.
 - **Real terminals** — actual PTYs with GPU-accelerated rendering, 1–9 quick-jump, themes, per-terminal memory limits. Terminals stay visibly alive at every zoom level.
 - **Agents as launch configs** — an agent is just a command auto-run in a terminal. Ships with presets for Claude Code, Codex, Gemini CLI, OpenCode, and aider; add any command you want.
 - **Inter-agent messaging** — wire terminals and agents use the `dogwalker` CLI (alias: `walk`) to `ask` each other questions and `reply` with byte-exact answers. Click any leash to see the full message history.

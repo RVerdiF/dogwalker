@@ -1332,3 +1332,9 @@ body,
 .dw-group-ungroup:hover {
   color: #8ab4ff;
 }
+
+.dw-guide {
+  background: #ff5aa0;
+  pointer-events: none;
+  z-index: 9;
+}

@@ -199,6 +199,7 @@ const createWindow = () => {
       process.env.DW_BGTEST ? 'bgtest=1' : '',
       process.env.DW_SWITCHTEST ? 'switchtest=1' : '',
       process.env.DW_GROUPTEST ? 'grouptest=1' : '',
+      process.env.DW_SNAPTEST ? 'snaptest=1' : '',
     ]
       .filter(Boolean)
       .join('&');
