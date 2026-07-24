@@ -11,6 +11,8 @@ export interface AppSettings {
   lightThemeName: string;
   followSystem: boolean;
   notifyOnAttention: boolean;
+  /** Collapse the workspace rail to icon-only (PRODUCT.md §12). */
+  miniSidebar: boolean;
 }
 
 export interface SpawnOptions {
@@ -18,10 +20,25 @@ export interface SpawnOptions {
   name: string;
   cols: number;
   rows: number;
+  /** Owning workspace — terminals outlive a workspace switch (background). */
+  workspaceId: string;
+  /** Persistent node id, so a returning canvas can re-adopt this terminal. */
+  stableId: string;
+  cwd: string;
+  /** 0 = off. Above it, the heaviest child process is killed. */
+  memoryLimitMB?: number;
 }
 
 export interface SpawnResult {
   id: string;
+}
+
+/** A terminal already running for a workspace, offered for re-adoption. */
+export interface LiveTerminal {
+  id: string;
+  stableId: string;
+  name: string;
+  preset: PresetId;
 }
 
 /** [terminalId, chunk] pairs, batched per animation-ish frame in main. */
@@ -69,16 +86,21 @@ export interface HistoryEntry {
 interface BaseSpec {
   stableId: string;
   name: string;
+  /** Relative to the parent group when `parentStableId` is set. */
   x: number;
   y: number;
   w: number;
   h: number;
+  /** Group this node belongs to, if any (PRODUCT.md §3.3). */
+  parentStableId?: string;
 }
 
 /** A terminal's persisted layout: identity + geometry (no live PTY state). */
 export interface TerminalSpec extends BaseSpec {
   kind: 'terminal';
   preset: PresetId;
+  /** Runaway guard in MB; 0/absent = off. */
+  memoryLimitMB?: number;
 }
 
 /** A note's persisted layout; its markdown body lives in a file keyed by id. */
@@ -86,24 +108,42 @@ export interface NoteSpec extends BaseSpec {
   kind: 'note';
 }
 
-export type NodeSpec = TerminalSpec | NoteSpec;
+/** A labeled frame binding nodes; pure layout, never a graph/CLI node. */
+export interface GroupSpec extends BaseSpec {
+  kind: 'group';
+}
+
+export type NodeSpec = TerminalSpec | NoteSpec | GroupSpec;
 
 /** Everything needed to reconstruct a workspace's canvas. */
 export interface WorkspaceLayout {
   nodes: NodeSpec[];
   /** Connections as unordered stable-id pairs. */
   edges: Array<[string, string]>;
+  /** Camera position, so returning to a workspace looks where you left off. */
+  viewport?: { x: number; y: number; zoom: number };
 }
 
 export interface WorkspaceMeta {
   id: string;
   name: string;
   icon: string;
+  /** Working directory terminals start in (PRODUCT.md §12). */
+  cwd: string;
 }
 
 export interface WorkspaceFile extends WorkspaceMeta {
   layout: WorkspaceLayout;
 }
+
+/**
+ * One row in the workspace rail: either a workspace or a named divider that
+ * opens a section (PRODUCT.md §12 — folders / group dividers). The rail is a
+ * flat ordered list; dividers partition it into labeled groups.
+ */
+export type SidebarEntry =
+  | { kind: 'workspace'; id: string }
+  | { kind: 'divider'; id: string; label: string };
 
 export interface DwApi {
   spawn(opts: SpawnOptions): Promise<SpawnResult>;
@@ -119,6 +159,8 @@ export interface DwApi {
   onAttention(cb: (e: { id: string; value: boolean }) => void): () => void;
   /** Show an OS notification (renderer gates this by focus + setting). */
   notify(title: string, body: string): void;
+  /** Runaway guard for a terminal, in MB (0 turns it off). */
+  setMemoryLimit(id: string, mb: number): void;
 
   // Graph (authoritative in main; renderer reflects it).
   graph(): Promise<GraphSnapshot>;
@@ -132,13 +174,38 @@ export interface DwApi {
   onHistory(cb: (pair: { a: string; b: string }) => void): () => void;
 
   // Workspaces (persisted in main under userData/workspaces).
-  listWorkspaces(): Promise<{ workspaces: WorkspaceMeta[]; active: string }>;
+  listWorkspaces(): Promise<{
+    workspaces: WorkspaceMeta[];
+    active: string;
+    sidebar: SidebarEntry[];
+  }>;
   createWorkspace(name: string, icon: string): Promise<WorkspaceMeta>;
   loadWorkspace(id: string): Promise<WorkspaceFile>;
   saveLayout(id: string, layout: WorkspaceLayout): Promise<void>;
-  renameWorkspace(id: string, name: string, icon: string): Promise<void>;
+  renameWorkspace(
+    id: string,
+    name: string,
+    icon: string,
+    cwd?: string,
+  ): Promise<void>;
   deleteWorkspace(id: string): Promise<void>;
   setActiveWorkspace(id: string): Promise<void>;
+  /** Terminals still running for a workspace (adopted instead of respawned). */
+  listTerminals(workspaceId: string): Promise<LiveTerminal[]>;
+  /** Release a workspace's terminals and notes; its layout is untouched. */
+  hibernateWorkspace(workspaceId: string): Promise<void>;
+  /** Add a named divider (section header) at the end of the rail. */
+  addDivider(label: string): Promise<void>;
+  /** Rename a divider. */
+  renameDivider(id: string, label: string): Promise<void>;
+  /** Remove a divider; the workspaces below merge into the previous section. */
+  removeDivider(id: string): Promise<void>;
+  /** Persist a reordered rail (renderer computes it with pure sidebar ops). */
+  reorderSidebar(entries: SidebarEntry[]): Promise<void>;
+  /** Native folder picker; resolves to the chosen path or ''. */
+  pickDirectory(): Promise<string>;
+  /** Open a path with the OS default handler (editor/file manager). */
+  openPath(path: string): Promise<void>;
 
   // Notes. A note is a markdown file keyed by stableId, registered in the graph
   // so it can be wired to terminals (and other notes) and reached by the CLI.

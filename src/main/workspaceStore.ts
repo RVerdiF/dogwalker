@@ -1,7 +1,9 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import type {
+  SidebarEntry,
   WorkspaceFile,
   WorkspaceLayout,
   WorkspaceMeta,
@@ -9,7 +11,10 @@ import type {
 
 interface Index {
   active: string;
-  order: string[];
+  /** Flat rail: workspaces + dividers, in display order (PRODUCT.md §12). */
+  entries: SidebarEntry[];
+  /** @deprecated pre-divider format; migrated to `entries` on read. */
+  order?: string[];
 }
 
 const EMPTY_LAYOUT: WorkspaceLayout = { nodes: [], edges: [] };
@@ -30,8 +35,15 @@ export class WorkspaceStore {
     fs.mkdirSync(this.dir, { recursive: true });
     if (!fs.existsSync(this.indexPath)) {
       const first = this.writeWorkspace(this.blank('My Workspace', '🐕'));
-      this.writeIndex({ active: first.id, order: [first.id] });
+      this.writeIndex({
+        active: first.id,
+        entries: [{ kind: 'workspace', id: first.id }],
+      });
     }
+  }
+
+  private newDividerId(): string {
+    return 'd' + crypto.randomBytes(4).toString('hex');
   }
 
   private blank(name: string, icon: string): WorkspaceFile {
@@ -39,6 +51,7 @@ export class WorkspaceStore {
       id: 'w' + crypto.randomBytes(4).toString('hex'),
       name,
       icon,
+      cwd: os.homedir(),
       layout: { ...EMPTY_LAYOUT },
     };
   }
@@ -48,7 +61,23 @@ export class WorkspaceStore {
   }
 
   private readIndex(): Index {
-    return JSON.parse(fs.readFileSync(this.indexPath, 'utf8')) as Index;
+    const raw = JSON.parse(fs.readFileSync(this.indexPath, 'utf8')) as Index;
+    if (!raw.entries) {
+      // Migrate the pre-divider `{ order }` format.
+      raw.entries = (raw.order ?? []).map((id) => ({
+        kind: 'workspace' as const,
+        id,
+      }));
+    }
+    delete raw.order;
+    return raw;
+  }
+
+  /** Workspace ids present in the rail, in display order. */
+  private wsIds(index: Index): string[] {
+    return index.entries
+      .filter((e) => e.kind === 'workspace')
+      .map((e) => e.id);
   }
 
   private writeIndex(index: Index): void {
@@ -64,24 +93,80 @@ export class WorkspaceStore {
     return JSON.parse(fs.readFileSync(this.filePath(id), 'utf8')) as WorkspaceFile;
   }
 
-  list(): { workspaces: WorkspaceMeta[]; active: string } {
+  list(): { workspaces: WorkspaceMeta[]; active: string; sidebar: SidebarEntry[] } {
     const index = this.readIndex();
-    const workspaces = index.order
-      .filter((id) => fs.existsSync(this.filePath(id)))
-      .map((id) => {
-        const { name, icon } = this.read(id);
-        return { id, name, icon };
+    // Drop rail entries for workspaces whose files vanished; keep dividers.
+    const sidebar = index.entries.filter(
+      (e) => e.kind === 'divider' || fs.existsSync(this.filePath(e.id)),
+    );
+    const workspaces = sidebar
+      .filter((e): e is Extract<SidebarEntry, { kind: 'workspace' }> =>
+        e.kind === 'workspace',
+      )
+      .map((e) => {
+        const { name, icon, cwd } = this.read(e.id);
+        return { id: e.id, name, icon, cwd: cwd || os.homedir() };
       });
-    return { workspaces, active: index.active };
+    return { workspaces, active: index.active, sidebar };
   }
 
   create(name: string, icon: string): WorkspaceMeta {
     const ws = this.writeWorkspace(this.blank(name || 'Workspace', icon || '🐕'));
     const index = this.readIndex();
-    index.order.push(ws.id);
+    index.entries.push({ kind: 'workspace', id: ws.id });
     index.active = ws.id;
     this.writeIndex(index);
-    return { id: ws.id, name: ws.name, icon: ws.icon };
+    return { id: ws.id, name: ws.name, icon: ws.icon, cwd: ws.cwd };
+  }
+
+  addDivider(label: string): void {
+    const index = this.readIndex();
+    index.entries.push({
+      kind: 'divider',
+      id: this.newDividerId(),
+      label: label || 'Section',
+    });
+    this.writeIndex(index);
+  }
+
+  renameDivider(id: string, label: string): void {
+    const index = this.readIndex();
+    for (const e of index.entries) {
+      if (e.kind === 'divider' && e.id === id) e.label = label || e.label;
+    }
+    this.writeIndex(index);
+  }
+
+  removeDivider(id: string): void {
+    const index = this.readIndex();
+    index.entries = index.entries.filter(
+      (e) => !(e.kind === 'divider' && e.id === id),
+    );
+    this.writeIndex(index);
+  }
+
+  /**
+   * Persist a renderer-reordered rail. Sanitized against the current index so a
+   * stale renderer can't invent, drop, or duplicate entries: unknown ids are
+   * discarded and any current entry missing from the input is appended.
+   */
+  reorder(entries: SidebarEntry[]): void {
+    const index = this.readIndex();
+    const known = new Map(index.entries.map((e) => [e.id, e]));
+    const seen = new Set<string>();
+    const next: SidebarEntry[] = [];
+    for (const e of entries) {
+      const cur = known.get(e.id);
+      if (cur && !seen.has(cur.id)) {
+        next.push(cur);
+        seen.add(cur.id);
+      }
+    }
+    for (const e of index.entries) {
+      if (!seen.has(e.id)) next.push(e);
+    }
+    index.entries = next;
+    this.writeIndex(index);
   }
 
   load(id: string): WorkspaceFile {
@@ -95,19 +180,25 @@ export class WorkspaceStore {
     this.writeWorkspace(ws);
   }
 
-  rename(id: string, name: string, icon: string): void {
+  rename(id: string, name: string, icon: string, cwd?: string): void {
     if (!fs.existsSync(this.filePath(id))) return;
     const ws = this.read(id);
     ws.name = name;
     ws.icon = icon;
+    if (cwd !== undefined) ws.cwd = cwd || os.homedir();
     this.writeWorkspace(ws);
   }
 
   remove(id: string): void {
     const index = this.readIndex();
-    if (index.order.length <= 1) return; // keep at least one
-    index.order = index.order.filter((x) => x !== id);
-    if (index.active === id) index.active = index.order[0];
+    const ids = this.wsIds(index);
+    if (ids.length <= 1) return; // keep at least one workspace
+    index.entries = index.entries.filter(
+      (e) => !(e.kind === 'workspace' && e.id === id),
+    );
+    if (index.active === id) {
+      index.active = this.wsIds(index)[0];
+    }
     this.writeIndex(index);
     try {
       fs.unlinkSync(this.filePath(id));

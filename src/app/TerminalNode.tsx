@@ -19,6 +19,8 @@ export interface TerminalNodeData extends Record<string, unknown> {
   stableId: string;
   /** Idle/waiting-for-input, per ARCHITECTURE.md §6. */
   attention?: boolean;
+  /** Runaway guard in MB; 0/absent = off. */
+  memoryLimitMB?: number;
 }
 
 export type TerminalFlowNode = Node<TerminalNodeData, 'terminal'>;

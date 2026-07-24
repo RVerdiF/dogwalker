@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Notification } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { PtyManager } from './main/ptyManager';
@@ -14,9 +14,12 @@ import { WorkspaceStore } from './main/workspaceStore';
 import { NoteStore } from './main/noteStore';
 import { DraftStore } from './main/draftStore';
 import { SettingsStore } from './main/settingsStore';
+import { seedFirstRun } from './main/firstRun';
+import { runMemTest } from './main/memTest';
 import type { AppSettings } from './shared/ipc';
 import type {
   ProcessMetric,
+  SidebarEntry,
   SpawnOptions,
   WorkspaceLayout,
 } from './shared/ipc';
@@ -130,6 +133,7 @@ const createWindow = () => {
   );
 
   const workspaces = new WorkspaceStore(app.getPath('userData'));
+  seedFirstRun(workspaces, notes);
   ipcMain.handle('ws:list', () => workspaces.list());
   ipcMain.handle('ws:create', (_e, { name, icon }: { name: string; icon: string }) =>
     workspaces.create(name, icon),
@@ -142,11 +146,43 @@ const createWindow = () => {
   );
   ipcMain.handle(
     'ws:rename',
-    (_e, { id, name, icon }: { id: string; name: string; icon: string }) =>
-      workspaces.rename(id, name, icon),
+    (
+      _e,
+      {
+        id,
+        name,
+        icon,
+        cwd,
+      }: { id: string; name: string; icon: string; cwd?: string },
+    ) => workspaces.rename(id, name, icon, cwd),
   );
   ipcMain.handle('ws:delete', (_e, id: string) => workspaces.remove(id));
   ipcMain.handle('ws:setActive', (_e, id: string) => workspaces.setActive(id));
+  ipcMain.handle('ws:listTerminals', (_e, workspaceId: string) =>
+    ptys?.listForWorkspace(workspaceId) ?? [],
+  );
+  ipcMain.handle('ws:hibernate', (_e, workspaceId: string) => {
+    ptys?.killWorkspace(workspaceId);
+  });
+  ipcMain.handle('ws:addDivider', (_e, label: string) =>
+    workspaces.addDivider(label),
+  );
+  ipcMain.handle('ws:renameDivider', (_e, { id, label }: { id: string; label: string }) =>
+    workspaces.renameDivider(id, label),
+  );
+  ipcMain.handle('ws:removeDivider', (_e, id: string) =>
+    workspaces.removeDivider(id),
+  );
+  ipcMain.handle('ws:reorderSidebar', (_e, entries: SidebarEntry[]) =>
+    workspaces.reorder(entries),
+  );
+  ipcMain.handle('sys:pickDirectory', async () => {
+    const res = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+    });
+    return res.canceled ? '' : res.filePaths[0];
+  });
+  ipcMain.handle('sys:openPath', (_e, p: string) => shell.openPath(p).then(() => undefined));
 
   // Dev visibility: renderer console mirrored to stdout (no devtools needed).
   wc.on('console-message', (event) => {
@@ -172,6 +208,12 @@ const createWindow = () => {
       process.env.DW_COMPOSERTEST ? 'composertest=1' : '',
       process.env.DW_THEMETEST ? 'themetest=1' : '',
       process.env.DW_ATTENTIONTEST ? 'attentiontest=1' : '',
+      process.env.DW_LAYOUTTEST ? 'layouttest=1' : '',
+      process.env.DW_BGTEST ? 'bgtest=1' : '',
+      process.env.DW_SWITCHTEST ? 'switchtest=1' : '',
+      process.env.DW_GROUPTEST ? 'grouptest=1' : '',
+      process.env.DW_SNAPTEST ? 'snaptest=1' : '',
+      process.env.DW_SIDEBARTEST ? 'sidebartest=1' : '',
     ]
       .filter(Boolean)
       .join('&');
@@ -180,6 +222,10 @@ const createWindow = () => {
     mainWindow.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
+  }
+
+  if (process.env.DW_MEMTEST && ptys) {
+    void runMemTest(ptys, workspaces);
   }
 
   if (process.env.DW_BROKERTEST) {
@@ -197,6 +243,9 @@ ipcMain.on(
     ptys?.resize(id, cols, rows),
 );
 ipcMain.on('pty:kill', (_e, id: string) => ptys?.kill(id));
+ipcMain.on('pty:memoryLimit', (_e, { id, mb }: { id: string; mb: number }) =>
+  ptys?.setMemoryLimit(id, mb),
+);
 ipcMain.handle('mirror:serialize', (_e, id: string) => ptys?.serialize(id) ?? '');
 ipcMain.handle('perf:metrics', (): ProcessMetric[] =>
   app.getAppMetrics().map((m) => ({

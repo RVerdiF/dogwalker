@@ -2,12 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Background,
   ConnectionMode,
+  MiniMap,
   ReactFlow,
   useNodesState,
   useReactFlow,
+  ViewportPortal,
   type Connection,
   type Edge,
   type EdgeMouseHandler,
+  type OnNodeDrag,
+  type NodeMouseHandler,
 } from '@xyflow/react';
 import type {
   GraphSnapshot,
@@ -21,18 +25,51 @@ import { terminals, type Tier } from './terminalService';
 import { BUILTIN_THEMES } from '../shared/themes';
 import { TerminalNode, type TerminalFlowNode } from './TerminalNode';
 import { NoteNode, type NoteFlowNode } from './NoteNode';
+import { GroupNode, type GroupFlowNode } from './GroupNode';
 import { FloatingLeash } from './FloatingLeash';
 import { Hud } from './Hud';
 import { HistoryPanel } from './HistoryPanel';
 import { DevBar } from './DevBar';
 import { TerminalPalette } from './TerminalPalette';
 import { Composer, type ComposerTarget, type Mention } from './Composer';
+import { CanvasMenu } from './CanvasMenu';
+import {
+  align,
+  distribute,
+  tidy,
+  type AlignKind,
+  type Box,
+  type DistributeKind,
+} from './layoutOps';
+import { snapMove, type Guide, type SnapBox } from './snapping';
 import { runSmoke } from './smoke';
 
-type DwNode = TerminalFlowNode | NoteFlowNode;
+type DwNode = TerminalFlowNode | NoteFlowNode | GroupFlowNode;
 
-const nodeTypes = { terminal: TerminalNode, note: NoteNode };
+const nodeTypes = { terminal: TerminalNode, note: NoteNode, group: GroupNode };
 const edgeTypes = { leash: FloatingLeash };
+
+const GROUP_PAD = 28;
+const GROUP_HEADER = 30;
+
+/**
+ * Parented nodes store positions relative to their group, so anything working in
+ * screen/world space (viewport culling, align/tidy) must resolve them first.
+ */
+function absPos(n: DwNode, byId: Map<string, DwNode>): { x: number; y: number } {
+  let { x, y } = n.position;
+  let parent = n.parentId;
+  const seen = new Set<string>();
+  while (parent && !seen.has(parent)) {
+    seen.add(parent);
+    const p = byId.get(parent);
+    if (!p) break;
+    x += p.position.x;
+    y += p.position.y;
+    parent = p.parentId;
+  }
+  return { x, y };
+}
 
 const NODE_W = 560;
 const NODE_H = 380;
@@ -48,11 +85,17 @@ const SAVE_DEBOUNCE_MS = 400;
 
 interface Props {
   workspaceId: string;
+  workspaceCwd: string;
   isDev: boolean;
   notifyOnAttention: boolean;
 }
 
-export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
+export function Canvas({
+  workspaceId,
+  workspaceCwd,
+  isDev,
+  notifyOnAttention,
+}: Props) {
   const [nodes, setNodes, onNodesChange] = useNodesState<DwNode>([]);
   const [graph, setGraph] = useState<GraphSnapshot>({ nodes: [], edges: [] });
   const [historyPair, setHistoryPair] = useState<{
@@ -63,12 +106,20 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
   } | null>(null);
   const { getViewport, setViewport } = useReactFlow();
   const [focusSignal, setFocusSignal] = useState(0);
+  const [showMinimap, setShowMinimap] = useState(true);
+  const [showHud, setShowHud] = useState(false);
+  const [menu, setMenu] = useState<{ x: number; y: number; count: number } | null>(
+    null,
+  );
+  const [guides, setGuides] = useState<Guide[]>([]);
   const spawnCount = useRef(0);
   const tierPass = useRef(false);
   const harnessRan = useRef(false);
   const loaded = useRef(false);
   const tearingDown = useRef(false);
   const stableToLive = useRef(new Map<string, string>());
+  /** Latest persist(), so teardown can flush before the canvas goes away. */
+  const persistRef = useRef<() => void>(() => undefined);
   // Latest values for event handlers registered once on mount.
   const nodesRef = useRef(nodes);
   nodesRef.current = nodes;
@@ -117,14 +168,30 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
 
   // ---- spawn helpers -------------------------------------------------------
   const addTerminal = useCallback(
-    async (spec: TerminalSpec) => {
-      const { id } = await window.dw.spawn({
-        preset: spec.preset,
-        name: spec.name,
-        cols: 80,
-        rows: 24,
-      });
-      terminals.create(id);
+    async (spec: TerminalSpec, adoptId?: string) => {
+      // `adoptId` = a terminal still running from before a workspace switch:
+      // re-attach to it and replay its mirror instead of spawning a new one.
+      let id = adoptId ?? '';
+      if (id) {
+        terminals.create(id);
+        const snapshot = await window.dw.serialize(id);
+        if (snapshot) terminals.write(id, snapshot);
+        window.dw.setMemoryLimit(id, spec.memoryLimitMB ?? 0);
+      } else {
+        id = (
+          await window.dw.spawn({
+            preset: spec.preset,
+            name: spec.name,
+            cols: 80,
+            rows: 24,
+            workspaceId,
+            stableId: spec.stableId,
+            cwd: workspaceCwd,
+            memoryLimitMB: spec.memoryLimitMB ?? 0,
+          })
+        ).id;
+        terminals.create(id);
+      }
       stableToLive.current.set(spec.stableId, id); // terminal graph id = live id
       const node: TerminalFlowNode = {
         id,
@@ -138,12 +205,13 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
           tier: 3 as Tier,
           exited: false,
           stableId: spec.stableId,
+          memoryLimitMB: spec.memoryLimitMB ?? 0,
         },
       };
       setNodes((ns) => [...ns, node]);
       return id;
     },
-    [setNodes],
+    [setNodes, workspaceId, workspaceCwd],
   );
 
   const addNoteNode = useCallback(
@@ -161,6 +229,22 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
       };
       setNodes((ns) => [...ns, node]);
       return spec.stableId;
+    },
+    [setNodes],
+  );
+
+  const addGroupNode = useCallback(
+    (spec: NodeSpec) => {
+      stableToLive.current.set(spec.stableId, spec.stableId);
+      const node: GroupFlowNode = {
+        id: spec.stableId,
+        type: 'group',
+        dragHandle: '.dw-drag',
+        position: { x: spec.x, y: spec.y },
+        style: { width: spec.w, height: spec.h, zIndex: -1 },
+        data: { name: spec.name, stableId: spec.stableId },
+      };
+      setNodes((ns) => [node, ...ns]);
     },
     [setNodes],
   );
@@ -203,34 +287,65 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
     void (async () => {
       const ws = await window.dw.loadWorkspace(workspaceId);
       if (cancelled) return;
+      // Terminals kept running while this workspace was in the background.
+      const live = await window.dw.listTerminals(workspaceId);
+      const liveByStable = new Map(live.map((t) => [t.stableId, t.id]));
+      if (cancelled) return;
       spawnCount.current = ws.layout.nodes.length;
+      // Groups must exist before their members: React Flow requires a parent to
+      // precede its children in the nodes array.
+      for (const spec of ws.layout.nodes) {
+        if (spec.kind === 'group') addGroupNode(spec);
+      }
       for (const spec of ws.layout.nodes) {
         // Missing kind (pre-notes layouts) means terminal.
+        if (spec.kind === 'group') continue;
         if (spec.kind === 'note') await addNoteNode(spec);
-        else await addTerminal(spec as TerminalSpec);
+        else await addTerminal(spec as TerminalSpec, liveByStable.get(spec.stableId));
+      }
+      // Re-attach members now that every node exists.
+      const parentOf = new Map(
+        ws.layout.nodes
+          .filter((s) => s.parentStableId)
+          .map((s) => [s.stableId, s.parentStableId as string]),
+      );
+      if (parentOf.size > 0) {
+        setNodes((ns) =>
+          ns.map((n) => {
+            const parentStable = parentOf.get(n.data.stableId);
+            return parentStable
+              ? { ...n, parentId: parentStable, extent: 'parent' as const }
+              : n;
+          }),
+        );
       }
       for (const [sa, sb] of ws.layout.edges) {
         const la = stableToLive.current.get(sa);
         const lb = stableToLive.current.get(sb);
         if (la && lb) await window.dw.connect(la, lb);
       }
+      // Put the camera back where it was left (before enabling saves, so the
+      // restore itself can't persist a stale viewport). Always set it — a
+      // workspace with no saved camera must land at the origin, never inherit
+      // whatever the previous workspace was showing.
+      setViewport(ws.layout.viewport ?? { x: 0, y: 0, zoom: 1 });
       loaded.current = true;
     })();
     return () => {
       cancelled = true;
-      // Stop persistence BEFORE tearing down: teardown empties the graph
-      // (remove drops edges), and a debounced save must not clobber the stored
-      // layout with nodes-minus-edges. Switching kills terminals and unloads
-      // notes (keeping their files); keep-alive is v0.2.
+      // Flush the pending debounced save FIRST: leaving a workspace seconds
+      // after moving the camera or adding a node must not lose those changes.
+      persistRef.current();
+      // Stop persistence BEFORE tearing down, so a debounced save can't clobber
+      // the stored layout mid-teardown. Leaving a workspace does NOT kill its
+      // terminals or unload its notes — agents keep working in the background
+      // and are re-adopted on return; releasing them is an explicit hibernate.
+      // Only the renderer-side xterm instances are disposed here.
       tearingDown.current = true;
       loaded.current = false;
       setNodes((ns) => {
         for (const n of ns) {
-          if (n.type === 'note') void window.dw.unloadNote(n.id);
-          else {
-            window.dw.kill(n.id);
-            terminals.dispose(n.id);
-          }
+          if (n.type !== 'note') terminals.dispose(n.id);
         }
         return [];
       });
@@ -244,6 +359,7 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
   const persist = useCallback(() => {
     if (!loaded.current || tearingDown.current) return;
     const liveToStable = new Map<string, string>();
+    const byId = new Map(nodes.map((n) => [n.id, n]));
     const specs: NodeSpec[] = nodes.map((n) => {
       liveToStable.set(n.id, n.data.stableId);
       const w =
@@ -255,14 +371,23 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
       const base = {
         stableId: n.data.stableId,
         name: n.data.name,
+        // Kept as stored: relative when the node lives inside a group.
         x: Math.round(n.position.x),
         y: Math.round(n.position.y),
         w: Math.round(w),
         h: Math.round(h),
+        parentStableId: n.parentId
+          ? byId.get(n.parentId)?.data.stableId
+          : undefined,
       };
-      return n.type === 'note'
-        ? { ...base, kind: 'note' as const }
-        : { ...base, kind: 'terminal' as const, preset: n.data.preset };
+      if (n.type === 'group') return { ...base, kind: 'group' as const };
+      if (n.type === 'note') return { ...base, kind: 'note' as const };
+      return {
+        ...base,
+        kind: 'terminal' as const,
+        preset: n.data.preset,
+        memoryLimitMB: n.data.memoryLimitMB ?? 0,
+      };
     });
     const edges: Array<[string, string]> = [];
     for (const e of graph.edges) {
@@ -270,15 +395,36 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
       const sb = liveToStable.get(e.b);
       if (sa && sb) edges.push([sa, sb]);
     }
-    const layout: WorkspaceLayout = { nodes: specs, edges };
+    const vp = getViewport();
+    const layout: WorkspaceLayout = {
+      nodes: specs,
+      edges,
+      viewport: {
+        x: Math.round(vp.x),
+        y: Math.round(vp.y),
+        zoom: Number(vp.zoom.toFixed(3)),
+      },
+    };
     void window.dw.saveLayout(workspaceId, layout);
-  }, [nodes, graph.edges, workspaceId]);
+  }, [nodes, graph.edges, workspaceId, getViewport]);
 
   useEffect(() => {
     if (!loaded.current) return;
     const t = window.setTimeout(persist, SAVE_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
   }, [persist]);
+
+  // Panning/zooming doesn't change nodes, so the effect above won't fire — save
+  // the camera when the user stops moving it.
+  persistRef.current = persist;
+  const cameraTimer = useRef<number | null>(null);
+  const onMoveEnd = useCallback(() => {
+    if (cameraTimer.current !== null) window.clearTimeout(cameraTimer.current);
+    cameraTimer.current = window.setTimeout(
+      () => persistRef.current(),
+      SAVE_DEBOUNCE_MS,
+    );
+  }, []);
 
   // ---- leash edges (derived from the authoritative graph) ------------------
   const nameById = useMemo(() => {
@@ -287,18 +433,21 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
     return m;
   }, [graph.nodes]);
 
-  const edges = useMemo<Edge[]>(
-    () =>
-      graph.edges.map((e) => ({
+  // Background workspaces keep their nodes in the graph, so only render leashes
+  // whose both ends are on THIS canvas.
+  const edges = useMemo<Edge[]>(() => {
+    const present = new Set(nodes.map((n) => n.id));
+    return graph.edges
+      .filter((e) => present.has(e.a) && present.has(e.b))
+      .map((e) => ({
         id: e.id,
         source: e.a,
         target: e.b,
         sourceHandle: 'right',
         targetHandle: 'sink',
         type: 'leash',
-      })),
-    [graph.edges],
-  );
+      }));
+  }, [graph.edges, nodes]);
 
   const onConnect = useCallback((c: Connection) => {
     if (c.source && c.target && c.source !== c.target) {
@@ -330,14 +479,16 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
       tierPass.current = false;
       const vp = getViewport();
       setNodes((ns) => {
+        const byId = new Map(ns.map((n) => [n.id, n]));
         // Only terminals ride the ladder; notes are plain DOM, always rendered.
         const rects = ns
           .filter((n): n is TerminalFlowNode => n.type === 'terminal')
           .map((n) => {
+            const abs = absPos(n, byId);
             const w = (n.measured?.width ?? NODE_W) * vp.zoom;
             const h = (n.measured?.height ?? NODE_H) * vp.zoom;
-            const x = n.position.x * vp.zoom + vp.x;
-            const y = n.position.y * vp.zoom + vp.y;
+            const x = abs.x * vp.zoom + vp.x;
+            const y = abs.y * vp.zoom + vp.y;
             const visible =
               x + w > -VIEWPORT_MARGIN_PX &&
               y + h > -VIEWPORT_MARGIN_PX &&
@@ -733,6 +884,446 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
     return name;
   }, [addNote, composerTarget]);
 
+  // ---- selection layout ops (PRODUCT.md §3.3) ------------------------------
+  const selectedBoxes = useCallback((): Box[] => {
+    const byId = new Map(nodesRef.current.map((n) => [n.id, n]));
+    return nodesRef.current
+      .filter((n) => n.selected)
+      .map((n) => {
+        const abs = absPos(n, byId);
+        return {
+          id: n.id,
+          x: abs.x,
+          y: abs.y,
+          w: n.measured?.width ?? (n.type === 'note' ? NOTE_W : NODE_W),
+          h: n.measured?.height ?? (n.type === 'note' ? NOTE_H : NODE_H),
+        };
+      });
+  }, []);
+
+  const applyPlacement = useCallback(
+    (placement: Map<string, { x: number; y: number }>) => {
+      if (placement.size === 0) return;
+      setNodes((ns) => {
+        const byId = new Map(ns.map((n) => [n.id, n]));
+        return ns.map((n) => {
+          const p = placement.get(n.id);
+          if (!p) return n;
+          // Placements are absolute; a parented node stores relative coords.
+          let { x, y } = p;
+          if (n.parentId) {
+            const parent = byId.get(n.parentId);
+            if (parent) {
+              const pAbs = absPos(parent, byId);
+              x -= pAbs.x;
+              y -= pAbs.y;
+            }
+          }
+          return { ...n, position: { x: Math.round(x), y: Math.round(y) } };
+        });
+      });
+    },
+    [setNodes],
+  );
+
+  const doAlign = useCallback(
+    (kind: AlignKind) => applyPlacement(align(selectedBoxes(), kind)),
+    [applyPlacement, selectedBoxes],
+  );
+  const doDistribute = useCallback(
+    (kind: DistributeKind) => applyPlacement(distribute(selectedBoxes(), kind)),
+    [applyPlacement, selectedBoxes],
+  );
+  const doTidy = useCallback(
+    () => applyPlacement(tidy(selectedBoxes())),
+    [applyPlacement, selectedBoxes],
+  );
+
+  // ---- groups (PRODUCT.md §3.3) --------------------------------------------
+  const groupSelection = useCallback(() => {
+    setNodes((ns) => {
+      const byId = new Map(ns.map((n) => [n.id, n]));
+      // Only top-level, non-group nodes can start a group.
+      const members = ns.filter(
+        (n) => n.selected && n.type !== 'group' && !n.parentId,
+      );
+      if (members.length < 2) return ns;
+
+      const boxes = members.map((n) => {
+        const p = absPos(n, byId);
+        return {
+          n,
+          x: p.x,
+          y: p.y,
+          w: n.measured?.width ?? (n.type === 'note' ? NOTE_W : NODE_W),
+          h: n.measured?.height ?? (n.type === 'note' ? NOTE_H : NODE_H),
+        };
+      });
+      const minX = Math.min(...boxes.map((b) => b.x)) - GROUP_PAD;
+      const minY = Math.min(...boxes.map((b) => b.y)) - GROUP_PAD - GROUP_HEADER;
+      const maxX = Math.max(...boxes.map((b) => b.x + b.w)) + GROUP_PAD;
+      const maxY = Math.max(...boxes.map((b) => b.y + b.h)) + GROUP_PAD;
+
+      const gid = crypto.randomUUID();
+      const group: GroupFlowNode = {
+        id: gid,
+        type: 'group',
+        dragHandle: '.dw-drag',
+        position: { x: minX, y: minY },
+        style: { width: maxX - minX, height: maxY - minY, zIndex: -1 },
+        data: { name: 'Group', stableId: gid },
+      };
+      const ids = new Set(members.map((m) => m.id));
+      // Parent must precede its children in the array.
+      return [
+        group,
+        ...ns.map((n) =>
+          ids.has(n.id)
+            ? {
+                ...n,
+                parentId: gid,
+                extent: 'parent' as const,
+                selected: false,
+                position: {
+                  x: absPos(n, byId).x - minX,
+                  y: absPos(n, byId).y - minY,
+                },
+              }
+            : n,
+        ),
+      ];
+    });
+  }, [setNodes]);
+
+  const ungroup = useCallback(
+    (groupId?: string) => {
+      setNodes((ns) => {
+        const targets = groupId
+          ? ns.filter((n) => n.id === groupId)
+          : ns.filter((n) => n.type === 'group' && n.selected);
+        if (targets.length === 0) return ns;
+        const ids = new Set(targets.map((t) => t.id));
+        const byId = new Map(ns.map((n) => [n.id, n]));
+        return ns
+          .filter((n) => !ids.has(n.id))
+          .map((n) => {
+            if (!n.parentId || !ids.has(n.parentId)) return n;
+            const abs = absPos(n, byId); // keep them exactly where they look
+            return {
+              ...n,
+              parentId: undefined,
+              extent: undefined,
+              position: abs,
+            };
+          });
+      });
+    },
+    [setNodes],
+  );
+
+  // The group node talks back through window events (it has no props channel).
+  useEffect(() => {
+    const onRename = (e: Event) => {
+      const { id, name } = (e as CustomEvent<{ id: string; name: string }>).detail;
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === id && n.type === 'group' ? { ...n, data: { ...n.data, name } } : n,
+        ),
+      );
+    };
+    const onUngroup = (e: Event) =>
+      ungroup((e as CustomEvent<{ id: string }>).detail.id);
+    window.addEventListener('dw:group-rename', onRename);
+    window.addEventListener('dw:group-ungroup', onUngroup);
+    return () => {
+      window.removeEventListener('dw:group-rename', onRename);
+      window.removeEventListener('dw:group-ungroup', onUngroup);
+    };
+  }, [setNodes, ungroup]);
+
+  /** The single selected terminal, when there is exactly one (for its limit). */
+  const soleTerminal = useMemo(() => {
+    const sel = nodes.filter((n) => n.selected);
+    return sel.length === 1 && sel[0].type === 'terminal'
+      ? (sel[0] as TerminalFlowNode)
+      : null;
+  }, [nodes]);
+
+  const setMemoryLimit = useCallback(
+    (mb: number) => {
+      if (!soleTerminal) return;
+      window.dw.setMemoryLimit(soleTerminal.id, mb);
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === soleTerminal.id && n.type === 'terminal'
+            ? { ...n, data: { ...n.data, memoryLimitMB: mb } }
+            : n,
+        ),
+      );
+    },
+    [soleTerminal, setNodes],
+  );
+
+  // ---- magnetic snapping (PRODUCT.md §3.3) ---------------------------------
+  const onNodeDrag = useCallback<OnNodeDrag>(
+    (_evt, node) => {
+      // Single-node drags only; a multi-selection moves as a rigid block.
+      if (nodesRef.current.filter((n) => n.selected).length > 1) return;
+      const byId = new Map(nodesRef.current.map((n) => [n.id, n]));
+      const size = (n: DwNode): SnapBox => ({
+        x: 0,
+        y: 0,
+        w: n.measured?.width ?? (n.type === 'note' ? NOTE_W : n.type === 'group' ? 300 : NODE_W),
+        h: n.measured?.height ?? (n.type === 'note' ? NOTE_H : n.type === 'group' ? 200 : NODE_H),
+      });
+      const abs = absPos(node as DwNode, byId);
+      const moving: SnapBox = { ...size(node as DwNode), x: abs.x, y: abs.y };
+      // Snap against sibling top-level nodes (skip self, its own children, groups
+      // it belongs to).
+      const others: SnapBox[] = nodesRef.current
+        .filter(
+          (n) =>
+            n.id !== node.id &&
+            n.parentId === node.parentId &&
+            n.parentId !== node.id,
+        )
+        .map((n) => {
+          const a = absPos(n, byId);
+          return { ...size(n), x: a.x, y: a.y };
+        });
+      if (others.length === 0) return;
+
+      const res = snapMove(moving, others);
+      setGuides(res.guides);
+      if (res.x === abs.x && res.y === abs.y) return;
+
+      // Convert the snapped absolute position back to the node's frame.
+      let nx = res.x;
+      let ny = res.y;
+      if (node.parentId) {
+        const p = byId.get(node.parentId);
+        if (p) {
+          const pa = absPos(p, byId);
+          nx -= pa.x;
+          ny -= pa.y;
+        }
+      }
+      setNodes((ns) =>
+        ns.map((n) => (n.id === node.id ? { ...n, position: { x: nx, y: ny } } : n)),
+      );
+    },
+    [setNodes],
+  );
+
+  const onNodeDragStop = useCallback(() => setGuides([]), []);
+
+  const onNodeContextMenu = useCallback<NodeMouseHandler>(
+    (event, node) => {
+      event.preventDefault();
+      // Right-clicking outside the selection selects that node first.
+      let count = nodesRef.current.filter((n) => n.selected).length;
+      if (!nodesRef.current.find((n) => n.id === node.id)?.selected) {
+        setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === node.id })));
+        count = 1;
+      }
+      setMenu({ x: event.clientX, y: event.clientY, count });
+    },
+    [setNodes],
+  );
+
+  // Magnetic snapping: pure geometry + a real drag that snaps to a neighbour.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('snaptest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    void (async () => {
+      // Pure cases.
+      const near = snapMove({ x: 105, y: 0, w: 100, h: 50 }, [
+        { x: 100, y: 0, w: 100, h: 50 },
+      ]);
+      // Both axes far, so nothing snaps and no guides appear.
+      const far = snapMove({ x: 120, y: 300, w: 100, h: 50 }, [
+        { x: 100, y: 0, w: 100, h: 50 },
+      ]);
+      const none = snapMove({ x: 300, y: 300, w: 100, h: 50 }, []);
+      // Centers coincide at x=50; nearest line pair is center↔center (diff 0),
+      // so x doesn't move and a center guide is emitted.
+      const center = snapMove({ x: 0, y: 0, w: 100, h: 50 }, [
+        { x: 20, y: 0, w: 60, h: 50 },
+      ]);
+
+      // Live: place B, drop A within threshold of B's left edge, drive a drag.
+      const a = await spawnNew('shell');
+      const b = await spawnNew('shell');
+      await sleep(500);
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === b
+            ? { ...n, position: { x: 400, y: 0 } }
+            : n.id === a
+              ? { ...n, position: { x: 405, y: 320 } }
+              : n,
+        ),
+      );
+      await sleep(200);
+      const aNode = nodesRef.current.find((n) => n.id === a);
+      if (aNode) {
+        const dragged = { ...aNode, position: { x: 405, y: 320 } };
+        onNodeDrag(new MouseEvent('mousemove'), dragged, [dragged]);
+      }
+      await sleep(200);
+      const aAfter = nodesRef.current.find((n) => n.id === a)?.position.x;
+
+      console.log(
+        'SNAPTEST RESULT ' +
+          JSON.stringify({
+            pureSnaps: near.x === 100 && near.guides.length > 0,
+            pureNoSnapFar: far.x === 120 && far.guides.length === 0,
+            pureNoNeighbours: none.x === 300 && none.guides.length === 0,
+            pureCenter:
+              center.x === 0 &&
+              center.guides.some((g) => g.axis === 'x' && Math.round(g.at) === 50),
+            liveSnapped: aAfter === 400,
+            liveX: aAfter,
+          }),
+      );
+      loaded.current = false;
+      window.dw.kill(a);
+      window.dw.kill(b);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, spawnNew, setNodes, onNodeDrag]);
+
+  // Groups: group two nodes, move the frame, persist/restore, then ungroup.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('grouptest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const absOf = (id: string) => {
+      const byId = new Map(nodesRef.current.map((n) => [n.id, n]));
+      const n = byId.get(id);
+      return n ? absPos(n, byId) : null;
+    };
+    void (async () => {
+      const a = await spawnNew('shell');
+      const b = await spawnNew('shell');
+      await sleep(600);
+      const beforeA = absOf(a);
+      setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === a || n.id === b })));
+      await sleep(200);
+      groupSelection();
+      await sleep(400);
+
+      const grouped = nodesRef.current.filter((n) => n.parentId);
+      const group = nodesRef.current.find((n) => n.type === 'group');
+      const afterGroupA = absOf(a);
+      // Members reparented, positions relative, absolute position unchanged.
+      const membersParented = grouped.length === 2 && !!group;
+      const absKept =
+        !!beforeA && !!afterGroupA && Math.abs(beforeA.x - afterGroupA.x) < 2;
+      const relative =
+        (nodesRef.current.find((n) => n.id === a)?.position.x ?? -1) !== beforeA?.x;
+
+      // Move the frame: members must follow in absolute terms.
+      const gid = group?.id ?? '';
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === gid
+            ? { ...n, position: { x: n.position.x + 300, y: n.position.y + 100 } }
+            : n,
+        ),
+      );
+      await sleep(300);
+      const movedA = absOf(a);
+      const membersFollowed =
+        !!movedA && !!afterGroupA && Math.round(movedA.x - afterGroupA.x) === 300;
+
+      // Persist + inspect the stored layout.
+      await sleep(700);
+      const saved = (await window.dw.loadWorkspace(workspaceId)).layout;
+      const groupSpec = saved.nodes.find((n) => n.kind === 'group');
+      const memberSpecs = saved.nodes.filter((n) => n.parentStableId);
+
+      // Ungroup: absolute positions must be preserved.
+      ungroup(gid);
+      await sleep(300);
+      const afterUngroupA = absOf(a);
+      const ungroupKeptAbs =
+        !!movedA &&
+        !!afterUngroupA &&
+        Math.abs(movedA.x - afterUngroupA.x) < 2 &&
+        nodesRef.current.every((n) => !n.parentId) &&
+        !nodesRef.current.some((n) => n.type === 'group');
+
+      console.log(
+        'GROUPTEST RESULT ' +
+          JSON.stringify({
+            membersParented,
+            absKept,
+            relative,
+            membersFollowed,
+            groupPersisted: !!groupSpec,
+            membershipPersisted: memberSpecs.length === 2,
+            ungroupKeptAbs,
+          }),
+      );
+      loaded.current = false;
+      window.dw.kill(a);
+      window.dw.kill(b);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, spawnNew, setNodes, groupSelection, ungroup]);
+
+  // Layout ops test: pure geometry + the canvas wiring that applies it.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('layouttest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    void (async () => {
+      const boxes: Box[] = [
+        { id: 'a', x: 10, y: 0, w: 100, h: 50 },
+        { id: 'b', x: 200, y: 30, w: 100, h: 50 },
+        { id: 'c', x: 400, y: 60, w: 100, h: 50 },
+      ];
+      const al = align(boxes, 'left');
+      const di = distribute(boxes, 'horizontal');
+      const ti = tidy(boxes, 40);
+
+      // Wiring: spawn two, select both, align them left.
+      const t1 = await spawnNew('shell');
+      const t2 = await spawnNew('shell');
+      await sleep(500);
+      setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === t1 || n.id === t2 })));
+      await sleep(300);
+      doAlign('left');
+      await sleep(400);
+      const xs = nodesRef.current.filter((n) => n.selected).map((n) => n.position.x);
+
+      console.log(
+        'LAYOUTTEST RESULT ' +
+          JSON.stringify({
+            pureAlignLeft: al.get('b')?.x === 10 && al.get('c')?.x === 10,
+            pureDistribute: Math.round(di.get('b')?.x ?? -1) === 205,
+            pureTidy:
+              ti.get('a')?.x === 10 &&
+              ti.get('b')?.x === 150 &&
+              ti.get('c')?.x === 10 &&
+              ti.get('c')?.y === 90,
+            wiringAligned: xs.length === 2 && xs[0] === xs[1],
+            xs,
+            minimap: !!document.querySelector('.react-flow__minimap'),
+          }),
+      );
+      loaded.current = false;
+      window.dw.kill(t1);
+      window.dw.kill(t2);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, spawnNew, setNodes, doAlign]);
+
   // Ctrl/⌘+Shift+P focuses the composer; Shift+A cycles attention terminals.
   const cycleAttention = useCallback(() => {
     const list = nodesRef.current.filter(
@@ -760,20 +1351,36 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         setFocusSignal((s) => s + 1);
+      } else if (e.shiftKey && !e.ctrlKey && !e.metaKey && !typing) {
+        const k = e.key.toLowerCase();
+        if (k === 'a') {
+          e.preventDefault();
+          cycleAttention();
+        } else if (k === 'm') {
+          e.preventDefault();
+          setShowMinimap((v) => !v);
+        } else if (k === 't') {
+          e.preventDefault();
+          doTidy();
+        } else if (k === 'g') {
+          e.preventDefault();
+          ungroup();
+        }
       } else if (
-        e.shiftKey &&
-        e.key.toLowerCase() === 'a' &&
+        e.key.toLowerCase() === 'g' &&
         !e.ctrlKey &&
         !e.metaKey &&
+        !e.altKey &&
+        !e.shiftKey &&
         !typing
       ) {
         e.preventDefault();
-        cycleAttention();
+        groupSelection();
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [cycleAttention]);
+  }, [cycleAttention, doTidy]);
 
   return (
     <div className="dw-canvas-host">
@@ -789,6 +1396,8 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
             })();
           }}
           onKillAll={killAll}
+          hudOn={showHud}
+          onToggleHud={() => setShowHud((v) => !v)}
         />
       )}
       <ReactFlow
@@ -800,16 +1409,73 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
         onConnect={onConnect}
         onEdgesDelete={onEdgesDelete}
         onEdgeClick={onEdgeClick}
+        onNodeContextMenu={onNodeContextMenu}
+        onNodeDrag={onNodeDrag}
+        onNodeDragStop={onNodeDragStop}
         connectionMode={ConnectionMode.Loose}
         connectionRadius={45}
+        snapToGrid
+        snapGrid={[20, 20]}
         onMove={recomputeTiers}
+        onMoveEnd={onMoveEnd}
         minZoom={0.1}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} />
+        <ViewportPortal>
+          {guides.map((g, i) =>
+            g.axis === 'x' ? (
+              <div
+                key={i}
+                className="dw-guide"
+                style={{
+                  position: 'absolute',
+                  transform: `translate(${g.at}px, ${g.from}px)`,
+                  width: 1,
+                  height: g.to - g.from,
+                }}
+              />
+            ) : (
+              <div
+                key={i}
+                className="dw-guide"
+                style={{
+                  position: 'absolute',
+                  transform: `translate(${g.from}px, ${g.at}px)`,
+                  width: g.to - g.from,
+                  height: 1,
+                }}
+              />
+            ),
+          )}
+        </ViewportPortal>
+        {nodes.length === 0 && loaded.current && (
+          <div className="dw-empty">
+            <div className="dw-empty-emoji">🐕</div>
+            <h2>This workspace is empty</h2>
+            <p>
+              Add a terminal from the palette above — pick an agent or a plain
+              shell. Drag from a node's side handle to another to put them on a
+              leash; wired agents can then talk with <code>dogwalker ask</code>.
+            </p>
+          </div>
+        )}
+        {showMinimap && (
+          <MiniMap
+            pannable
+            zoomable
+            className="dw-minimap"
+            maskColor="rgba(10, 10, 14, 0.7)"
+            nodeColor={(n) => (n.type === 'note' ? '#3a3726' : '#2e2e3a')}
+            nodeStrokeColor={(n) =>
+              n.type === 'note' ? '#e0cf7a' : n.data?.attention ? '#ff5555' : '#8ab4ff'
+            }
+            nodeStrokeWidth={3}
+          />
+        )}
       </ReactFlow>
-      {isDev && <Hud />}
+      {isDev && showHud && <Hud />}
       <HistoryPanel pair={historyPair} onClose={() => setHistoryPair(null)} />
       <Composer
         target={composerTarget}
@@ -817,6 +1483,31 @@ export function Canvas({ workspaceId, isDev, notifyOnAttention }: Props) {
         onNewNote={onComposerNewNote}
         focusSignal={focusSignal}
       />
+      {menu && (
+        <CanvasMenu
+          x={menu.x}
+          y={menu.y}
+          count={menu.count}
+          memoryLimitMB={soleTerminal ? soleTerminal.data.memoryLimitMB ?? 0 : null}
+          onMemoryLimit={(mb) => {
+            setMemoryLimit(mb);
+            setMenu(null);
+          }}
+          onAlign={(k) => {
+            doAlign(k);
+            setMenu(null);
+          }}
+          onDistribute={(k) => {
+            doDistribute(k);
+            setMenu(null);
+          }}
+          onTidy={() => {
+            doTidy();
+            setMenu(null);
+          }}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   );
 }

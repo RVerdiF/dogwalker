@@ -75,7 +75,7 @@ accepted deviation (memory measured in dev mode) in
 **Expectation:** dogfooding (started in v0.1) exposes friction; this version removes it. Nothing conceptually new — the canvas and workspace shell reach their full PRODUCT.md shape, so living in Dogwalker all day feels good rather than merely possible.
 
 **Outputs**
-1. **Canvas completion**: groups (create/ungroup/rename/move-by-header), align/distribute, tidy, magnetic snapping, minimap, tool auto-revert, drawing + text tools ([PRODUCT.md §3.3–3.4](PRODUCT.md#33-organization)).
+1. **Canvas completion**: groups (create/ungroup/rename/move-by-header), align/distribute, tidy, magnetic snapping, minimap, tool auto-revert ([PRODUCT.md §3.3](PRODUCT.md#33-organization)).
 2. **Workspace shell completion**: folders and group dividers in the sidebar, mini sidebar, per-workspace number shortcuts, prev/next switching, hibernation (manual + load-only-active), open-in-editor button ([PRODUCT.md §12](PRODUCT.md#12-workspaces--shell)).
 3. **Terminal completion**: theme gallery + user-supplied custom themes + follow-system toggle, per-terminal memory limits ([PRODUCT.md §4.1](PRODUCT.md#41-terminals)).
 4. First-run experience: sensible empty state, a seeded example workspace.

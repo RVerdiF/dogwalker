@@ -8,6 +8,7 @@ const DEFAULTS: AppSettings = {
   lightThemeName: 'GitHub Light',
   followSystem: false,
   notifyOnAttention: true,
+  miniSidebar: false,
 };
 
 /**

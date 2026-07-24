@@ -9,7 +9,7 @@ How Dogwalker is built. For what it is and why, see [PRODUCT.md](PRODUCT.md).
 | Layer | Choice | Why |
 |---|---|---|
 | App shell | **Electron + TypeScript** | The only stack where all three hard requirements are cheap at once: terminals (xterm.js + node-pty across macOS/Win/Linux), embedded automatable browsers (Chromium `WebContentsView` + CDP), and a mature canvas ecosystem. A native-per-OS approach multiplies every module by ~3. |
-| Canvas | **React Flow (@xyflow/react)** (custom node & edge types) | MIT-licensed node-graph canvas: infinite pan/zoom, custom React nodes and edges, minimap, selection, and a viewport API out of the box — and its node+edge model is exactly Dogwalker's (terminals + leashes). Considered **tldraw**: richer whiteboard features (drawing, groups, align/tidy, undo/redo built in), but discarded because its SDK license (verified 2026-07) forbids production use without a commercial license — incompatible with a 100% free product ([PRODUCT.md principle 5](PRODUCT.md#14-principles)). Whiteboard features we lose (drawing tools, groups, align/distribute, undo/redo) get built on top of React Flow in their scheduled versions ([ROADMAP.md](ROADMAP.md)). |
+| Canvas | **React Flow (@xyflow/react)** (custom node & edge types) | MIT-licensed node-graph canvas: infinite pan/zoom, custom React nodes and edges, minimap, selection, and a viewport API out of the box — and its node+edge model is exactly Dogwalker's (terminals + leashes). Considered **tldraw**: richer whiteboard features (drawing, groups, align/tidy, undo/redo built in), but discarded because its SDK license (verified 2026-07) forbids production use without a commercial license — incompatible with a 100% free product ([PRODUCT.md principle 5](PRODUCT.md#14-principles)). The whiteboard features we still want (groups, align/distribute, undo/redo) are built on top of React Flow in their scheduled versions ([ROADMAP.md](ROADMAP.md)); freehand drawing/text tools are deliberately out of scope. |
 | Terminal emulation | **xterm.js v6** (WebGL + DOM renderers) + **node-pty** | Battle-tested emulator; node-pty covers posix PTYs and Windows ConPTY. Note: xterm.js v6 (2025-12) removed the canvas renderer — the degradation ladder's tier 2 uses the DOM renderer. |
 | Code editor | **CodeMirror 6** | Embedded editor in File Tree nodes. Considered **Monaco** (VS Code's editor): richer IDE features out of the box, but discarded because it is heavyweight per instance (multi-MB bundle plus worker setup), designed around a single full-window editor rather than several small ones, and has unreliable layout/hit-testing inside CSS-transformed containers — exactly what a zoomable canvas is. CodeMirror 6 is modular (~10× smaller core), cheap enough to run one instance per File Tree node, and behaves correctly in scaled DOM; its trade-off (IDE smarts require assembling extensions) is acceptable since agents, not the editor, provide the intelligence. |
 | Git | Shell out to system `git` | Diff/graph/branch ops and worktrees without reimplementing git. |
@@ -147,7 +147,8 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
 
 ## 10. Persistence & hibernation
 
-- Workspace file (JSON): node layout, terminal configs (preset, role, theme, limits), connections, floors, routines, drafts.
+- Workspace file (JSON): metadata (name, icon, **cwd** — terminals spawn there), node layout, terminal configs, connections, floors, routines, drafts.
+- **Background workspaces (v0.2)** — leaving a workspace no longer kills its terminals; agents keep working. Main owns terminal→workspace ownership, so returning **adopts** the live PTYs (replaying each headless mirror into a fresh xterm) instead of respawning. Releasing them is an explicit **hibernate**. Because background workspaces keep their nodes in the graph, the canvas renders only leashes whose both ends are present on it.
 - Notes are plain `.md` files owned by the user; the workspace file stores references + positions.
 - Hibernate: kill PTYs/portals, keep serialized screen snapshots and layout; resume respawns terminals (shell fresh, layout and scrollback snapshot restored visually). Startup loads only the active workspace.
 - Message history: append-only JSONL per workspace.
@@ -258,8 +259,11 @@ returns the peer — proving the CLI exists only inside canvas terminals.
 **Built — persistence & app shell**
 - **WorkspaceStore** (`src/main/workspaceStore.ts`) — workspaces as plain JSON
   under `userData/workspaces` (metadata + layout: node specs with geometry +
-  connections as stable-id pairs), an `index.json` for order + active. Node
-  identity is a persistent `stableId` distinct from the ephemeral live PTY id.
+  connections as stable-id pairs), an `index.json` holding the active id and the
+  sidebar rail — a flat ordered list of workspace and named-divider entries that
+  partitions the rail into sections (migrated from the pre-divider `order`
+  array). Node identity is a persistent `stableId` distinct from the ephemeral
+  live PTY id.
 - **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
   terminals from its specs, places them at saved geometry, and re-wires leashes;
   layout is saved (debounced) on move/resize/add/remove/connect/disconnect.

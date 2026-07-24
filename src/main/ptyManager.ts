@@ -4,8 +4,14 @@ import * as pty from 'node-pty';
 import type { WebContents } from 'electron';
 import { Terminal as HeadlessTerminal } from '@xterm/headless';
 import { SerializeAddon } from '@xterm/addon-serialize';
-import type { DataBatch, SpawnOptions } from '../shared/ipc';
+import type {
+  DataBatch,
+  LiveTerminal,
+  PresetId,
+  SpawnOptions,
+} from '../shared/ipc';
 import { defaultShell, presetCommand } from './presets';
+import { findOffender, listProcesses } from './processTree';
 import type { GraphStore } from './graphStore';
 
 interface Entry {
@@ -13,6 +19,10 @@ interface Entry {
   mirror: HeadlessTerminal;
   serializer: SerializeAddon;
   name: string;
+  /** Ownership, so terminals survive a workspace switch and can be re-adopted. */
+  workspaceId: string;
+  stableId: string;
+  preset: PresetId;
   // Attention state (ARCHITECTURE.md §6).
   attention: boolean;
   producedOutput: boolean;
@@ -20,6 +30,8 @@ interface Entry {
   quiesce: NodeJS.Timeout | null;
   /** Resolvers waiting for this terminal to next go quiet (used by `ask`). */
   quietWaiters: Array<() => void>;
+  /** Runaway guard: MB the child processes may use before the biggest is killed. */
+  memoryLimitMB: number;
 }
 
 interface PtyEnv {
@@ -33,6 +45,8 @@ const FLUSH_MS = 16;
 const AUTOEXEC_DELAY_MS = 600;
 /** Idle-after-output window that flags a terminal as needing attention. */
 const QUIESCENCE_MS = 2500;
+/** How often to sample process memory while any terminal has a limit. */
+const MEMORY_POLL_MS = 5000;
 
 /**
  * Owns every PTY and its headless mirror (ARCHITECTURE.md §3): the mirror is
@@ -47,6 +61,7 @@ export class PtyManager {
   private nextId = 1;
   private pending = new Map<string, string>();
   private flushTimer: NodeJS.Timeout | null = null;
+  private memoryTimer: NodeJS.Timeout | null = null;
 
   constructor(
     private target: WebContents,
@@ -62,7 +77,7 @@ export class PtyManager {
       name: 'xterm-256color',
       cols: opts.cols,
       rows: opts.rows,
-      cwd: os.homedir(),
+      cwd: opts.cwd || os.homedir(),
       env: {
         ...process.env,
         DOGWALKER_TERMINAL_ID: id,
@@ -108,12 +123,17 @@ export class PtyManager {
       mirror,
       serializer,
       name: opts.name,
+      workspaceId: opts.workspaceId,
+      stableId: opts.stableId,
+      preset: opts.preset,
       attention: false,
       producedOutput: false,
       hasEngaged: false,
       quiesce: null,
       quietWaiters: [],
+      memoryLimitMB: opts.memoryLimitMB ?? 0,
     });
+    this.syncMemoryPoller();
     this.graph.addNode(id, opts.name, 'terminal', opts.preset);
 
     const command = presetCommand(opts.preset);
@@ -236,6 +256,7 @@ export class PtyManager {
     entry.proc.kill();
     entry.mirror.dispose();
     this.graph.removeNode(id);
+    this.syncMemoryPoller();
   }
 
   killAll(): void {
@@ -244,6 +265,71 @@ export class PtyManager {
 
   has(id: string): boolean {
     return this.entries.has(id);
+  }
+
+  /** OS pid of a terminal's shell (root of its process tree). */
+  pidOf(id: string): number | undefined {
+    return this.entries.get(id)?.proc.pid;
+  }
+
+  // ---- memory limits (PRODUCT.md §4.1) ------------------------------------
+  setMemoryLimit(id: string, mb: number): void {
+    const e = this.entries.get(id);
+    if (!e) return;
+    e.memoryLimitMB = Math.max(0, mb);
+    this.syncMemoryPoller();
+  }
+
+  /** The poller exists only while some terminal has a limit — off by default. */
+  private syncMemoryPoller(): void {
+    const wanted = [...this.entries.values()].some((e) => e.memoryLimitMB > 0);
+    if (wanted && !this.memoryTimer) {
+      this.memoryTimer = setInterval(() => void this.checkMemory(), MEMORY_POLL_MS);
+    } else if (!wanted && this.memoryTimer) {
+      clearInterval(this.memoryTimer);
+      this.memoryTimer = null;
+    }
+  }
+
+  private async checkMemory(): Promise<void> {
+    const limited = [...this.entries].filter(([, e]) => e.memoryLimitMB > 0);
+    if (limited.length === 0) return;
+    const procs = await listProcesses();
+    if (procs.length === 0) return;
+    for (const [id, e] of limited) {
+      const hit = findOffender(procs, e.proc.pid, e.memoryLimitMB);
+      if (!hit) continue;
+      try {
+        process.kill(hit.pid);
+      } catch {
+        continue; // already gone
+      }
+      // Say why, in the terminal itself — the shell stays alive.
+      const msg =
+        `\r\n\x1b[33m[dogwalker] killed pid ${hit.pid}: ` +
+        `${hit.totalMB} MB over the ${e.memoryLimitMB} MB limit\x1b[0m\r\n`;
+      e.mirror.write(msg);
+      this.pending.set(id, (this.pending.get(id) ?? '') + msg);
+      this.scheduleFlush();
+    }
+  }
+
+  /** Terminals still alive for a workspace, so a returning canvas adopts them. */
+  listForWorkspace(workspaceId: string): LiveTerminal[] {
+    const out: LiveTerminal[] = [];
+    for (const [id, e] of this.entries) {
+      if (e.workspaceId === workspaceId) {
+        out.push({ id, stableId: e.stableId, name: e.name, preset: e.preset });
+      }
+    }
+    return out;
+  }
+
+  /** Release every terminal of a workspace (hibernate). */
+  killWorkspace(workspaceId: string): void {
+    for (const [id, e] of [...this.entries]) {
+      if (e.workspaceId === workspaceId) this.kill(id);
+    }
   }
 
   serialize(id: string): string {

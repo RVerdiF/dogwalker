@@ -10,7 +10,7 @@ This document defines **what** Dogwalker is and every feature in detail. For **h
 
 Developers increasingly run several AI coding agents at once — Claude Code reviewing what Codex wrote, a tester agent hammering what a coder agent produced. Today that means a pile of disconnected terminal tabs with no spatial context, no inter-agent communication, and no way to see the whole operation at a glance.
 
-Dogwalker replaces the tab pile with a single **infinite 2D canvas** where each terminal is a node. Terminals can be wired together so agents communicate directly through a first-class CLI protocol. Notes, file trees, embedded browsers, and drawings live on the same canvas. You zoom out to see your agent team working; you zoom in to interact with one of them.
+Dogwalker replaces the tab pile with a single **infinite 2D canvas** where each terminal is a node. Terminals can be wired together so agents communicate directly through a first-class CLI protocol. Notes, file trees, and embedded browsers live on the same canvas. You zoom out to see your agent team working; you zoom in to interact with one of them.
 
 ### Positioning
 
@@ -39,7 +39,7 @@ Existing tools in the "agent orchestration canvas" category are single-platform 
 |---|---|
 | **Workspace** | A project container: working directory, icon, saved canvas layout, terminal configs. Multiple workspaces run simultaneously; inactive ones can hibernate. |
 | **Canvas** | The infinite 2D space of a workspace. Hosts all nodes. Pan/zoom follows design-tool conventions (Figma-style). |
-| **Node** | Anything placed on the canvas: Terminal, Note, Text, Drawing, File Tree, Portal. |
+| **Node** | Anything placed on the canvas: Terminal, Note, File Tree, Portal. |
 | **Terminal** | A real local PTY rendered on the canvas. May run a plain shell or an **agent**. |
 | **Agent** | A terminal launch configuration: a command that is auto-executed when the terminal spawns (e.g. `claude`, `codex`, `aider`, or any script). Dogwalker interacts with it exclusively as simulated user input — no vendor-specific integration. |
 | **Connection** | An animated leash between two nodes. Defines who can talk to whom via the CLI. |
@@ -55,7 +55,7 @@ Existing tools in the "agent orchestration canvas" category are single-platform 
 The heart of the product. An infinite 2D surface per workspace floor.
 
 ### 3.1 Node creation & manipulation
-- Toolbar tools: Select, Terminal, Note, Text, Drawing, File Tree, Portal, Connection.
+- Toolbar tools: Select, Terminal, Note, File Tree, Portal, Connection.
 - Click-drag to draw a node rectangle; sizes snap to a grid.
 - Move (drag header), resize (edges/corners), duplicate (alt-drag / context menu), delete (shortcut / context menu).
 - Focus shortcut centers the viewport on the selected node; with multiple nodes selected, zooms to fit selection.
@@ -69,10 +69,7 @@ The heart of the product. An infinite 2D surface per workspace floor.
 - **Align / distribute / tidy**: right-click alignment ops; "tidy" arranges a selection into an aligned grid.
 - **Magnetic snapping** to adjacent node edges and gaps.
 
-### 3.4 Drawing
-Freehand sketching, shapes, and text directly on the canvas for architecture diagrams and flow maps, living alongside functional nodes.
-
-### 3.5 Always-alive terminals
+### 3.4 Always-alive terminals
 Terminals on the canvas are never replaced by static screenshots at normal working scales. At low zoom they keep animating at a reduced refresh rate — you must always be able to *see the team working*. (This is a product requirement with direct architectural consequences; see [ARCHITECTURE.md §4](ARCHITECTURE.md#4-terminal-rendering-the-degradation-ladder).)
 
 ---
