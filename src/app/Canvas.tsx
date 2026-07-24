@@ -23,6 +23,7 @@ import { terminals, type Tier } from './terminalService';
 import { BUILTIN_THEMES } from '../shared/themes';
 import { TerminalNode, type TerminalFlowNode } from './TerminalNode';
 import { NoteNode, type NoteFlowNode } from './NoteNode';
+import { GroupNode, type GroupFlowNode } from './GroupNode';
 import { FloatingLeash } from './FloatingLeash';
 import { Hud } from './Hud';
 import { HistoryPanel } from './HistoryPanel';
@@ -40,10 +41,32 @@ import {
 } from './layoutOps';
 import { runSmoke } from './smoke';
 
-type DwNode = TerminalFlowNode | NoteFlowNode;
+type DwNode = TerminalFlowNode | NoteFlowNode | GroupFlowNode;
 
-const nodeTypes = { terminal: TerminalNode, note: NoteNode };
+const nodeTypes = { terminal: TerminalNode, note: NoteNode, group: GroupNode };
 const edgeTypes = { leash: FloatingLeash };
+
+const GROUP_PAD = 28;
+const GROUP_HEADER = 30;
+
+/**
+ * Parented nodes store positions relative to their group, so anything working in
+ * screen/world space (viewport culling, align/tidy) must resolve them first.
+ */
+function absPos(n: DwNode, byId: Map<string, DwNode>): { x: number; y: number } {
+  let { x, y } = n.position;
+  let parent = n.parentId;
+  const seen = new Set<string>();
+  while (parent && !seen.has(parent)) {
+    seen.add(parent);
+    const p = byId.get(parent);
+    if (!p) break;
+    x += p.position.x;
+    y += p.position.y;
+    parent = p.parentId;
+  }
+  return { x, y };
+}
 
 const NODE_W = 560;
 const NODE_H = 380;
@@ -206,6 +229,22 @@ export function Canvas({
     [setNodes],
   );
 
+  const addGroupNode = useCallback(
+    (spec: NodeSpec) => {
+      stableToLive.current.set(spec.stableId, spec.stableId);
+      const node: GroupFlowNode = {
+        id: spec.stableId,
+        type: 'group',
+        dragHandle: '.dw-drag',
+        position: { x: spec.x, y: spec.y },
+        style: { width: spec.w, height: spec.h, zIndex: -1 },
+        data: { name: spec.name, stableId: spec.stableId },
+      };
+      setNodes((ns) => [node, ...ns]);
+    },
+    [setNodes],
+  );
+
   const spawnNew = useCallback(
     (preset: PresetId) => {
       const n = spawnCount.current++;
@@ -249,10 +288,32 @@ export function Canvas({
       const liveByStable = new Map(live.map((t) => [t.stableId, t.id]));
       if (cancelled) return;
       spawnCount.current = ws.layout.nodes.length;
+      // Groups must exist before their members: React Flow requires a parent to
+      // precede its children in the nodes array.
+      for (const spec of ws.layout.nodes) {
+        if (spec.kind === 'group') addGroupNode(spec);
+      }
       for (const spec of ws.layout.nodes) {
         // Missing kind (pre-notes layouts) means terminal.
+        if (spec.kind === 'group') continue;
         if (spec.kind === 'note') await addNoteNode(spec);
         else await addTerminal(spec as TerminalSpec, liveByStable.get(spec.stableId));
+      }
+      // Re-attach members now that every node exists.
+      const parentOf = new Map(
+        ws.layout.nodes
+          .filter((s) => s.parentStableId)
+          .map((s) => [s.stableId, s.parentStableId as string]),
+      );
+      if (parentOf.size > 0) {
+        setNodes((ns) =>
+          ns.map((n) => {
+            const parentStable = parentOf.get(n.data.stableId);
+            return parentStable
+              ? { ...n, parentId: parentStable, extent: 'parent' as const }
+              : n;
+          }),
+        );
       }
       for (const [sa, sb] of ws.layout.edges) {
         const la = stableToLive.current.get(sa);
@@ -294,6 +355,7 @@ export function Canvas({
   const persist = useCallback(() => {
     if (!loaded.current || tearingDown.current) return;
     const liveToStable = new Map<string, string>();
+    const byId = new Map(nodes.map((n) => [n.id, n]));
     const specs: NodeSpec[] = nodes.map((n) => {
       liveToStable.set(n.id, n.data.stableId);
       const w =
@@ -305,19 +367,23 @@ export function Canvas({
       const base = {
         stableId: n.data.stableId,
         name: n.data.name,
+        // Kept as stored: relative when the node lives inside a group.
         x: Math.round(n.position.x),
         y: Math.round(n.position.y),
         w: Math.round(w),
         h: Math.round(h),
+        parentStableId: n.parentId
+          ? byId.get(n.parentId)?.data.stableId
+          : undefined,
       };
-      return n.type === 'note'
-        ? { ...base, kind: 'note' as const }
-        : {
-            ...base,
-            kind: 'terminal' as const,
-            preset: n.data.preset,
-            memoryLimitMB: n.data.memoryLimitMB ?? 0,
-          };
+      if (n.type === 'group') return { ...base, kind: 'group' as const };
+      if (n.type === 'note') return { ...base, kind: 'note' as const };
+      return {
+        ...base,
+        kind: 'terminal' as const,
+        preset: n.data.preset,
+        memoryLimitMB: n.data.memoryLimitMB ?? 0,
+      };
     });
     const edges: Array<[string, string]> = [];
     for (const e of graph.edges) {
@@ -409,14 +475,16 @@ export function Canvas({
       tierPass.current = false;
       const vp = getViewport();
       setNodes((ns) => {
+        const byId = new Map(ns.map((n) => [n.id, n]));
         // Only terminals ride the ladder; notes are plain DOM, always rendered.
         const rects = ns
           .filter((n): n is TerminalFlowNode => n.type === 'terminal')
           .map((n) => {
+            const abs = absPos(n, byId);
             const w = (n.measured?.width ?? NODE_W) * vp.zoom;
             const h = (n.measured?.height ?? NODE_H) * vp.zoom;
-            const x = n.position.x * vp.zoom + vp.x;
-            const y = n.position.y * vp.zoom + vp.y;
+            const x = abs.x * vp.zoom + vp.x;
+            const y = abs.y * vp.zoom + vp.y;
             const visible =
               x + w > -VIEWPORT_MARGIN_PX &&
               y + h > -VIEWPORT_MARGIN_PX &&
@@ -814,26 +882,42 @@ export function Canvas({
 
   // ---- selection layout ops (PRODUCT.md §3.3) ------------------------------
   const selectedBoxes = useCallback((): Box[] => {
+    const byId = new Map(nodesRef.current.map((n) => [n.id, n]));
     return nodesRef.current
       .filter((n) => n.selected)
-      .map((n) => ({
-        id: n.id,
-        x: n.position.x,
-        y: n.position.y,
-        w: n.measured?.width ?? (n.type === 'note' ? NOTE_W : NODE_W),
-        h: n.measured?.height ?? (n.type === 'note' ? NOTE_H : NODE_H),
-      }));
+      .map((n) => {
+        const abs = absPos(n, byId);
+        return {
+          id: n.id,
+          x: abs.x,
+          y: abs.y,
+          w: n.measured?.width ?? (n.type === 'note' ? NOTE_W : NODE_W),
+          h: n.measured?.height ?? (n.type === 'note' ? NOTE_H : NODE_H),
+        };
+      });
   }, []);
 
   const applyPlacement = useCallback(
     (placement: Map<string, { x: number; y: number }>) => {
       if (placement.size === 0) return;
-      setNodes((ns) =>
-        ns.map((n) => {
+      setNodes((ns) => {
+        const byId = new Map(ns.map((n) => [n.id, n]));
+        return ns.map((n) => {
           const p = placement.get(n.id);
-          return p ? { ...n, position: { x: Math.round(p.x), y: Math.round(p.y) } } : n;
-        }),
-      );
+          if (!p) return n;
+          // Placements are absolute; a parented node stores relative coords.
+          let { x, y } = p;
+          if (n.parentId) {
+            const parent = byId.get(n.parentId);
+            if (parent) {
+              const pAbs = absPos(parent, byId);
+              x -= pAbs.x;
+              y -= pAbs.y;
+            }
+          }
+          return { ...n, position: { x: Math.round(x), y: Math.round(y) } };
+        });
+      });
     },
     [setNodes],
   );
@@ -850,6 +934,108 @@ export function Canvas({
     () => applyPlacement(tidy(selectedBoxes())),
     [applyPlacement, selectedBoxes],
   );
+
+  // ---- groups (PRODUCT.md §3.3) --------------------------------------------
+  const groupSelection = useCallback(() => {
+    setNodes((ns) => {
+      const byId = new Map(ns.map((n) => [n.id, n]));
+      // Only top-level, non-group nodes can start a group.
+      const members = ns.filter(
+        (n) => n.selected && n.type !== 'group' && !n.parentId,
+      );
+      if (members.length < 2) return ns;
+
+      const boxes = members.map((n) => {
+        const p = absPos(n, byId);
+        return {
+          n,
+          x: p.x,
+          y: p.y,
+          w: n.measured?.width ?? (n.type === 'note' ? NOTE_W : NODE_W),
+          h: n.measured?.height ?? (n.type === 'note' ? NOTE_H : NODE_H),
+        };
+      });
+      const minX = Math.min(...boxes.map((b) => b.x)) - GROUP_PAD;
+      const minY = Math.min(...boxes.map((b) => b.y)) - GROUP_PAD - GROUP_HEADER;
+      const maxX = Math.max(...boxes.map((b) => b.x + b.w)) + GROUP_PAD;
+      const maxY = Math.max(...boxes.map((b) => b.y + b.h)) + GROUP_PAD;
+
+      const gid = crypto.randomUUID();
+      const group: GroupFlowNode = {
+        id: gid,
+        type: 'group',
+        dragHandle: '.dw-drag',
+        position: { x: minX, y: minY },
+        style: { width: maxX - minX, height: maxY - minY, zIndex: -1 },
+        data: { name: 'Group', stableId: gid },
+      };
+      const ids = new Set(members.map((m) => m.id));
+      // Parent must precede its children in the array.
+      return [
+        group,
+        ...ns.map((n) =>
+          ids.has(n.id)
+            ? {
+                ...n,
+                parentId: gid,
+                extent: 'parent' as const,
+                selected: false,
+                position: {
+                  x: absPos(n, byId).x - minX,
+                  y: absPos(n, byId).y - minY,
+                },
+              }
+            : n,
+        ),
+      ];
+    });
+  }, [setNodes]);
+
+  const ungroup = useCallback(
+    (groupId?: string) => {
+      setNodes((ns) => {
+        const targets = groupId
+          ? ns.filter((n) => n.id === groupId)
+          : ns.filter((n) => n.type === 'group' && n.selected);
+        if (targets.length === 0) return ns;
+        const ids = new Set(targets.map((t) => t.id));
+        const byId = new Map(ns.map((n) => [n.id, n]));
+        return ns
+          .filter((n) => !ids.has(n.id))
+          .map((n) => {
+            if (!n.parentId || !ids.has(n.parentId)) return n;
+            const abs = absPos(n, byId); // keep them exactly where they look
+            return {
+              ...n,
+              parentId: undefined,
+              extent: undefined,
+              position: abs,
+            };
+          });
+      });
+    },
+    [setNodes],
+  );
+
+  // The group node talks back through window events (it has no props channel).
+  useEffect(() => {
+    const onRename = (e: Event) => {
+      const { id, name } = (e as CustomEvent<{ id: string; name: string }>).detail;
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === id && n.type === 'group' ? { ...n, data: { ...n.data, name } } : n,
+        ),
+      );
+    };
+    const onUngroup = (e: Event) =>
+      ungroup((e as CustomEvent<{ id: string }>).detail.id);
+    window.addEventListener('dw:group-rename', onRename);
+    window.addEventListener('dw:group-ungroup', onUngroup);
+    return () => {
+      window.removeEventListener('dw:group-rename', onRename);
+      window.removeEventListener('dw:group-ungroup', onUngroup);
+    };
+  }, [setNodes, ungroup]);
 
   /** The single selected terminal, when there is exactly one (for its limit). */
   const soleTerminal = useMemo(() => {
@@ -887,6 +1073,87 @@ export function Canvas({
     },
     [setNodes],
   );
+
+  // Groups: group two nodes, move the frame, persist/restore, then ungroup.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('grouptest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const absOf = (id: string) => {
+      const byId = new Map(nodesRef.current.map((n) => [n.id, n]));
+      const n = byId.get(id);
+      return n ? absPos(n, byId) : null;
+    };
+    void (async () => {
+      const a = await spawnNew('shell');
+      const b = await spawnNew('shell');
+      await sleep(600);
+      const beforeA = absOf(a);
+      setNodes((ns) => ns.map((n) => ({ ...n, selected: n.id === a || n.id === b })));
+      await sleep(200);
+      groupSelection();
+      await sleep(400);
+
+      const grouped = nodesRef.current.filter((n) => n.parentId);
+      const group = nodesRef.current.find((n) => n.type === 'group');
+      const afterGroupA = absOf(a);
+      // Members reparented, positions relative, absolute position unchanged.
+      const membersParented = grouped.length === 2 && !!group;
+      const absKept =
+        !!beforeA && !!afterGroupA && Math.abs(beforeA.x - afterGroupA.x) < 2;
+      const relative =
+        (nodesRef.current.find((n) => n.id === a)?.position.x ?? -1) !== beforeA?.x;
+
+      // Move the frame: members must follow in absolute terms.
+      const gid = group?.id ?? '';
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === gid
+            ? { ...n, position: { x: n.position.x + 300, y: n.position.y + 100 } }
+            : n,
+        ),
+      );
+      await sleep(300);
+      const movedA = absOf(a);
+      const membersFollowed =
+        !!movedA && !!afterGroupA && Math.round(movedA.x - afterGroupA.x) === 300;
+
+      // Persist + inspect the stored layout.
+      await sleep(700);
+      const saved = (await window.dw.loadWorkspace(workspaceId)).layout;
+      const groupSpec = saved.nodes.find((n) => n.kind === 'group');
+      const memberSpecs = saved.nodes.filter((n) => n.parentStableId);
+
+      // Ungroup: absolute positions must be preserved.
+      ungroup(gid);
+      await sleep(300);
+      const afterUngroupA = absOf(a);
+      const ungroupKeptAbs =
+        !!movedA &&
+        !!afterUngroupA &&
+        Math.abs(movedA.x - afterUngroupA.x) < 2 &&
+        nodesRef.current.every((n) => !n.parentId) &&
+        !nodesRef.current.some((n) => n.type === 'group');
+
+      console.log(
+        'GROUPTEST RESULT ' +
+          JSON.stringify({
+            membersParented,
+            absKept,
+            relative,
+            membersFollowed,
+            groupPersisted: !!groupSpec,
+            membershipPersisted: memberSpecs.length === 2,
+            ungroupKeptAbs,
+          }),
+      );
+      loaded.current = false;
+      window.dw.kill(a);
+      window.dw.kill(b);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, spawnNew, setNodes, groupSelection, ungroup]);
 
   // Layout ops test: pure geometry + the canvas wiring that applies it.
   useEffect(() => {
@@ -974,7 +1241,20 @@ export function Canvas({
         } else if (k === 't') {
           e.preventDefault();
           doTidy();
+        } else if (k === 'g') {
+          e.preventDefault();
+          ungroup();
         }
+      } else if (
+        e.key.toLowerCase() === 'g' &&
+        !e.ctrlKey &&
+        !e.metaKey &&
+        !e.altKey &&
+        !e.shiftKey &&
+        !typing
+      ) {
+        e.preventDefault();
+        groupSelection();
       }
     };
     window.addEventListener('keydown', onKey);

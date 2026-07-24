@@ -84,10 +84,13 @@ export interface HistoryEntry {
 interface BaseSpec {
   stableId: string;
   name: string;
+  /** Relative to the parent group when `parentStableId` is set. */
   x: number;
   y: number;
   w: number;
   h: number;
+  /** Group this node belongs to, if any (PRODUCT.md §3.3). */
+  parentStableId?: string;
 }
 
 /** A terminal's persisted layout: identity + geometry (no live PTY state). */
@@ -103,7 +106,12 @@ export interface NoteSpec extends BaseSpec {
   kind: 'note';
 }
 
-export type NodeSpec = TerminalSpec | NoteSpec;
+/** A labeled frame binding nodes; pure layout, never a graph/CLI node. */
+export interface GroupSpec extends BaseSpec {
+  kind: 'group';
+}
+
+export type NodeSpec = TerminalSpec | NoteSpec | GroupSpec;
 
 /** Everything needed to reconstruct a workspace's canvas. */
 export interface WorkspaceLayout {
