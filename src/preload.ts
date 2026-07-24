@@ -59,6 +59,11 @@ const api: DwApi = {
   setActiveWorkspace: (id) => ipcRenderer.invoke('ws:setActive', id),
   listTerminals: (workspaceId) => ipcRenderer.invoke('ws:listTerminals', workspaceId),
   hibernateWorkspace: (workspaceId) => ipcRenderer.invoke('ws:hibernate', workspaceId),
+  addDivider: (label) => ipcRenderer.invoke('ws:addDivider', label),
+  renameDivider: (id, label) =>
+    ipcRenderer.invoke('ws:renameDivider', { id, label }),
+  removeDivider: (id) => ipcRenderer.invoke('ws:removeDivider', id),
+  reorderSidebar: (entries) => ipcRenderer.invoke('ws:reorderSidebar', entries),
   pickDirectory: () => ipcRenderer.invoke('sys:pickDirectory'),
   openPath: (p) => ipcRenderer.invoke('sys:openPath', p),
 

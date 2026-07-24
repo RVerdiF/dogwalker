@@ -11,6 +11,8 @@ export interface AppSettings {
   lightThemeName: string;
   followSystem: boolean;
   notifyOnAttention: boolean;
+  /** Collapse the workspace rail to icon-only (PRODUCT.md §12). */
+  miniSidebar: boolean;
 }
 
 export interface SpawnOptions {
@@ -134,6 +136,15 @@ export interface WorkspaceFile extends WorkspaceMeta {
   layout: WorkspaceLayout;
 }
 
+/**
+ * One row in the workspace rail: either a workspace or a named divider that
+ * opens a section (PRODUCT.md §12 — folders / group dividers). The rail is a
+ * flat ordered list; dividers partition it into labeled groups.
+ */
+export type SidebarEntry =
+  | { kind: 'workspace'; id: string }
+  | { kind: 'divider'; id: string; label: string };
+
 export interface DwApi {
   spawn(opts: SpawnOptions): Promise<SpawnResult>;
   write(id: string, data: string): void;
@@ -163,7 +174,11 @@ export interface DwApi {
   onHistory(cb: (pair: { a: string; b: string }) => void): () => void;
 
   // Workspaces (persisted in main under userData/workspaces).
-  listWorkspaces(): Promise<{ workspaces: WorkspaceMeta[]; active: string }>;
+  listWorkspaces(): Promise<{
+    workspaces: WorkspaceMeta[];
+    active: string;
+    sidebar: SidebarEntry[];
+  }>;
   createWorkspace(name: string, icon: string): Promise<WorkspaceMeta>;
   loadWorkspace(id: string): Promise<WorkspaceFile>;
   saveLayout(id: string, layout: WorkspaceLayout): Promise<void>;
@@ -179,6 +194,14 @@ export interface DwApi {
   listTerminals(workspaceId: string): Promise<LiveTerminal[]>;
   /** Release a workspace's terminals and notes; its layout is untouched. */
   hibernateWorkspace(workspaceId: string): Promise<void>;
+  /** Add a named divider (section header) at the end of the rail. */
+  addDivider(label: string): Promise<void>;
+  /** Rename a divider. */
+  renameDivider(id: string, label: string): Promise<void>;
+  /** Remove a divider; the workspaces below merge into the previous section. */
+  removeDivider(id: string): Promise<void>;
+  /** Persist a reordered rail (renderer computes it with pure sidebar ops). */
+  reorderSidebar(entries: SidebarEntry[]): Promise<void>;
   /** Native folder picker; resolves to the chosen path or ''. */
   pickDirectory(): Promise<string>;
   /** Open a path with the OS default handler (editor/file manager). */

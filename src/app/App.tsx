@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import type { AppSettings, WorkspaceMeta } from '../shared/ipc';
+import type { AppSettings, SidebarEntry, WorkspaceMeta } from '../shared/ipc';
 import { BUILTIN_THEMES, type ThemeSpec } from '../shared/themes';
 import { terminals } from './terminalService';
 import { Canvas } from './Canvas';
 import { Sidebar } from './Sidebar';
 import { Panel } from './Panel';
+import { reorderByDrop, sectionsOf } from './sidebarOps';
 
 const IS_DEV = import.meta.env.DEV;
 
@@ -14,6 +15,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   lightThemeName: 'GitHub Light',
   followSystem: false,
   notifyOnAttention: true,
+  miniSidebar: false,
 };
 
 function findTheme(themes: ThemeSpec[], name: string): ThemeSpec | undefined {
@@ -22,6 +24,7 @@ function findTheme(themes: ThemeSpec[], name: string): ThemeSpec | undefined {
 
 export function App() {
   const [workspaces, setWorkspaces] = useState<WorkspaceMeta[]>([]);
+  const [sidebar, setSidebar] = useState<SidebarEntry[]>([]);
   const [activeId, setActiveId] = useState<string>('');
   const [panelOpen, setPanelOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
@@ -31,8 +34,10 @@ export function App() {
   );
 
   const refresh = useCallback(async () => {
-    const { workspaces: list, active } = await window.dw.listWorkspaces();
+    const { workspaces: list, active, sidebar: rail } =
+      await window.dw.listWorkspaces();
     setWorkspaces(list);
+    setSidebar(rail);
     setActiveId((cur) => (list.some((w) => w.id === cur) ? cur : active));
     return { list, active };
   }, []);
@@ -118,6 +123,36 @@ export function App() {
   const hibernate = useCallback(async (id: string) => {
     await window.dw.hibernateWorkspace(id);
   }, []);
+
+  const addDivider = useCallback(async () => {
+    await window.dw.addDivider('Section');
+    await refresh();
+  }, [refresh]);
+
+  const renameDivider = useCallback(
+    async (id: string, label: string) => {
+      await window.dw.renameDivider(id, label);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const removeDivider = useCallback(
+    async (id: string) => {
+      await window.dw.removeDivider(id);
+      await refresh();
+    },
+    [refresh],
+  );
+
+  const reorderSidebar = useCallback(
+    async (entries: SidebarEntry[]) => {
+      setSidebar(entries); // optimistic; refresh reconciles with disk
+      await window.dw.reorderSidebar(entries);
+      await refresh();
+    },
+    [refresh],
+  );
 
   // Background-workspace test: a workspace's terminals must survive switching
   // away, be re-adopted (same live id) on return, and be released by hibernate.
@@ -274,14 +309,106 @@ export function App() {
     [refresh, activeId, switchTo],
   );
 
+  // Sidebar test: pure section/reorder maths + a store round-trip (add divider,
+  // reorder a workspace under it, remove divider) that must persist and restore.
+  const sidebarRan = useRef(false);
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('sidebartest')) return;
+    if (sidebarRan.current) return;
+    sidebarRan.current = true;
+    void (async () => {
+      const eq = (a: unknown, b: unknown) =>
+        JSON.stringify(a) === JSON.stringify(b);
+
+      // Pure ops.
+      const entries: SidebarEntry[] = [
+        { kind: 'workspace', id: 'a' },
+        { kind: 'divider', id: 'd1', label: 'Work' },
+        { kind: 'workspace', id: 'b' },
+        { kind: 'workspace', id: 'c' },
+      ];
+      const secs = sectionsOf(entries);
+      const pureSections =
+        secs.length === 2 &&
+        eq(secs[0].workspaceIds, ['a']) &&
+        secs[1].label === 'Work' &&
+        eq(secs[1].workspaceIds, ['b', 'c']);
+      // Drop 'a' after 'c' → order becomes d1,b,c,a.
+      const moved = reorderByDrop(entries, 'a', 'c', 'after');
+      const pureReorder = eq(moved.map((e) => e.id), ['d1', 'b', 'c', 'a']);
+      // Leading implicit empty section is dropped when a divider leads.
+      const leadDivider = sectionsOf([
+        { kind: 'divider', id: 'd', label: 'X' },
+        { kind: 'workspace', id: 'a' },
+      ]);
+      const pureLead = leadDivider.length === 1 && leadDivider[0].label === 'X';
+      // No-op self-drop.
+      const pureNoop = eq(reorderByDrop(entries, 'b', 'b', 'before'), entries);
+
+      // Store round-trip against the real index; capture to restore afterwards.
+      const before = (await window.dw.listWorkspaces()).sidebar;
+      const firstWs = before.find((e) => e.kind === 'workspace');
+
+      await window.dw.addDivider('SIDEBARTEST');
+      const withDivider = (await window.dw.listWorkspaces()).sidebar;
+      const div = withDivider.find(
+        (e) => e.kind === 'divider' && e.label === 'SIDEBARTEST',
+      );
+      const dividerAdded = !!div && withDivider.length === before.length + 1;
+
+      let reorderPersisted = false;
+      if (div && firstWs) {
+        const target = reorderByDrop(withDivider, firstWs.id, div.id, 'after');
+        await window.dw.reorderSidebar(target);
+        const after = (await window.dw.listWorkspaces()).sidebar;
+        const di = after.findIndex((e) => e.id === div.id);
+        const wi = after.findIndex((e) => e.id === firstWs.id);
+        reorderPersisted = di >= 0 && wi === di + 1;
+      }
+
+      if (div) await window.dw.removeDivider(div.id);
+      const afterRemove = (await window.dw.listWorkspaces()).sidebar;
+      const dividerRemoved = !afterRemove.some(
+        (e) => e.kind === 'divider' && e.label === 'SIDEBARTEST',
+      );
+
+      // Restore the original rail order.
+      await window.dw.reorderSidebar(before);
+      const restored = eq((await window.dw.listWorkspaces()).sidebar, before);
+
+      console.log(
+        'SIDEBARTEST RESULT ' +
+          JSON.stringify({
+            pureSections,
+            pureReorder,
+            pureLead,
+            pureNoop,
+            dividerAdded,
+            reorderPersisted,
+            dividerRemoved,
+            restored,
+          }),
+      );
+    })();
+  }, []);
+
   return (
     <div className="dw-app">
       <Sidebar
         workspaces={workspaces}
+        sidebar={sidebar}
         activeId={activeId}
+        mini={settings.miniSidebar}
         onSwitch={switchTo}
         onCreate={() => void create()}
         onOpenMenu={() => setPanelOpen(true)}
+        onToggleMini={() =>
+          void updateSettings({ miniSidebar: !settings.miniSidebar })
+        }
+        onAddDivider={() => void addDivider()}
+        onRenameDivider={(id, label) => void renameDivider(id, label)}
+        onRemoveDivider={(id) => void removeDivider(id)}
+        onReorder={(entries) => void reorderSidebar(entries)}
       />
       <div className="dw-main">
         {activeId && (

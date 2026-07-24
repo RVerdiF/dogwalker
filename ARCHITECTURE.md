@@ -259,8 +259,11 @@ returns the peer — proving the CLI exists only inside canvas terminals.
 **Built — persistence & app shell**
 - **WorkspaceStore** (`src/main/workspaceStore.ts`) — workspaces as plain JSON
   under `userData/workspaces` (metadata + layout: node specs with geometry +
-  connections as stable-id pairs), an `index.json` for order + active. Node
-  identity is a persistent `stableId` distinct from the ephemeral live PTY id.
+  connections as stable-id pairs), an `index.json` holding the active id and the
+  sidebar rail — a flat ordered list of workspace and named-divider entries that
+  partitions the rail into sections (migrated from the pre-divider `order`
+  array). Node identity is a persistent `stableId` distinct from the ephemeral
+  live PTY id.
 - **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
   terminals from its specs, places them at saved geometry, and re-wires leashes;
   layout is saved (debounced) on move/resize/add/remove/connect/disconnect.

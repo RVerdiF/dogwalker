@@ -19,6 +19,7 @@ import { runMemTest } from './main/memTest';
 import type { AppSettings } from './shared/ipc';
 import type {
   ProcessMetric,
+  SidebarEntry,
   SpawnOptions,
   WorkspaceLayout,
 } from './shared/ipc';
@@ -163,6 +164,18 @@ const createWindow = () => {
   ipcMain.handle('ws:hibernate', (_e, workspaceId: string) => {
     ptys?.killWorkspace(workspaceId);
   });
+  ipcMain.handle('ws:addDivider', (_e, label: string) =>
+    workspaces.addDivider(label),
+  );
+  ipcMain.handle('ws:renameDivider', (_e, { id, label }: { id: string; label: string }) =>
+    workspaces.renameDivider(id, label),
+  );
+  ipcMain.handle('ws:removeDivider', (_e, id: string) =>
+    workspaces.removeDivider(id),
+  );
+  ipcMain.handle('ws:reorderSidebar', (_e, entries: SidebarEntry[]) =>
+    workspaces.reorder(entries),
+  );
   ipcMain.handle('sys:pickDirectory', async () => {
     const res = await dialog.showOpenDialog(mainWindow, {
       properties: ['openDirectory'],
@@ -200,6 +213,7 @@ const createWindow = () => {
       process.env.DW_SWITCHTEST ? 'switchtest=1' : '',
       process.env.DW_GROUPTEST ? 'grouptest=1' : '',
       process.env.DW_SNAPTEST ? 'snaptest=1' : '',
+      process.env.DW_SIDEBARTEST ? 'sidebartest=1' : '',
     ]
       .filter(Boolean)
       .join('&');
