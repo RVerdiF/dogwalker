@@ -145,6 +145,19 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
 - Automation via CDP attached by the portal controller in main; exposed to agents only through `dogwalker portal ...` (broker-gated by connection).
 - Screenshot returns a temp-file path (so agents ingest it the same way as composer images). JS eval and DOM reads return JSON. Console messages are ring-buffered per portal.
 
+**Built — portal plumbing (v0.4 block 1)**
+- **PortalManager** (`src/main/portalManager.ts`) owns a `WebContentsView` per
+  portal in a `persist:dw-portal-<partition>` session (isolated by default, so
+  logins survive and don't leak). Main owns the browser lifecycle + navigation
+  (`create`/`navigate`/`back`/`forward`/`reload`/`destroy`), a per-portal console
+  ring buffer, and pushes `portal:nav` state to the renderer. Geometry lives in
+  the renderer: `PortalNode` (kind `portal`, persisted with `url`+`partition`)
+  reports its body's on-screen rect and the canvas zoom (`setBounds`) on every
+  pan/zoom/move/resize, so the native view stays glued to the node and scales
+  with zoom via `setZoomFactor`. Mount creates the view, unmount destroys it;
+  the persistent partition keeps sessions across recreation. Automation (CDP)
+  and linking attach here in blocks 2–3.
+
 ## 10. Persistence & hibernation
 
 - Workspace file (JSON): metadata (name, icon, **cwd** — terminals spawn there), node layout, terminal configs, connections, floors, routines, drafts.

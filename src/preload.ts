@@ -3,6 +3,7 @@ import type {
   DataBatch,
   DwApi,
   GraphSnapshot,
+  PortalState,
   SpawnOptions,
 } from './shared/ipc';
 
@@ -75,6 +76,22 @@ const api: DwApi = {
   renameEntry: (from, to) => ipcRenderer.invoke('fs:rename', { from, to }),
   removeEntry: (target) => ipcRenderer.invoke('fs:remove', target),
   statEntry: (target) => ipcRenderer.invoke('fs:stat', target),
+  portalCreate: (id, partition, url) =>
+    ipcRenderer.send('portal:create', { id, partition, url }),
+  portalSetBounds: (id, rect, zoom, visible) =>
+    ipcRenderer.send('portal:setBounds', { id, rect, zoom, visible }),
+  portalNavigate: (id, url) => ipcRenderer.send('portal:navigate', { id, url }),
+  portalBack: (id) => ipcRenderer.send('portal:back', id),
+  portalForward: (id) => ipcRenderer.send('portal:forward', id),
+  portalReload: (id) => ipcRenderer.send('portal:reload', id),
+  portalDestroy: (id) => ipcRenderer.send('portal:destroy', id),
+  portalState: (id) => ipcRenderer.invoke('portal:state', id),
+  onPortalNav: (cb) => {
+    const listener = (_e: IpcRendererEvent, ev: { id: string } & PortalState) => cb(ev);
+    ipcRenderer.on('portal:nav', listener);
+    return () => ipcRenderer.removeListener('portal:nav', listener);
+  },
+
   searchFiles: (root, limit) => ipcRenderer.invoke('fs:searchFiles', { root, limit }),
   grepFiles: (root, query, limit) =>
     ipcRenderer.invoke('fs:grepFiles', { root, query, limit }),
