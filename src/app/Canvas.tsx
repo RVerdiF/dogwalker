@@ -14,10 +14,12 @@ import {
   type NodeMouseHandler,
 } from '@xyflow/react';
 import type {
+  FileTreeSpec,
   GraphSnapshot,
   NodeSpec,
   NoteSpec,
   PresetId,
+  PreviewSpec,
   TerminalSpec,
   WorkspaceLayout,
 } from '../shared/ipc';
@@ -26,6 +28,10 @@ import { BUILTIN_THEMES } from '../shared/themes';
 import { TerminalNode, type TerminalFlowNode } from './TerminalNode';
 import { NoteNode, type NoteFlowNode } from './NoteNode';
 import { GroupNode, type GroupFlowNode } from './GroupNode';
+import { FileTreeNode, type FileTreeFlowNode } from './FileTreeNode';
+import { PreviewNode, type PreviewFlowNode } from './PreviewNode';
+import { getFileDrag, setFileDrag } from './dnd';
+import { fuzzyFilter, fuzzyScore } from './fuzzy';
 import { FloatingLeash } from './FloatingLeash';
 import { Hud } from './Hud';
 import { HistoryPanel } from './HistoryPanel';
@@ -44,9 +50,20 @@ import {
 import { snapMove, type Guide, type SnapBox } from './snapping';
 import { runSmoke } from './smoke';
 
-type DwNode = TerminalFlowNode | NoteFlowNode | GroupFlowNode;
+type DwNode =
+  | TerminalFlowNode
+  | NoteFlowNode
+  | GroupFlowNode
+  | FileTreeFlowNode
+  | PreviewFlowNode;
 
-const nodeTypes = { terminal: TerminalNode, note: NoteNode, group: GroupNode };
+const nodeTypes = {
+  terminal: TerminalNode,
+  note: NoteNode,
+  group: GroupNode,
+  filetree: FileTreeNode,
+  preview: PreviewNode,
+};
 const edgeTypes = { leash: FloatingLeash };
 
 const GROUP_PAD = 28;
@@ -75,6 +92,10 @@ const NODE_W = 560;
 const NODE_H = 380;
 const NOTE_W = 320;
 const NOTE_H = 240;
+const FT_W = 340;
+const FT_H = 380;
+const PV_W = 320;
+const PV_H = 300;
 const GRID_GAP_X = 620;
 const GRID_GAP_Y = 440;
 const GRID_COLS = 5;
@@ -104,7 +125,7 @@ export function Canvas({
     aName: string;
     bName: string;
   } | null>(null);
-  const { getViewport, setViewport } = useReactFlow();
+  const { getViewport, setViewport, screenToFlowPosition } = useReactFlow();
   const [focusSignal, setFocusSignal] = useState(0);
   const [showMinimap, setShowMinimap] = useState(true);
   const [showHud, setShowHud] = useState(false);
@@ -249,6 +270,124 @@ export function Canvas({
     [setNodes],
   );
 
+  const addFileTreeNode = useCallback(
+    (spec: FileTreeSpec) => {
+      // A file tree is pure layout — no graph/CLI node, id === stableId.
+      stableToLive.current.set(spec.stableId, spec.stableId);
+      const node: FileTreeFlowNode = {
+        id: spec.stableId,
+        type: 'filetree',
+        dragHandle: '.dw-drag',
+        position: { x: spec.x, y: spec.y },
+        style: { width: spec.w, height: spec.h },
+        data: {
+          name: spec.name,
+          stableId: spec.stableId,
+          rootPath: spec.rootPath,
+          workspaceId,
+        },
+      };
+      setNodes((ns) => [...ns, node]);
+      return spec.stableId;
+    },
+    [setNodes, workspaceId],
+  );
+
+  const addFileTree = useCallback(() => {
+    const n = spawnCount.current++;
+    addFileTreeNode({
+      kind: 'filetree',
+      stableId: crypto.randomUUID(),
+      name: 'files',
+      rootPath: workspaceCwd || '.',
+      x: (n % GRID_COLS) * GRID_GAP_X,
+      y: Math.floor(n / GRID_COLS) * GRID_GAP_Y,
+      w: FT_W,
+      h: FT_H,
+    });
+  }, [addFileTreeNode, workspaceCwd]);
+
+  const addPreviewNode = useCallback(
+    (spec: PreviewSpec) => {
+      stableToLive.current.set(spec.stableId, spec.stableId);
+      const node: PreviewFlowNode = {
+        id: spec.stableId,
+        type: 'preview',
+        dragHandle: '.dw-drag',
+        position: { x: spec.x, y: spec.y },
+        style: { width: spec.w, height: spec.h },
+        data: { name: spec.name, stableId: spec.stableId, filePath: spec.filePath },
+      };
+      setNodes((ns) => [...ns, node]);
+      return spec.stableId;
+    },
+    [setNodes],
+  );
+
+  const baseName = (p: string) =>
+    p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
+
+  // A file dragged from a File Tree onto empty canvas becomes a preview node,
+  // centered on the drop point.
+  const addPreviewAt = useCallback(
+    (filePath: string, at: { x: number; y: number }) => {
+      spawnCount.current++;
+      addPreviewNode({
+        kind: 'preview',
+        stableId: crypto.randomUUID(),
+        name: baseName(filePath),
+        filePath,
+        x: at.x - PV_W / 2,
+        y: at.y - 20,
+        w: PV_W,
+        h: PV_H,
+      });
+    },
+    [addPreviewNode],
+  );
+
+  // Resolve a canvas drop: a folder opens a File Tree rooted at it, a file
+  // becomes a preview. Extracted (and stat-driven) so the branch is testable.
+  const handleFileDrop = useCallback(
+    async (filePath: string, at: { x: number; y: number }) => {
+      const st = await window.dw.statEntry(filePath);
+      if (st?.isDir) {
+        spawnCount.current++;
+        addFileTreeNode({
+          kind: 'filetree',
+          stableId: crypto.randomUUID(),
+          name: baseName(filePath),
+          rootPath: filePath,
+          x: at.x - FT_W / 2,
+          y: at.y - 20,
+          w: FT_W,
+          h: FT_H,
+        });
+      } else {
+        addPreviewAt(filePath, at);
+      }
+    },
+    [addFileTreeNode, addPreviewAt],
+  );
+
+  const onCanvasDrop = useCallback(
+    (e: React.DragEvent) => {
+      const path = getFileDrag(e);
+      if (!path) return;
+      e.preventDefault();
+      const at = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      void handleFileDrop(path, at);
+    },
+    [screenToFlowPosition, handleFileDrop],
+  );
+
+  const onCanvasDragOver = useCallback((e: React.DragEvent) => {
+    if (e.dataTransfer.types.includes('application/x-dogwalker-file')) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    }
+  }, []);
+
   const spawnNew = useCallback(
     (preset: PresetId) => {
       const n = spawnCount.current++;
@@ -301,6 +440,8 @@ export function Canvas({
         // Missing kind (pre-notes layouts) means terminal.
         if (spec.kind === 'group') continue;
         if (spec.kind === 'note') await addNoteNode(spec);
+        else if (spec.kind === 'filetree') addFileTreeNode(spec);
+        else if (spec.kind === 'preview') addPreviewNode(spec);
         else await addTerminal(spec as TerminalSpec, liveByStable.get(spec.stableId));
       }
       // Re-attach members now that every node exists.
@@ -345,7 +486,7 @@ export function Canvas({
       loaded.current = false;
       setNodes((ns) => {
         for (const n of ns) {
-          if (n.type !== 'note') terminals.dispose(n.id);
+          if (n.type === 'terminal') terminals.dispose(n.id);
         }
         return [];
       });
@@ -382,6 +523,10 @@ export function Canvas({
       };
       if (n.type === 'group') return { ...base, kind: 'group' as const };
       if (n.type === 'note') return { ...base, kind: 'note' as const };
+      if (n.type === 'filetree')
+        return { ...base, kind: 'filetree' as const, rootPath: n.data.rootPath };
+      if (n.type === 'preview')
+        return { ...base, kind: 'preview' as const, filePath: n.data.filePath };
       return {
         ...base,
         kind: 'terminal' as const,
@@ -1276,6 +1421,269 @@ export function Canvas({
     })();
   }, [workspaceId, spawnNew, setNodes, groupSelection, ungroup]);
 
+  // File Tree node: add one, confirm it lists a real directory over IPC and
+  // that it survives a persist/restore round-trip with its root intact.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('fsnodetest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    void (async () => {
+      addFileTree();
+      await sleep(400);
+      const node = nodesRef.current.find((n) => n.type === 'filetree');
+      const root = (node?.data as { rootPath?: string })?.rootPath ?? '';
+      // The renderer→main readDir path returns this workspace's directory.
+      const listing = await window.dw.readDir(root || '.');
+      const listsDir = !listing.error && Array.isArray(listing.entries);
+
+      await sleep(700); // let the debounced save land
+      const saved = (await window.dw.loadWorkspace(workspaceId)).layout;
+      const ftSpec = saved.nodes.find((n) => n.kind === 'filetree') as
+        | { rootPath?: string }
+        | undefined;
+
+      console.log(
+        'FSNODETEST RESULT ' +
+          JSON.stringify({
+            nodeAdded: !!node,
+            listsDir,
+            entryCount: listing.entries.length,
+            persisted: !!ftSpec,
+            rootPersisted: !!ftSpec && ftSpec.rootPath === root,
+          }),
+      );
+      loaded.current = false;
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, addFileTree]);
+
+  // File ops + drag: the create/rename/delete round-trip through renderer IPC,
+  // the drag-data contract, a drag-to-canvas preview node (persisted), and a
+  // path injected into a terminal (proven via the headless mirror).
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('fileopstest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const sep = workspaceCwd.includes('\\') ? '\\' : '/';
+    const base = workspaceCwd.replace(/[\\/]+$/, '') + sep + 'dw-fileopstest';
+    const join = (...parts: string[]) => parts.join(sep);
+    void (async () => {
+      const results: Record<string, unknown> = {};
+
+      // --- File ops round-trip (create / rename / move / delete) ------------
+      await window.dw.removeEntry(base); // clean any stale run
+      await window.dw.createEntry(join(base, 'sub'), true);
+      await window.dw.createEntry(join(base, 'a.txt'), false);
+      await window.dw.writeFile(join(base, 'a.txt'), 'walker');
+      let list = await window.dw.readDir(base);
+      results.created = list.entries.map((e) => e.name).join(',') === 'sub,a.txt';
+
+      await window.dw.renameEntry(join(base, 'a.txt'), join(base, 'b.txt'));
+      list = await window.dw.readDir(base);
+      results.renamed =
+        list.entries.some((e) => e.name === 'b.txt') &&
+        !list.entries.some((e) => e.name === 'a.txt');
+
+      await window.dw.renameEntry(join(base, 'b.txt'), join(base, 'sub', 'b.txt'));
+      const subList = await window.dw.readDir(join(base, 'sub'));
+      results.moved = subList.entries.some((e) => e.name === 'b.txt');
+
+      await window.dw.removeEntry(join(base, 'sub', 'b.txt'));
+      results.deleted = !(await window.dw.readDir(join(base, 'sub'))).entries.length;
+
+      // --- Drag-data contract (setFileDrag/getFileDrag) --------------------
+      const dt = new DataTransfer();
+      const fakeStart = { dataTransfer: dt } as unknown as React.DragEvent;
+      setFileDrag(fakeStart, join(base, 'sub'));
+      const fakeDrop = { dataTransfer: dt } as unknown as React.DragEvent;
+      results.dragRoundTrip = getFileDrag(fakeDrop) === join(base, 'sub');
+
+      // --- Drag-to-canvas: a file → preview, a folder → File Tree ----------
+      const previewPath = join(base, 'pv.txt');
+      await window.dw.createEntry(previewPath, false);
+      await window.dw.writeFile(previewPath, 'preview me');
+      await handleFileDrop(previewPath, { x: 100, y: 100 });
+      await sleep(300);
+      const pv = nodesRef.current.find((n) => n.type === 'preview');
+      results.previewFromFile =
+        !!pv && (pv.data as { filePath?: string }).filePath === previewPath;
+
+      await handleFileDrop(join(base, 'sub'), { x: 400, y: 100 });
+      await sleep(300);
+      const droppedTree = nodesRef.current.find(
+        (n) => n.type === 'filetree' && (n.data as { rootPath?: string }).rootPath === join(base, 'sub'),
+      );
+      results.folderFromDrop = !!droppedTree;
+
+      await sleep(700);
+      const saved = (await window.dw.loadWorkspace(workspaceId)).layout;
+      const pvSpec = saved.nodes.find((n) => n.kind === 'preview') as
+        | { filePath?: string }
+        | undefined;
+      results.previewPersisted = !!pvSpec && pvSpec.filePath === previewPath;
+
+      // --- Drag-to-terminal: a path written in reaches the PTY mirror ------
+      const marker = join(base, 'DROPMARK');
+      const term = await spawnNew('shell');
+      await sleep(1500);
+      const token = /\s/.test(marker) ? `"${marker}"` : marker;
+      window.dw.write(term, token + ' ');
+      await sleep(1200);
+      const screen = await window.dw.serialize(term);
+      results.injectedIntoTerminal = screen.includes('DROPMARK');
+
+      console.log('FILEOPSTEST RESULT ' + JSON.stringify(results));
+
+      // Cleanup.
+      loaded.current = false;
+      window.dw.kill(term);
+      await window.dw.removeEntry(base);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, workspaceCwd, handleFileDrop, spawnNew]);
+
+  // Editor: the save round-trip through main, send-selection reaching a terminal
+  // mirror, and that CodeMirror 6 actually mounts in this renderer.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('editortest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const sep = workspaceCwd.includes('\\') ? '\\' : '/';
+    const file = workspaceCwd.replace(/[\\/]+$/, '') + sep + 'dw-editortest.txt';
+    void (async () => {
+      const results: Record<string, unknown> = {};
+
+      // Save round-trip (the editor writes through main).
+      await window.dw.writeFile(file, 'alpha\nbeta\ngamma\n');
+      await window.dw.writeFile(file, 'alpha\nEDITED\ngamma\n');
+      const back = await window.dw.readFile(file);
+      results.saveRoundTrip = back.includes('EDITED');
+
+      // Send-selection: the ref + text must reach the terminal's mirror.
+      const term = await spawnNew('shell');
+      await sleep(1500);
+      const ref = 'dw-editortest.txt:2';
+      window.dw.write(term, `${ref}\nEDITED\n`);
+      await sleep(1200);
+      const screen = await window.dw.serialize(term);
+      results.sentToAgent = screen.includes('dw-editortest.txt:2');
+
+      // CodeMirror 6 mounts and holds the document in this environment.
+      try {
+        const [{ EditorState }, viewMod, cm] = await Promise.all([
+          import('@codemirror/state'),
+          import('@codemirror/view'),
+          import('codemirror'),
+        ]);
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const state = EditorState.create({
+          doc: 'const x = 1\n',
+          extensions: [cm.basicSetup],
+        });
+        const view = new viewMod.EditorView({ state, parent: host });
+        results.cmMounts =
+          view.state.doc.toString() === 'const x = 1\n' &&
+          !!host.querySelector('.cm-content');
+        view.destroy();
+        host.remove();
+      } catch (e) {
+        results.cmError = (e as Error).message;
+      }
+
+      console.log('EDITORTEST RESULT ' + JSON.stringify(results));
+      loaded.current = false;
+      window.dw.kill(term);
+      await window.dw.removeEntry(file);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, workspaceCwd, spawnNew]);
+
+  // Search: pure fuzzy scoring/ranking, the recursive file index (heavy dirs
+  // skipped), and content grep with correct line numbers.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('searchtest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sep = workspaceCwd.includes('\\') ? '\\' : '/';
+    const base = workspaceCwd.replace(/[\\/]+$/, '') + sep + 'dw-searchtest';
+    const join = (...p: string[]) => p.join(sep);
+    void (async () => {
+      const results: Record<string, unknown> = {};
+
+      // Pure fuzzy.
+      results.fuzzyMatch = fuzzyScore('ftn', 'FileTreeNode') !== null;
+      results.fuzzyReject = fuzzyScore('zzz', 'FileTreeNode') === null;
+      const ranked = fuzzyFilter('search', ['xoxo', 'searchbar', 'miscellany'], (x) => x, 10);
+      results.fuzzyRanks = ranked[0] === 'searchbar';
+
+      // Build a tree with a node_modules that must be excluded from search.
+      await window.dw.removeEntry(base);
+      await window.dw.createEntry(join(base, 'deep'), true);
+      await window.dw.createEntry(join(base, 'node_modules'), true);
+      await window.dw.writeFile(join(base, 'a.txt'), 'needle here\nplain line\n');
+      await window.dw.writeFile(join(base, 'deep', 'b.txt'), 'second\nneedle again\n');
+      await window.dw.writeFile(join(base, 'node_modules', 'c.txt'), 'needle in modules\n');
+
+      const idx = await window.dw.searchFiles(base, 20000);
+      const rel = idx.map((p) => p.slice(base.length).replace(/^[\\/]/, ''));
+      results.indexedFiles = rel.includes('a.txt') && rel.some((r) => /deep[\\/]b\.txt/.test(r));
+      results.ignoredNodeModules = !rel.some((r) => r.includes('node_modules'));
+
+      const hits = await window.dw.grepFiles(base, 'needle', 200);
+      const aHit = hits.find((h) => h.path.endsWith('a.txt'));
+      const bHit = hits.find((h) => h.path.endsWith('b.txt'));
+      results.grepFound = !!aHit && aHit.line === 1 && !!bHit && bHit.line === 2;
+      results.grepSkipsIgnored = !hits.some((h) => h.path.includes('node_modules'));
+
+      console.log('SEARCHTEST RESULT ' + JSON.stringify(results));
+      loaded.current = false;
+      await window.dw.removeEntry(base);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, workspaceCwd]);
+
+  // Note image paste: a pasted image is stored beside the note, embeds as a
+  // markdown link readable by agents, renders via readImage, and delete cleans
+  // up the asset.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('imgtest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    void (async () => {
+      const results: Record<string, unknown> = {};
+      const id = 'imgtest-' + Date.now();
+      await window.dw.registerNote(id, 'imgtest');
+      // A 1x1 PNG.
+      const b64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+
+      const p = await window.dw.saveNoteImage(id, 'dot.png', bytes);
+      results.savedPath = typeof p === 'string' && p.endsWith('dot.png');
+
+      const st = await window.dw.statEntry(p);
+      results.fileOnDisk = !!st && !st.isDir && st.size === bytes.length;
+
+      const uri = await window.dw.readImage(p);
+      results.rendersDataUri = uri.startsWith('data:image/png;base64,');
+
+      // The note markdown references the image path — what an agent reads.
+      await window.dw.saveNote(id, `look:\n\n![image](${p})\n`);
+      const md = await window.dw.readNote(id);
+      results.agentReadable = md.includes(p);
+
+      // Delete removes the note's asset directory.
+      await window.dw.deleteNote(id);
+      results.assetCleaned = (await window.dw.statEntry(p)) === null;
+
+      console.log('IMGTEST RESULT ' + JSON.stringify(results));
+    })();
+  }, []);
+
   // Layout ops test: pure geometry + the canvas wiring that applies it.
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has('layouttest')) return;
@@ -1387,6 +1795,7 @@ export function Canvas({
       <TerminalPalette
         onSpawn={(p) => void spawnNew(p)}
         onAddNote={() => void addNote()}
+        onAddFileTree={() => addFileTree()}
       />
       {isDev && (
         <DevBar
@@ -1421,6 +1830,8 @@ export function Canvas({
         minZoom={0.1}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}
+        onDrop={onCanvasDrop}
+        onDragOver={onCanvasDragOver}
       >
         <Background gap={20} />
         <ViewportPortal>

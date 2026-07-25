@@ -264,6 +264,41 @@ returns the peer — proving the CLI exists only inside canvas terminals.
   partitions the rail into sections (migrated from the pre-divider `order`
   array). Node identity is a persistent `stableId` distinct from the ephemeral
   live PTY id.
+- **FsService** (`src/main/fsService.ts`) — the File Tree node's disk access
+  (PRODUCT.md §8). The sandboxed renderer never touches the filesystem directly;
+  `readDir`/`readFile`/`writeFile`/`create`/`rename`/`remove`/`stat` all cross
+  IPC to here. Listings sort folders-first and degrade a read failure to an
+  `error` field rather than throwing across the bridge. File Tree nodes are pure
+  layout (kind `filetree`, a `rootPath`), never graph/CLI nodes. File rows are
+  native HTML5 drags (`src/app/dnd.ts` carries the path): dropped on a terminal
+  they type the path into its PTY; dropped on the canvas a folder opens a File
+  Tree rooted there and a file becomes a read-only `preview` node (images via a
+  base64 `readImage`, text as a head).
+- **GitService** (`src/main/gitService.ts`) — shells out to the system `git`
+  (ARCHITECTURE.md §1) scoped to a File Tree's directory: status, branches, log,
+  diff, and the branch-menu operations (commit, checkout, branch, merge, stash,
+  fetch/pull/push). Reads degrade to empty/`isRepo:false`; operations return
+  `{ ok, output }` so the UI shows git's own message on a conflict or missing
+  upstream. Two pure renderer helpers keep the hard parts testable: `gitGraph.ts`
+  (`computeLanes` — column + segment layout for the graph view) and `diffParse.ts`
+  (`parseDiff` — unified diff → side-by-side rows).
+- **CodeEditor** (`src/app/CodeEditor.tsx`) — one CodeMirror 6 instance per open
+  file (§1). `basicSetup` supplies highlighting, find & replace and multi-cursor;
+  Ctrl+S saves through `writeFile`; a text selection can be handed to one of the
+  workspace's terminals with a `path:line` reference (written into its PTY, not
+  auto-submitted, like a file drag). Opened from a File Tree row (double-click).
+- **Search** — a File Tree's search bar does fuzzy filename matching against a
+  cached recursive index (`fsService.searchFiles`, heavy dirs like `.git`/
+  `node_modules` skipped; scored by the pure `fuzzy.ts`) and, when the query
+  starts with `>`, case-insensitive content search (`fsService.grepFiles`,
+  binaries/large files skipped). A content hit opens the file in the editor at
+  its line (`CodeEditor` `gotoLine`).
+- **Note image paste** (`NoteStore.saveImage`) — pasting an image into a note
+  writes it to a `<id>.assets/` dir beside the note file and embeds a markdown
+  link to its absolute path (PRODUCT.md §6). The formatted view resolves that
+  path through `readImage` into a data URI (the CSP blocks `file://`); a
+  connected agent reading the note gets the on-disk path and can open it.
+  Deleting the note removes its assets.
 - **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
   terminals from its specs, places them at saved geometry, and re-wires leashes;
   layout is saved (debounced) on move/resize/add/remove/connect/disconnect.

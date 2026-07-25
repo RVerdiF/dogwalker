@@ -113,7 +113,90 @@ export interface GroupSpec extends BaseSpec {
   kind: 'group';
 }
 
-export type NodeSpec = TerminalSpec | NoteSpec | GroupSpec;
+/** A File Tree node rooted at a directory (PRODUCT.md §8). Pure layout. */
+export interface FileTreeSpec extends BaseSpec {
+  kind: 'filetree';
+  /** Directory the tree is rooted at; defaults to the workspace cwd. */
+  rootPath: string;
+}
+
+/** A read-only file preview dropped on the canvas (PRODUCT.md §8). */
+export interface PreviewSpec extends BaseSpec {
+  kind: 'preview';
+  filePath: string;
+}
+
+export type NodeSpec =
+  | TerminalSpec
+  | NoteSpec
+  | GroupSpec
+  | FileTreeSpec
+  | PreviewSpec;
+
+/** One entry in a directory listing (File Tree). */
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+  /** Modified time, ms since epoch. */
+  mtime: number;
+}
+
+/** A directory's immediate children, or an error if it couldn't be read. */
+export interface DirListing {
+  path: string;
+  entries: FileEntry[];
+  error?: string;
+}
+
+/** A content-search hit: a matching line in a file (File Tree search). */
+export interface SearchHit {
+  path: string;
+  line: number;
+  text: string;
+}
+
+/** A changed file in `git status` (porcelain codes for index + worktree). */
+export interface GitFileStatus {
+  path: string;
+  /** Staged (index) status code, e.g. 'M', 'A', 'D', ' '. */
+  index: string;
+  /** Worktree status code. */
+  work: string;
+}
+
+/** Working-tree summary for a File Tree's repo (PRODUCT.md §8). */
+export interface GitStatus {
+  isRepo: boolean;
+  branch: string;
+  ahead: number;
+  behind: number;
+  files: GitFileStatus[];
+  error?: string;
+}
+
+export interface GitBranch {
+  name: string;
+  current: boolean;
+}
+
+/** One commit for the graph view; `parents`/`refs` drive the lanes. */
+export interface GitCommit {
+  hash: string;
+  parents: string[];
+  refs: string[];
+  author: string;
+  subject: string;
+  /** Commit time, seconds since epoch. */
+  time: number;
+}
+
+/** The result of a git operation the branch menu invokes. */
+export interface GitResult {
+  ok: boolean;
+  output: string;
+}
 
 /** Everything needed to reconstruct a workspace's canvas. */
 export interface WorkspaceLayout {
@@ -207,6 +290,40 @@ export interface DwApi {
   /** Open a path with the OS default handler (editor/file manager). */
   openPath(path: string): Promise<void>;
 
+  // File Tree file-system access (main is the only process that touches disk).
+  readDir(dir: string): Promise<DirListing>;
+  readFile(file: string): Promise<string>;
+  writeFile(file: string, content: string): Promise<void>;
+  /** Read an image as a `data:` URI for previewing (empty string if it fails). */
+  readImage(file: string): Promise<string>;
+  /** Create a file or directory (parents made as needed); returns its path. */
+  createEntry(target: string, isDir: boolean): Promise<string>;
+  /** Rename or move an entry. */
+  renameEntry(from: string, to: string): Promise<void>;
+  /** Delete an entry (recursive for directories). */
+  removeEntry(target: string): Promise<void>;
+  statEntry(target: string): Promise<FileEntry | null>;
+  /** All file paths under a root (recursive, skips heavy dirs) for fuzzy search. */
+  searchFiles(root: string, limit: number): Promise<string[]>;
+  /** Case-insensitive content search under a root (`>`-prefixed search). */
+  grepFiles(root: string, query: string, limit: number): Promise<SearchHit[]>;
+
+  // Git, scoped to a File Tree's directory (system `git`, ARCHITECTURE.md §1).
+  gitStatus(cwd: string): Promise<GitStatus>;
+  gitBranches(cwd: string): Promise<GitBranch[]>;
+  gitLog(cwd: string, limit: number): Promise<GitCommit[]>;
+  /** Unified diff of uncommitted changes (whole repo, or one file). */
+  gitDiff(cwd: string, file?: string): Promise<string>;
+  gitCommit(cwd: string, message: string): Promise<GitResult>;
+  gitCheckout(cwd: string, branch: string): Promise<GitResult>;
+  gitCreateBranch(cwd: string, name: string): Promise<GitResult>;
+  gitMerge(cwd: string, branch: string): Promise<GitResult>;
+  gitStash(cwd: string): Promise<GitResult>;
+  gitStashPop(cwd: string): Promise<GitResult>;
+  gitFetch(cwd: string): Promise<GitResult>;
+  gitPull(cwd: string): Promise<GitResult>;
+  gitPush(cwd: string): Promise<GitResult>;
+
   // Notes. A note is a markdown file keyed by stableId, registered in the graph
   // so it can be wired to terminals (and other notes) and reached by the CLI.
   registerNote(id: string, name: string): Promise<string>; // ensures file+graph node; returns content
@@ -217,6 +334,8 @@ export interface DwApi {
   unloadNote(id: string): Promise<void>;
   /** Delete the note's graph node and file (user delete). */
   deleteNote(id: string): Promise<void>;
+  /** Store a pasted image beside the note; returns its absolute path to embed. */
+  saveNoteImage(id: string, name: string, bytes: Uint8Array): Promise<string>;
   /** Fires when a note's content changes out-of-band (e.g. an agent wrote it). */
   onNoteUpdate(cb: (id: string) => void): () => void;
 

@@ -67,12 +67,40 @@ const api: DwApi = {
   pickDirectory: () => ipcRenderer.invoke('sys:pickDirectory'),
   openPath: (p) => ipcRenderer.invoke('sys:openPath', p),
 
+  readDir: (dir) => ipcRenderer.invoke('fs:readDir', dir),
+  readFile: (file) => ipcRenderer.invoke('fs:readFile', file),
+  readImage: (file) => ipcRenderer.invoke('fs:readImage', file),
+  writeFile: (file, content) => ipcRenderer.invoke('fs:writeFile', { file, content }),
+  createEntry: (target, isDir) => ipcRenderer.invoke('fs:create', { target, isDir }),
+  renameEntry: (from, to) => ipcRenderer.invoke('fs:rename', { from, to }),
+  removeEntry: (target) => ipcRenderer.invoke('fs:remove', target),
+  statEntry: (target) => ipcRenderer.invoke('fs:stat', target),
+  searchFiles: (root, limit) => ipcRenderer.invoke('fs:searchFiles', { root, limit }),
+  grepFiles: (root, query, limit) =>
+    ipcRenderer.invoke('fs:grepFiles', { root, query, limit }),
+
+  gitStatus: (cwd) => ipcRenderer.invoke('git:status', cwd),
+  gitBranches: (cwd) => ipcRenderer.invoke('git:branches', cwd),
+  gitLog: (cwd, limit) => ipcRenderer.invoke('git:log', { cwd, limit }),
+  gitDiff: (cwd, file) => ipcRenderer.invoke('git:diff', { cwd, file }),
+  gitCommit: (cwd, message) => ipcRenderer.invoke('git:commit', { cwd, message }),
+  gitCheckout: (cwd, branch) => ipcRenderer.invoke('git:checkout', { cwd, branch }),
+  gitCreateBranch: (cwd, name) => ipcRenderer.invoke('git:createBranch', { cwd, name }),
+  gitMerge: (cwd, branch) => ipcRenderer.invoke('git:merge', { cwd, branch }),
+  gitStash: (cwd) => ipcRenderer.invoke('git:stash', cwd),
+  gitStashPop: (cwd) => ipcRenderer.invoke('git:stashPop', cwd),
+  gitFetch: (cwd) => ipcRenderer.invoke('git:fetch', cwd),
+  gitPull: (cwd) => ipcRenderer.invoke('git:pull', cwd),
+  gitPush: (cwd) => ipcRenderer.invoke('git:push', cwd),
+
   registerNote: (id, name) => ipcRenderer.invoke('note:register', { id, name }),
   renameNote: (id, name) => ipcRenderer.invoke('note:rename', { id, name }),
   readNote: (id) => ipcRenderer.invoke('note:read', id),
   saveNote: (id, content) => ipcRenderer.invoke('note:save', { id, content }),
   unloadNote: (id) => ipcRenderer.invoke('note:unload', id),
   deleteNote: (id) => ipcRenderer.invoke('note:delete', id),
+  saveNoteImage: (id, name, bytes) =>
+    ipcRenderer.invoke('note:saveImage', { id, name, bytes }),
   onNoteUpdate: (cb) => {
     const listener = (_e: IpcRendererEvent, id: string) => cb(id);
     ipcRenderer.on('note:update', listener);
