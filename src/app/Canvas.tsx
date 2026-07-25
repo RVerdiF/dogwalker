@@ -1646,6 +1646,44 @@ export function Canvas({
     })();
   }, [workspaceId, workspaceCwd]);
 
+  // Note image paste: a pasted image is stored beside the note, embeds as a
+  // markdown link readable by agents, renders via readImage, and delete cleans
+  // up the asset.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('imgtest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    void (async () => {
+      const results: Record<string, unknown> = {};
+      const id = 'imgtest-' + Date.now();
+      await window.dw.registerNote(id, 'imgtest');
+      // A 1x1 PNG.
+      const b64 =
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+
+      const p = await window.dw.saveNoteImage(id, 'dot.png', bytes);
+      results.savedPath = typeof p === 'string' && p.endsWith('dot.png');
+
+      const st = await window.dw.statEntry(p);
+      results.fileOnDisk = !!st && !st.isDir && st.size === bytes.length;
+
+      const uri = await window.dw.readImage(p);
+      results.rendersDataUri = uri.startsWith('data:image/png;base64,');
+
+      // The note markdown references the image path — what an agent reads.
+      await window.dw.saveNote(id, `look:\n\n![image](${p})\n`);
+      const md = await window.dw.readNote(id);
+      results.agentReadable = md.includes(p);
+
+      // Delete removes the note's asset directory.
+      await window.dw.deleteNote(id);
+      results.assetCleaned = (await window.dw.statEntry(p)) === null;
+
+      console.log('IMGTEST RESULT ' + JSON.stringify(results));
+    })();
+  }, []);
+
   // Layout ops test: pure geometry + the canvas wiring that applies it.
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has('layouttest')) return;

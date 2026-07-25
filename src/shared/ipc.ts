@@ -334,6 +334,8 @@ export interface DwApi {
   unloadNote(id: string): Promise<void>;
   /** Delete the note's graph node and file (user delete). */
   deleteNote(id: string): Promise<void>;
+  /** Store a pasted image beside the note; returns its absolute path to embed. */
+  saveNoteImage(id: string, name: string, bytes: Uint8Array): Promise<string>;
   /** Fires when a note's content changes out-of-band (e.g. an agent wrote it). */
   onNoteUpdate(cb: (id: string) => void): () => void;
 

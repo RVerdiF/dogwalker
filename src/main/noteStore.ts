@@ -24,6 +24,25 @@ export class NoteStore extends EventEmitter {
     return path.join(this.dir, `${id}.md`);
   }
 
+  private assetsDir(id: string): string {
+    return path.join(this.dir, `${id}.assets`);
+  }
+
+  /**
+   * Store a pasted image next to the note (PRODUCT.md §6) and return its
+   * absolute path (forward slashes, so it drops cleanly into a markdown link).
+   * The file lives on disk beside the note, so a connected agent reading the
+   * note's markdown can open the referenced image.
+   */
+  saveImage(id: string, name: string, bytes: Uint8Array): string {
+    const dir = this.assetsDir(id);
+    fs.mkdirSync(dir, { recursive: true });
+    const safe = (name || 'image.png').replace(/[^\w.-]/g, '_') || 'image.png';
+    const file = path.join(dir, `${Date.now()}-${safe}`);
+    fs.writeFileSync(file, Buffer.from(bytes));
+    return file.replace(/\\/g, '/');
+  }
+
   /** Ensure the file exists and the note is a live graph node; return content. */
   register(id: string, name: string): string {
     if (!fs.existsSync(this.file(id))) {
@@ -68,6 +87,11 @@ export class NoteStore extends EventEmitter {
       fs.unlinkSync(this.file(id));
     } catch {
       /* already gone */
+    }
+    try {
+      fs.rmSync(this.assetsDir(id), { recursive: true, force: true });
+    } catch {
+      /* no assets */
     }
   }
 }

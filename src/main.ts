@@ -101,6 +101,11 @@ const createWindow = () => {
   );
   ipcMain.handle('note:unload', (_e, id: string) => notes.unload(id));
   ipcMain.handle('note:delete', (_e, id: string) => notes.delete(id));
+  ipcMain.handle(
+    'note:saveImage',
+    (_e, { id, name, bytes }: { id: string; name: string; bytes: Uint8Array }) =>
+      notes.saveImage(id, name, bytes),
+  );
 
   ipcMain.on('notify', (_e, { title, body }: { title: string; body: string }) => {
     if (Notification.isSupported()) new Notification({ title, body }).show();
@@ -273,6 +278,7 @@ const createWindow = () => {
       process.env.DW_FILEOPSTEST ? 'fileopstest=1' : '',
       process.env.DW_EDITORTEST ? 'editortest=1' : '',
       process.env.DW_SEARCHTEST ? 'searchtest=1' : '',
+      process.env.DW_IMGTEST ? 'imgtest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

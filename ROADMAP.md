@@ -56,7 +56,7 @@ accepted deviation (memory measured in dev mode) in
 3. **Terminals & agents**: the five shipped presets + custom ([PRODUCT.md §4.2](PRODUCT.md#42-agents--launch-configs)), names/icons, number badges, one dark + one light theme. Attention system with OSC 133, dot + cycle shortcut + system notifications ([PRODUCT.md §4.4](PRODUCT.md#44-attention-system), [ARCHITECTURE.md §6](ARCHITECTURE.md#6-attention-detection)).
 4. **Broker + CLI + skill**: all of [ARCHITECTURE.md §5](ARCHITECTURE.md#5-the-ipc-bus--dogwalker-cli) for `ask` / `reply --stdin` / `check` / `list` / `connect` / `disconnect`; atomic bracketed-paste injection; timeouts; JSONL message history; the skill teaching agents the contract; roles as instruction files ([PRODUCT.md §4.3](PRODUCT.md#43-roles)).
 5. **Connections**: leash + circuit visuals, tool/shortcut creation, connections popover, per-leash message history view ([PRODUCT.md §5](PRODUCT.md#5-connections--the-dogwalker-cli)).
-6. **Notes**: markdown on disk, raw/formatted modes, rename, drag-in external files, delete-with-file, note chaining, `note read|append|write` verbs ([PRODUCT.md §6](PRODUCT.md#6-notes)); image paste waits for v0.3.
+6. **Notes**: markdown on disk, raw/formatted modes, rename, drag-in external files, delete-with-file, note chaining, `note read|append|write` verbs ([PRODUCT.md §6](PRODUCT.md#6-notes)); image paste landed in v0.3.
 7. **Prompt Composer**: floating editor, per-terminal persistent drafts, send/newline/passthrough keys, image paste via temp-file path, @-mentions of connected terminals and notes ([PRODUCT.md §7](PRODUCT.md#7-prompt-composer)).
 8. `npm start` works on the three OSes.
 

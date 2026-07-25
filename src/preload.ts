@@ -99,6 +99,8 @@ const api: DwApi = {
   saveNote: (id, content) => ipcRenderer.invoke('note:save', { id, content }),
   unloadNote: (id) => ipcRenderer.invoke('note:unload', id),
   deleteNote: (id) => ipcRenderer.invoke('note:delete', id),
+  saveNoteImage: (id, name, bytes) =>
+    ipcRenderer.invoke('note:saveImage', { id, name, bytes }),
   onNoteUpdate: (cb) => {
     const listener = (_e: IpcRendererEvent, id: string) => cb(id);
     ipcRenderer.on('note:update', listener);

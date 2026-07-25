@@ -49,6 +49,27 @@ function NoteNodeInner({ id, data, selected }: NodeProps<NoteFlowNode>) {
     }, SAVE_DEBOUNCE_MS);
   };
 
+  // Paste an image (PRODUCT.md §6): store it beside the note, embed a markdown
+  // link to its on-disk path so the formatted view renders it and a connected
+  // agent reading the note can open the file.
+  const onPaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const file = Array.from(e.clipboardData.items)
+      .find((it) => it.type.startsWith('image/'))
+      ?.getAsFile();
+    if (!file) return;
+    e.preventDefault();
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const p = await window.dw.saveNoteImage(
+      data.stableId,
+      file.name || 'paste.png',
+      bytes,
+    );
+    const target = e.currentTarget;
+    const caret = target.selectionStart ?? content.length;
+    const embed = `![image](${p})`;
+    onEdit(content.slice(0, caret) + embed + content.slice(caret));
+  };
+
   const commitName = () => {
     const n = name.trim() || data.name;
     setName(n);
@@ -106,7 +127,12 @@ function NoteNodeInner({ id, data, selected }: NodeProps<NoteFlowNode>) {
         {formatted ? (
           <div className="dw-note-md" onDoubleClick={() => setFormatted(false)}>
             {content.trim() ? (
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{ img: NoteImage }}
+              >
+                {content}
+              </ReactMarkdown>
             ) : (
               <span className="dw-note-empty">Empty note — double-click to edit.</span>
             )}
@@ -115,12 +141,41 @@ function NoteNodeInner({ id, data, selected }: NodeProps<NoteFlowNode>) {
           <textarea
             className="dw-note-raw"
             value={content}
-            placeholder="# Markdown…"
+            placeholder="# Markdown…  (paste an image to embed it)"
             onChange={(e) => onEdit(e.target.value)}
+            onPaste={(e) => void onPaste(e)}
           />
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Renders a markdown image. Remote/`data:` URIs pass through; a local on-disk
+ * path (how pasted images are stored) is read through main into a data URI,
+ * since the sandboxed renderer can't load `file://` under the CSP.
+ */
+function NoteImage({ src, alt }: { src?: string; alt?: string }) {
+  const [data, setData] = useState('');
+  useEffect(() => {
+    if (!src) return;
+    if (/^(https?:|data:)/.test(src)) {
+      setData(src);
+      return;
+    }
+    let cancelled = false;
+    void window.dw.readImage(src).then((uri) => {
+      if (!cancelled) setData(uri);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+  return data ? (
+    <img className="dw-note-img" src={data} alt={alt ?? ''} />
+  ) : (
+    <span className="dw-note-img-ph">🖼 {alt || 'image'}</span>
   );
 }
 

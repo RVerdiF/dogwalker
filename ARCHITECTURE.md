@@ -293,6 +293,12 @@ returns the peer — proving the CLI exists only inside canvas terminals.
   starts with `>`, case-insensitive content search (`fsService.grepFiles`,
   binaries/large files skipped). A content hit opens the file in the editor at
   its line (`CodeEditor` `gotoLine`).
+- **Note image paste** (`NoteStore.saveImage`) — pasting an image into a note
+  writes it to a `<id>.assets/` dir beside the note file and embeds a markdown
+  link to its absolute path (PRODUCT.md §6). The formatted view resolves that
+  path through `readImage` into a data URI (the CSP blocks `file://`); a
+  connected agent reading the note gets the on-disk path and can open it.
+  Deleting the note removes its assets.
 - **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
   terminals from its specs, places them at saved geometry, and re-wires leashes;
   layout is saved (debounced) on move/resize/add/remove/connect/disconnect.
