@@ -331,7 +331,10 @@ export function Canvas({
   );
 
   const addPortalNode = useCallback(
-    (spec: PortalSpec) => {
+    async (spec: PortalSpec) => {
+      // Register in the graph (awaited) before the node mounts, so restored
+      // leashes to this portal resolve. The browser view is created by the node.
+      await window.dw.portalRegister(spec.stableId, spec.name);
       stableToLive.current.set(spec.stableId, spec.stableId);
       const node: PortalFlowNode = {
         id: spec.stableId,
@@ -355,10 +358,10 @@ export function Canvas({
   const addPortal = useCallback(() => {
     const n = spawnCount.current++;
     const stableId = crypto.randomUUID();
-    addPortalNode({
+    void addPortalNode({
       kind: 'portal',
       stableId,
-      name: 'portal',
+      name: `portal-${n + 1}`,
       url: 'about:blank',
       partition: stableId, // isolated session by default (linking is v0.4 block 3)
       x: (n % GRID_COLS) * GRID_GAP_X,
@@ -486,7 +489,7 @@ export function Canvas({
         if (spec.kind === 'note') await addNoteNode(spec);
         else if (spec.kind === 'filetree') addFileTreeNode(spec);
         else if (spec.kind === 'preview') addPreviewNode(spec);
-        else if (spec.kind === 'portal') addPortalNode(spec);
+        else if (spec.kind === 'portal') await addPortalNode(spec);
         else await addTerminal(spec as TerminalSpec, liveByStable.get(spec.stableId));
       }
       // Re-attach members now that every node exists.
@@ -532,6 +535,9 @@ export function Canvas({
       setNodes((ns) => {
         for (const n of ns) {
           if (n.type === 'terminal') terminals.dispose(n.id);
+          // Portals' native views are destroyed on unmount; drop their graph
+          // nodes too so a viewless portal isn't left CLI-reachable.
+          else if (n.type === 'portal') void window.dw.portalUnregister(n.id);
         }
         return [];
       });
@@ -1043,7 +1049,8 @@ export function Canvas({
     setNodes((ns) => {
       for (const n of ns) {
         if (n.type === 'note') void window.dw.unloadNote(n.id);
-        else {
+        else if (n.type === 'portal') void window.dw.portalUnregister(n.id);
+        else if (n.type === 'terminal') {
           window.dw.kill(n.id);
           terminals.dispose(n.id);
         }

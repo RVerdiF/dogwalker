@@ -76,6 +76,8 @@ const api: DwApi = {
   renameEntry: (from, to) => ipcRenderer.invoke('fs:rename', { from, to }),
   removeEntry: (target) => ipcRenderer.invoke('fs:remove', target),
   statEntry: (target) => ipcRenderer.invoke('fs:stat', target),
+  portalRegister: (id, name) => ipcRenderer.invoke('portal:register', { id, name }),
+  portalUnregister: (id) => ipcRenderer.invoke('portal:unregister', id),
   portalCreate: (id, partition, url) =>
     ipcRenderer.send('portal:create', { id, partition, url }),
   portalSetBounds: (id, rect, zoom, visible) =>

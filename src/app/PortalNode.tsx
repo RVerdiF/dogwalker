@@ -1,6 +1,8 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import {
+  Handle,
   NodeResizer,
+  Position,
   useReactFlow,
   useStore,
   type Node,
@@ -72,11 +74,20 @@ function PortalNodeInner({ id, data, selected }: NodeProps<PortalFlowNode>) {
     const u = url.trim();
     if (u) window.dw.portalNavigate(data.stableId, u);
   };
-  const close = () => void deleteElements({ nodes: [{ id }] });
+  const close = () => {
+    void window.dw.portalUnregister(data.stableId);
+    void deleteElements({ nodes: [{ id }] });
+  };
 
   return (
     <div className={`dw-portal ${selected ? 'dw-node-selected' : ''}`}>
       <NodeResizer isVisible={selected} minWidth={320} minHeight={240} />
+      {/* Leash handles: a terminal wired here can drive it via `portal ...`. */}
+      <Handle id="top" type="source" position={Position.Top} className="dw-handle" />
+      <Handle id="right" type="source" position={Position.Right} className="dw-handle" />
+      <Handle id="bottom" type="source" position={Position.Bottom} className="dw-handle" />
+      <Handle id="left" type="source" position={Position.Left} className="dw-handle" />
+      <Handle id="sink" type="target" position={Position.Left} className="dw-handle-sink" />
       <div className="dw-drag dw-portal-bar">
         <button
           className="dw-portal-btn nodrag"

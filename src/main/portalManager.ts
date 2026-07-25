@@ -1,4 +1,7 @@
 import { BrowserWindow, WebContentsView, type WebContents } from 'electron';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 
 export interface PortalBounds {
   x: number;
@@ -144,9 +147,91 @@ export class PortalManager {
     this.views.get(id)?.view.webContents.reload();
   }
 
+  // ---- Automation (v0.4 block 2): exposed to agents via `portal` CLI --------
+
+  private wc(id: string): WebContents | null {
+    return this.views.get(id)?.view.webContents ?? null;
+  }
+
+  /** Run arbitrary JS in the page and return its (JSON-serializable) result. */
+  async js(id: string, code: string): Promise<unknown> {
+    const wc = this.wc(id);
+    if (!wc) throw new Error('portal is gone');
+    return wc.executeJavaScript(code, true);
+  }
+
+  /** Click the first element matching a CSS selector. */
+  async click(id: string, selector: string): Promise<unknown> {
+    const sel = JSON.stringify(selector);
+    return this.js(
+      id,
+      `(()=>{const el=document.querySelector(${sel});if(!el)return{ok:false,error:'no element'};el.scrollIntoView({block:'center'});el.click();return{ok:true,tag:el.tagName.toLowerCase()};})()`,
+    );
+  }
+
+  /** Focus a field and set its value, firing input/change. */
+  async type(id: string, selector: string, text: string): Promise<unknown> {
+    const sel = JSON.stringify(selector);
+    const val = JSON.stringify(text);
+    return this.js(
+      id,
+      `(()=>{const el=document.querySelector(${sel});if(!el)return{ok:false,error:'no element'};el.focus();const set=Object.getOwnPropertyDescriptor(el.__proto__,'value');if(set&&set.set)set.set.call(el,${val});else el.value=${val};el.dispatchEvent(new Event('input',{bubbles:true}));el.dispatchEvent(new Event('change',{bubbles:true}));return{ok:true};})()`,
+    );
+  }
+
+  /** Scroll the window (or a selector's element) by dx/dy. */
+  async scroll(id: string, dx: number, dy: number): Promise<unknown> {
+    return this.js(
+      id,
+      `(()=>{window.scrollBy(${Number(dx) || 0},${Number(dy) || 0});return{ok:true,x:window.scrollX,y:window.scrollY};})()`,
+    );
+  }
+
+  /** Outer HTML of a selector (or the whole document), capped for token thrift. */
+  async dom(id: string, selector?: string): Promise<string> {
+    const sel = selector ? JSON.stringify(selector) : 'null';
+    const html = (await this.js(
+      id,
+      `(()=>{const el=${sel}?document.querySelector(${sel}):document.documentElement;return el?el.outerHTML:'';})()`,
+    )) as string;
+    return html.slice(0, 200_000);
+  }
+
+  /** Ring-buffered console output for the portal. */
+  consoleLog(id: string): string {
+    return (this.views.get(id)?.console ?? []).join('\n');
+  }
+
+  /**
+   * Capture the page via CDP so it works even when the portal is offscreen
+   * (the compositor rasterizes on demand). Returns a temp-file path, so an agent
+   * ingests it the same way as a composer image.
+   */
+  async screenshot(id: string): Promise<string> {
+    const wc = this.wc(id);
+    if (!wc) throw new Error('portal is gone');
+    const dbg = wc.debugger;
+    if (!dbg.isAttached()) dbg.attach('1.3');
+    const res = (await dbg.sendCommand('Page.captureScreenshot', {
+      format: 'png',
+      captureBeyondViewport: true,
+    })) as { data: string };
+    const dir = path.join(os.tmpdir(), 'dogwalker-portal');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `${id}-${Date.now()}.png`);
+    fs.writeFileSync(file, Buffer.from(res.data, 'base64'));
+    return file;
+  }
+
   destroy(id: string): void {
     const e = this.views.get(id);
     if (!e) return;
+    try {
+      const dbg = e.view.webContents.debugger;
+      if (dbg.isAttached()) dbg.detach();
+    } catch {
+      /* not attached */
+    }
     try {
       this.win.contentView.removeChildView(e.view);
       e.view.webContents.close();

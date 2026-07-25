@@ -4,6 +4,7 @@ import type { GraphStore } from './graphStore';
 import type { PtyManager } from './ptyManager';
 import type { History } from './history';
 import type { NoteStore } from './noteStore';
+import type { PortalManager } from './portalManager';
 import {
   encode,
   type BrokerRequest,
@@ -29,6 +30,7 @@ export class Broker {
     private ptys: PtyManager,
     private history: History,
     private notes: NoteStore,
+    private portals: PortalManager,
   ) {
     this.server = net.createServer((socket) => this.onConnection(socket));
   }
@@ -86,6 +88,9 @@ export class Broker {
           req.body,
           req.chain,
         );
+      case 'portal':
+        void this.handlePortal(socket, req);
+        return;
       default:
         return this.respond(socket, { ok: false, error: 'unknown command' });
     }
@@ -259,6 +264,77 @@ export class Broker {
       body: `(${op} note) ${text.slice(0, 80)}`,
     });
     this.respond(socket, { ok: true });
+  }
+
+  /**
+   * Drive a connected portal (PRODUCT.md §9). Authorization is the same as
+   * everything else — the caller must be wired to the portal. Automation itself
+   * lives in the PortalManager; the broker only gates and shuttles results.
+   */
+  private async handlePortal(
+    socket: net.Socket,
+    req: Extract<BrokerRequest, { cmd: 'portal' }>,
+  ): Promise<void> {
+    const portalId = this.graph.resolvePeer(req.from, req.target, 'portal');
+    if (!portalId || !this.portals.has(portalId)) {
+      return this.respond(socket, {
+        ok: false,
+        error: `no connected portal named "${req.target}"`,
+      });
+    }
+    this.history.append({
+      ts: Date.now(),
+      kind: req.op === 'screenshot' || req.op === 'dom' || req.op === 'console' ? 'check' : 'ask',
+      from: req.from,
+      to: portalId,
+      body: `(portal ${req.op}) ${req.arg ?? ''}`.slice(0, 100),
+    });
+    try {
+      switch (req.op) {
+        case 'navigate':
+          this.portals.navigate(portalId, req.arg ?? '');
+          return this.respond(socket, { ok: true, data: { ok: true } });
+        case 'click':
+          return this.respond(socket, {
+            ok: true,
+            data: await this.portals.click(portalId, req.arg ?? ''),
+          });
+        case 'type':
+          return this.respond(socket, {
+            ok: true,
+            data: await this.portals.type(portalId, req.arg ?? '', req.value ?? ''),
+          });
+        case 'scroll':
+          return this.respond(socket, {
+            ok: true,
+            data: await this.portals.scroll(portalId, req.x ?? 0, req.y ?? 0),
+          });
+        case 'screenshot':
+          return this.respond(socket, {
+            ok: true,
+            data: { path: await this.portals.screenshot(portalId) },
+          });
+        case 'js':
+          return this.respond(socket, {
+            ok: true,
+            data: { result: await this.portals.js(portalId, req.arg ?? '') },
+          });
+        case 'dom':
+          return this.respond(socket, {
+            ok: true,
+            data: { html: await this.portals.dom(portalId, req.arg) },
+          });
+        case 'console':
+          return this.respond(socket, {
+            ok: true,
+            data: { output: this.portals.consoleLog(portalId) },
+          });
+        default:
+          return this.respond(socket, { ok: false, error: 'unknown portal op' });
+      }
+    } catch (e) {
+      this.respond(socket, { ok: false, error: (e as Error).message });
+    }
   }
 
   private respond(socket: net.Socket, res: BrokerResponse): void {

@@ -21,6 +21,7 @@ import { runFsTest } from './main/fsTest';
 import { GitService } from './main/gitService';
 import { runGitTest } from './main/gitTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
+import { runPortalCliTest } from './main/portalCliTest';
 import type { AppSettings } from './shared/ipc';
 import type {
   ProcessMetric,
@@ -65,7 +66,8 @@ const createWindow = () => {
   const socketPath = brokerPipePath();
 
   ptys = new PtyManager(mainWindow.webContents, graph, { socketPath, shimDir });
-  broker = new Broker(socketPath, graph, ptys, history, notes);
+  const portals = new PortalManager(mainWindow, mainWindow.webContents);
+  broker = new Broker(socketPath, graph, ptys, history, notes, portals);
   broker.listen();
 
   const wc = mainWindow.webContents;
@@ -245,7 +247,12 @@ const createWindow = () => {
   ipcMain.handle('git:pull', (_e, cwd: string) => git.pull(cwd));
   ipcMain.handle('git:push', (_e, cwd: string) => git.push(cwd));
 
-  const portals = new PortalManager(mainWindow, wc);
+  ipcMain.handle(
+    'portal:register',
+    (_e, { id, name }: { id: string; name: string }) =>
+      graph.addNode(id, name, 'portal'),
+  );
+  ipcMain.handle('portal:unregister', (_e, id: string) => graph.removeNode(id));
   ipcMain.on(
     'portal:create',
     (_e, { id, partition, url }: { id: string; partition: string; url: string }) =>
@@ -333,6 +340,10 @@ const createWindow = () => {
 
   if (process.env.DW_BROKERTEST) {
     void runBrokerTest(ptys, graph, socketPath);
+  }
+
+  if (process.env.DW_PORTALCLITEST) {
+    void runPortalCliTest(ptys, graph, portals, socketPath);
   }
 };
 

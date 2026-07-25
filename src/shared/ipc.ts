@@ -51,7 +51,7 @@ export interface ProcessMetric {
   memoryMB: number;
 }
 
-export type NodeKind = 'terminal' | 'note';
+export type NodeKind = 'terminal' | 'note' | 'portal';
 
 /** A node in the authoritative main-process graph (identity only, no layout). */
 export interface GraphNode {
@@ -321,6 +321,10 @@ export interface DwApi {
   removeEntry(target: string): Promise<void>;
   statEntry(target: string): Promise<FileEntry | null>;
   // Portals (embedded browsers; the view lives in main, geometry in renderer).
+  /** Register the portal as a graph node so it can be leashed + CLI-reached. */
+  portalRegister(id: string, name: string): Promise<void>;
+  /** Remove the portal's graph node (workspace switch / close). */
+  portalUnregister(id: string): Promise<void>;
   portalCreate(id: string, partition: string, url: string): void;
   /** Align the overlaid browser view to the node's on-screen body rect. */
   portalSetBounds(

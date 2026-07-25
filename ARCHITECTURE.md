@@ -155,8 +155,21 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
   reports its body's on-screen rect and the canvas zoom (`setBounds`) on every
   pan/zoom/move/resize, so the native view stays glued to the node and scales
   with zoom via `setZoomFactor`. Mount creates the view, unmount destroys it;
-  the persistent partition keeps sessions across recreation. Automation (CDP)
-  and linking attach here in blocks 2–3.
+  the persistent partition keeps sessions across recreation. Linking attaches
+  here in block 3.
+
+**Built — portal automation (v0.4 block 2)**
+- Portals are graph nodes (kind `portal`, registered on create), so a terminal
+  leashed to one can drive it — and only it — through the `portal` verb; the
+  broker gates every op with `graph.resolvePeer(from, target, 'portal')`, the
+  same connection-graph authorization as `ask`/`note`. No ambient reach.
+- The `portal` CLI (shim + broker + `PortalManager`): `navigate`, `click`,
+  `type`, `scroll`, `js`, `dom`, `console`, `screenshot`. Interaction runs
+  through `executeJavaScript` (selector-based, value-setter-safe typing); DOM
+  reads return capped outer HTML; `console` drains the per-portal ring buffer;
+  `screenshot` uses CDP `Page.captureScreenshot` (works offscreen) and returns a
+  temp-file path so agents ingest it like a composer image. Results cross the
+  wire as JSON.
 
 ## 10. Persistence & hibernation
 
