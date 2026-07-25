@@ -203,6 +203,14 @@ const createWindow = () => {
   );
   ipcMain.handle('fs:remove', (_e, target: string) => fsService.remove(target));
   ipcMain.handle('fs:stat', (_e, target: string) => fsService.stat(target));
+  ipcMain.handle('fs:searchFiles', (_e, { root, limit }: { root: string; limit: number }) =>
+    fsService.searchFiles(root, limit),
+  );
+  ipcMain.handle(
+    'fs:grepFiles',
+    (_e, { root, query, limit }: { root: string; query: string; limit: number }) =>
+      fsService.grepFiles(root, query, limit),
+  );
 
   const git = new GitService();
   ipcMain.handle('git:status', (_e, cwd: string) => git.status(cwd));
@@ -264,6 +272,7 @@ const createWindow = () => {
       process.env.DW_FSNODETEST ? 'fsnodetest=1' : '',
       process.env.DW_FILEOPSTEST ? 'fileopstest=1' : '',
       process.env.DW_EDITORTEST ? 'editortest=1' : '',
+      process.env.DW_SEARCHTEST ? 'searchtest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

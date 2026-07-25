@@ -5,8 +5,9 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import type { FileEntry, GitStatus, LiveTerminal } from '../shared/ipc';
+import type { FileEntry, GitStatus, LiveTerminal, SearchHit } from '../shared/ipc';
 import { setFileDrag } from './dnd';
+import { fuzzyFilter } from './fuzzy';
 import { GitDiffView } from './GitDiffView';
 import { GitGraphView } from './GitGraphView';
 import { GitBranchMenu } from './GitBranchMenu';
@@ -91,8 +92,15 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
   const [showBranch, setShowBranch] = useState(false);
   const [gitReload, setGitReload] = useState(0);
   const [openFile, setOpenFile] = useState<string | null>(null);
+  const [openLine, setOpenLine] = useState<number | undefined>(undefined);
   const [sendPayload, setSendPayload] = useState<{ text: string; ref: string } | null>(null);
   const [pickTerms, setPickTerms] = useState<LiveTerminal[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState('');
+  const [index, setIndex] = useState<string[]>([]);
+  const [hits, setHits] = useState<SearchHit[]>([]);
+  const [grepping, setGrepping] = useState(false);
+  const grepTimer = useRef<number | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const { deleteElements } = useReactFlow();
 
@@ -228,6 +236,45 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
     setPickTerms([]);
   };
 
+  const openInEditor = (filePath: string, line?: number) => {
+    setOpenFile(filePath);
+    setOpenLine(line);
+    setSearching(false);
+  };
+
+  // Load a file index when search opens (and when the root changes under it).
+  useEffect(() => {
+    if (!searching) return;
+    void window.dw.searchFiles(root, 20000).then(setIndex);
+  }, [searching, root]);
+
+  // Content search (`>`-prefixed) is debounced; name search filters the index.
+  const isContent = query.startsWith('>');
+  useEffect(() => {
+    if (!searching || !isContent) {
+      setHits([]);
+      return;
+    }
+    const term = query.slice(1).trim();
+    if (grepTimer.current !== null) window.clearTimeout(grepTimer.current);
+    if (!term) {
+      setHits([]);
+      return;
+    }
+    setGrepping(true);
+    grepTimer.current = window.setTimeout(() => {
+      void window.dw.grepFiles(root, term, 200).then((h) => {
+        setHits(h);
+        setGrepping(false);
+      });
+    }, 250);
+  }, [query, isContent, searching, root]);
+
+  const fuzzy =
+    !isContent && query.trim()
+      ? fuzzyFilter(query.trim(), index, (p) => p.slice(root.length), 200)
+      : [];
+
   const rows: React.ReactNode[] = [];
   const render = (dir: string, depth: number) => {
     const err = errors.get(dir);
@@ -331,7 +378,11 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
       {openFile ? (
         <CodeEditor
           filePath={openFile}
-          onClose={() => setOpenFile(null)}
+          gotoLine={openLine}
+          onClose={() => {
+            setOpenFile(null);
+            setOpenLine(undefined);
+          }}
           onSend={handleSend}
         />
       ) : (
@@ -363,6 +414,16 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
               </button>
             </>
           )}
+          <button
+            className={`dw-ft-tab ${searching ? 'active' : ''}`}
+            title="Search files (fuzzy) / contents (prefix with >)"
+            onClick={() => {
+              setSearching((s) => !s);
+              setQuery('');
+            }}
+          >
+            🔍
+          </button>
         </div>
         {git?.isRepo && (
           <button
@@ -377,8 +438,67 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
         )}
       </div>
 
+      {searching && (
+        <div className="dw-ft-search nodrag">
+          <input
+            className="dw-ft-search-input"
+            autoFocus
+            placeholder="Filter files…  (start with > to search contents)"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setSearching(false);
+            }}
+          />
+        </div>
+      )}
+
       <div className="dw-ft-body nowheel nodrag">
-        {view === 'diff' && git?.isRepo ? (
+        {searching ? (
+          isContent ? (
+            grepping ? (
+              <div className="dw-ft-empty">Searching…</div>
+            ) : hits.length ? (
+              hits.map((h) => (
+                <div
+                  key={`${h.path}:${h.line}`}
+                  className="dw-ft-hit"
+                  title={h.path}
+                  onClick={() => openInEditor(h.path, h.line)}
+                >
+                  <span className="dw-ft-hit-loc">
+                    {h.path.slice(root.length).replace(/^[\\/]/, '')}:{h.line}
+                  </span>
+                  <span className="dw-ft-hit-text">{h.text.trim()}</span>
+                </div>
+              ))
+            ) : (
+              <div className="dw-ft-empty">
+                {query.length > 1 ? 'No matches.' : 'Type to search contents…'}
+              </div>
+            )
+          ) : fuzzy.length ? (
+            fuzzy.map((p) => (
+              <div
+                key={p}
+                className="dw-ft-hit"
+                title={p}
+                onClick={() => openInEditor(p)}
+              >
+                <span className="dw-ft-hit-name">
+                  {p.replace(/[\\/]+$/, '').split(/[\\/]/).pop()}
+                </span>
+                <span className="dw-ft-hit-path">
+                  {p.slice(root.length).replace(/^[\\/]/, '')}
+                </span>
+              </div>
+            ))
+          ) : (
+            <div className="dw-ft-empty">
+              {query.trim() ? 'No matches.' : `Indexed ${index.length} files.`}
+            </div>
+          )
+        ) : view === 'diff' && git?.isRepo ? (
           <GitDiffView cwd={root} reloadKey={gitReload} />
         ) : view === 'graph' && git?.isRepo ? (
           <GitGraphView cwd={root} />

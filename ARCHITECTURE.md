@@ -287,6 +287,12 @@ returns the peer — proving the CLI exists only inside canvas terminals.
   Ctrl+S saves through `writeFile`; a text selection can be handed to one of the
   workspace's terminals with a `path:line` reference (written into its PTY, not
   auto-submitted, like a file drag). Opened from a File Tree row (double-click).
+- **Search** — a File Tree's search bar does fuzzy filename matching against a
+  cached recursive index (`fsService.searchFiles`, heavy dirs like `.git`/
+  `node_modules` skipped; scored by the pure `fuzzy.ts`) and, when the query
+  starts with `>`, case-insensitive content search (`fsService.grepFiles`,
+  binaries/large files skipped). A content hit opens the file in the editor at
+  its line (`CodeEditor` `gotoLine`).
 - **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
   terminals from its specs, places them at saved geometry, and re-wires leashes;
   layout is saved (debounced) on move/resize/add/remove/connect/disconnect.

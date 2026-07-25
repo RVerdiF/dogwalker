@@ -150,6 +150,13 @@ export interface DirListing {
   error?: string;
 }
 
+/** A content-search hit: a matching line in a file (File Tree search). */
+export interface SearchHit {
+  path: string;
+  line: number;
+  text: string;
+}
+
 /** A changed file in `git status` (porcelain codes for index + worktree). */
 export interface GitFileStatus {
   path: string;
@@ -296,6 +303,10 @@ export interface DwApi {
   /** Delete an entry (recursive for directories). */
   removeEntry(target: string): Promise<void>;
   statEntry(target: string): Promise<FileEntry | null>;
+  /** All file paths under a root (recursive, skips heavy dirs) for fuzzy search. */
+  searchFiles(root: string, limit: number): Promise<string[]>;
+  /** Case-insensitive content search under a root (`>`-prefixed search). */
+  grepFiles(root: string, query: string, limit: number): Promise<SearchHit[]>;
 
   // Git, scoped to a File Tree's directory (system `git`, ARCHITECTURE.md §1).
   gitStatus(cwd: string): Promise<GitStatus>;

@@ -1378,6 +1378,63 @@ body,
   overflow: auto;
 }
 
+/* ---- File Tree search --------------------------------------------------- */
+.dw-ft-search {
+  padding: 6px 8px;
+  background: #14161b;
+  border-bottom: 1px solid #23262e;
+}
+
+.dw-ft-search-input {
+  width: 100%;
+  background: #0f1114;
+  border: 1px solid #3a3f4b;
+  border-radius: 6px;
+  color: #e6e8ee;
+  font-size: 12px;
+  padding: 5px 8px;
+}
+
+.dw-ft-hit {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #191c22;
+}
+
+.dw-ft-hit:hover {
+  background: #21252d;
+}
+
+.dw-ft-hit-name {
+  color: #d0d4dd;
+  font-size: 12px;
+}
+
+.dw-ft-hit-path,
+.dw-ft-hit-loc {
+  color: #6f7686;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dw-ft-hit-loc {
+  color: #9dc0f0;
+}
+
+.dw-ft-hit-text {
+  color: #aab0bd;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 11px;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ---- Preview node (drag-to-canvas) ------------------------------------- */
 .dw-preview {
   width: 100%;

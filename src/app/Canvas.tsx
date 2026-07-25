@@ -31,6 +31,7 @@ import { GroupNode, type GroupFlowNode } from './GroupNode';
 import { FileTreeNode, type FileTreeFlowNode } from './FileTreeNode';
 import { PreviewNode, type PreviewFlowNode } from './PreviewNode';
 import { getFileDrag, setFileDrag } from './dnd';
+import { fuzzyFilter, fuzzyScore } from './fuzzy';
 import { FloatingLeash } from './FloatingLeash';
 import { Hud } from './Hud';
 import { HistoryPanel } from './HistoryPanel';
@@ -1600,6 +1601,50 @@ export function Canvas({
       await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
     })();
   }, [workspaceId, workspaceCwd, spawnNew]);
+
+  // Search: pure fuzzy scoring/ranking, the recursive file index (heavy dirs
+  // skipped), and content grep with correct line numbers.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('searchtest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sep = workspaceCwd.includes('\\') ? '\\' : '/';
+    const base = workspaceCwd.replace(/[\\/]+$/, '') + sep + 'dw-searchtest';
+    const join = (...p: string[]) => p.join(sep);
+    void (async () => {
+      const results: Record<string, unknown> = {};
+
+      // Pure fuzzy.
+      results.fuzzyMatch = fuzzyScore('ftn', 'FileTreeNode') !== null;
+      results.fuzzyReject = fuzzyScore('zzz', 'FileTreeNode') === null;
+      const ranked = fuzzyFilter('search', ['xoxo', 'searchbar', 'miscellany'], (x) => x, 10);
+      results.fuzzyRanks = ranked[0] === 'searchbar';
+
+      // Build a tree with a node_modules that must be excluded from search.
+      await window.dw.removeEntry(base);
+      await window.dw.createEntry(join(base, 'deep'), true);
+      await window.dw.createEntry(join(base, 'node_modules'), true);
+      await window.dw.writeFile(join(base, 'a.txt'), 'needle here\nplain line\n');
+      await window.dw.writeFile(join(base, 'deep', 'b.txt'), 'second\nneedle again\n');
+      await window.dw.writeFile(join(base, 'node_modules', 'c.txt'), 'needle in modules\n');
+
+      const idx = await window.dw.searchFiles(base, 20000);
+      const rel = idx.map((p) => p.slice(base.length).replace(/^[\\/]/, ''));
+      results.indexedFiles = rel.includes('a.txt') && rel.some((r) => /deep[\\/]b\.txt/.test(r));
+      results.ignoredNodeModules = !rel.some((r) => r.includes('node_modules'));
+
+      const hits = await window.dw.grepFiles(base, 'needle', 200);
+      const aHit = hits.find((h) => h.path.endsWith('a.txt'));
+      const bHit = hits.find((h) => h.path.endsWith('b.txt'));
+      results.grepFound = !!aHit && aHit.line === 1 && !!bHit && bHit.line === 2;
+      results.grepSkipsIgnored = !hits.some((h) => h.path.includes('node_modules'));
+
+      console.log('SEARCHTEST RESULT ' + JSON.stringify(results));
+      loaded.current = false;
+      await window.dw.removeEntry(base);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, workspaceCwd]);
 
   // Layout ops test: pure geometry + the canvas wiring that applies it.
   useEffect(() => {

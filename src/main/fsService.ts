@@ -2,7 +2,19 @@ import * as fs from 'node:fs';
 import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import type { DirListing, FileEntry } from '../shared/ipc';
+import type { DirListing, FileEntry, SearchHit } from '../shared/ipc';
+
+/** Directories skipped when building a search index (noise, not source). */
+const SEARCH_IGNORE = new Set([
+  '.git',
+  'node_modules',
+  'dist',
+  'out',
+  'build',
+  '.next',
+  'target',
+  '.cache',
+]);
 
 /**
  * Main-process file-system access for the File Tree node (PRODUCT.md §8). The
@@ -113,6 +125,73 @@ export class FsService {
 
   async remove(target: string): Promise<void> {
     await fsp.rm(path.resolve(expand(target)), { recursive: true, force: true });
+  }
+
+  /** Collect file paths under a root for fuzzy name search (heavy dirs skipped). */
+  async searchFiles(root: string, limit = 20000): Promise<string[]> {
+    const abs = path.resolve(expand(root));
+    const out: string[] = [];
+    const stack: string[] = [abs];
+    while (stack.length > 0 && out.length < limit) {
+      const dir = stack.pop() as string;
+      let dirents: fs.Dirent[];
+      try {
+        dirents = await fsp.readdir(dir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const d of dirents) {
+        if (d.isDirectory()) {
+          if (!SEARCH_IGNORE.has(d.name)) stack.push(path.join(dir, d.name));
+        } else {
+          out.push(path.join(dir, d.name));
+          if (out.length >= limit) break;
+        }
+      }
+    }
+    return out;
+  }
+
+  /** Case-insensitive content search under a root, capped at `limit` hits. */
+  async grepFiles(root: string, query: string, limit = 200): Promise<SearchHit[]> {
+    const needle = query.toLowerCase();
+    if (!needle) return [];
+    const abs = path.resolve(expand(root));
+    const hits: SearchHit[] = [];
+    const stack: string[] = [abs];
+    while (stack.length > 0 && hits.length < limit) {
+      const dir = stack.pop() as string;
+      let dirents: fs.Dirent[];
+      try {
+        dirents = await fsp.readdir(dir, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const d of dirents) {
+        const full = path.join(dir, d.name);
+        if (d.isDirectory()) {
+          if (!SEARCH_IGNORE.has(d.name)) stack.push(full);
+          continue;
+        }
+        if (hits.length >= limit) break;
+        try {
+          const st = await fsp.stat(full);
+          if (st.size > 1024 * 1024) continue; // skip big files
+          const buf = await fsp.readFile(full);
+          if (buf.includes(0)) continue; // skip binary (has NUL)
+          const lines = buf.toString('utf8').split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            if (lines[i].toLowerCase().includes(needle)) {
+              hits.push({ path: full, line: i + 1, text: lines[i].slice(0, 240) });
+              if (hits.length >= limit) break;
+            }
+          }
+        } catch {
+          /* unreadable — skip */
+        }
+      }
+    }
+    return hits;
   }
 
   async stat(target: string): Promise<FileEntry | null> {

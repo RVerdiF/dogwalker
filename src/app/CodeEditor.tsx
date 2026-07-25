@@ -16,6 +16,8 @@ interface Props {
   onClose: () => void;
   /** Hand a selection to an agent, with a `path:lineFrom-lineTo` reference. */
   onSend: (text: string, ref: string) => void;
+  /** Jump to (and select) this 1-based line on open — used by content search. */
+  gotoLine?: number;
 }
 
 function baseName(p: string): string {
@@ -42,7 +44,7 @@ function langFor(path: string): Extension[] {
  * Ctrl+S saves through main; the selection can be handed to a connected agent
  * with a file/line reference. One lightweight instance per open file.
  */
-export function CodeEditor({ filePath, onClose, onSend }: Props) {
+export function CodeEditor({ filePath, onClose, onSend, gotoLine }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -84,13 +86,21 @@ export function CodeEditor({ filePath, onClose, onSend }: Props) {
       });
       view = new EditorView({ state, parent: hostRef.current });
       viewRef.current = view;
+      if (gotoLine && gotoLine >= 1 && gotoLine <= view.state.doc.lines) {
+        const line = view.state.doc.line(gotoLine);
+        view.dispatch({
+          selection: { anchor: line.from, head: line.to },
+          scrollIntoView: true,
+        });
+        view.focus();
+      }
     });
     return () => {
       cancelled = true;
       view?.destroy();
       viewRef.current = null;
     };
-  }, [filePath]);
+  }, [filePath, gotoLine]);
 
   const sendSelection = () => {
     const view = viewRef.current;

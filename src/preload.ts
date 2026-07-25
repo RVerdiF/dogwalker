@@ -75,6 +75,9 @@ const api: DwApi = {
   renameEntry: (from, to) => ipcRenderer.invoke('fs:rename', { from, to }),
   removeEntry: (target) => ipcRenderer.invoke('fs:remove', target),
   statEntry: (target) => ipcRenderer.invoke('fs:stat', target),
+  searchFiles: (root, limit) => ipcRenderer.invoke('fs:searchFiles', { root, limit }),
+  grepFiles: (root, query, limit) =>
+    ipcRenderer.invoke('fs:grepFiles', { root, query, limit }),
 
   gitStatus: (cwd) => ipcRenderer.invoke('git:status', cwd),
   gitBranches: (cwd) => ipcRenderer.invoke('git:branches', cwd),
