@@ -263,6 +263,7 @@ const createWindow = () => {
       process.env.DW_SIDEBARTEST ? 'sidebartest=1' : '',
       process.env.DW_FSNODETEST ? 'fsnodetest=1' : '',
       process.env.DW_FILEOPSTEST ? 'fileopstest=1' : '',
+      process.env.DW_EDITORTEST ? 'editortest=1' : '',
     ]
       .filter(Boolean)
       .join('&');

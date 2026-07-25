@@ -279,12 +279,17 @@ export function Canvas({
         dragHandle: '.dw-drag',
         position: { x: spec.x, y: spec.y },
         style: { width: spec.w, height: spec.h },
-        data: { name: spec.name, stableId: spec.stableId, rootPath: spec.rootPath },
+        data: {
+          name: spec.name,
+          stableId: spec.stableId,
+          rootPath: spec.rootPath,
+          workspaceId,
+        },
       };
       setNodes((ns) => [...ns, node]);
       return spec.stableId;
     },
-    [setNodes],
+    [setNodes, workspaceId],
   );
 
   const addFileTree = useCallback(() => {
@@ -1537,6 +1542,64 @@ export function Canvas({
       await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
     })();
   }, [workspaceId, workspaceCwd, handleFileDrop, spawnNew]);
+
+  // Editor: the save round-trip through main, send-selection reaching a terminal
+  // mirror, and that CodeMirror 6 actually mounts in this renderer.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('editortest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const sep = workspaceCwd.includes('\\') ? '\\' : '/';
+    const file = workspaceCwd.replace(/[\\/]+$/, '') + sep + 'dw-editortest.txt';
+    void (async () => {
+      const results: Record<string, unknown> = {};
+
+      // Save round-trip (the editor writes through main).
+      await window.dw.writeFile(file, 'alpha\nbeta\ngamma\n');
+      await window.dw.writeFile(file, 'alpha\nEDITED\ngamma\n');
+      const back = await window.dw.readFile(file);
+      results.saveRoundTrip = back.includes('EDITED');
+
+      // Send-selection: the ref + text must reach the terminal's mirror.
+      const term = await spawnNew('shell');
+      await sleep(1500);
+      const ref = 'dw-editortest.txt:2';
+      window.dw.write(term, `${ref}\nEDITED\n`);
+      await sleep(1200);
+      const screen = await window.dw.serialize(term);
+      results.sentToAgent = screen.includes('dw-editortest.txt:2');
+
+      // CodeMirror 6 mounts and holds the document in this environment.
+      try {
+        const [{ EditorState }, viewMod, cm] = await Promise.all([
+          import('@codemirror/state'),
+          import('@codemirror/view'),
+          import('codemirror'),
+        ]);
+        const host = document.createElement('div');
+        document.body.appendChild(host);
+        const state = EditorState.create({
+          doc: 'const x = 1\n',
+          extensions: [cm.basicSetup],
+        });
+        const view = new viewMod.EditorView({ state, parent: host });
+        results.cmMounts =
+          view.state.doc.toString() === 'const x = 1\n' &&
+          !!host.querySelector('.cm-content');
+        view.destroy();
+        host.remove();
+      } catch (e) {
+        results.cmError = (e as Error).message;
+      }
+
+      console.log('EDITORTEST RESULT ' + JSON.stringify(results));
+      loaded.current = false;
+      window.dw.kill(term);
+      await window.dw.removeEntry(file);
+      await window.dw.saveLayout(workspaceId, { nodes: [], edges: [] });
+    })();
+  }, [workspaceId, workspaceCwd, spawnNew]);
 
   // Layout ops test: pure geometry + the canvas wiring that applies it.
   useEffect(() => {

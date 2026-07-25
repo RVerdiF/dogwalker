@@ -1321,6 +1321,63 @@ body,
   font-size: 11px;
 }
 
+/* ---- Embedded editor ---------------------------------------------------- */
+.dw-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.dw-editor-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #14161b;
+  border-bottom: 1px solid #23262e;
+}
+
+.dw-editor-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #cfd3dc;
+  font-size: 12px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dw-editor-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e0a35a;
+  flex-shrink: 0;
+}
+
+.dw-editor-saved {
+  color: #7ee0a8;
+  font-size: 11px;
+}
+
+.dw-editor-host {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dw-editor-host .cm-editor {
+  height: 100%;
+}
+
+.dw-editor-host .cm-scroller {
+  overflow: auto;
+}
+
 /* ---- Preview node (drag-to-canvas) ------------------------------------- */
 .dw-preview {
   width: 100%;

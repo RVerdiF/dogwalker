@@ -5,11 +5,12 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import type { FileEntry, GitStatus } from '../shared/ipc';
+import type { FileEntry, GitStatus, LiveTerminal } from '../shared/ipc';
 import { setFileDrag } from './dnd';
 import { GitDiffView } from './GitDiffView';
 import { GitGraphView } from './GitGraphView';
 import { GitBranchMenu } from './GitBranchMenu';
+import { CodeEditor } from './CodeEditor';
 
 type View = 'list' | 'diff' | 'graph';
 
@@ -17,6 +18,8 @@ export interface FileTreeNodeData extends Record<string, unknown> {
   name: string;
   stableId: string;
   rootPath: string;
+  /** Runtime only (not persisted): lets send-to-agent list this ws's terminals. */
+  workspaceId?: string;
 }
 
 export type FileTreeFlowNode = Node<FileTreeNodeData, 'filetree'>;
@@ -87,6 +90,9 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
   const [git, setGit] = useState<GitStatus | null>(null);
   const [showBranch, setShowBranch] = useState(false);
   const [gitReload, setGitReload] = useState(0);
+  const [openFile, setOpenFile] = useState<string | null>(null);
+  const [sendPayload, setSendPayload] = useState<{ text: string; ref: string } | null>(null);
+  const [pickTerms, setPickTerms] = useState<LiveTerminal[]>([]);
   const hostRef = useRef<HTMLDivElement>(null);
   const { deleteElements } = useReactFlow();
 
@@ -204,6 +210,24 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
     });
   };
 
+  // Send-to-agent: hand a selection to one of this workspace's terminals.
+  const handleSend = (text: string, ref: string) => {
+    const wsId = data.workspaceId;
+    if (!wsId) return;
+    void window.dw.listTerminals(wsId).then((terms) => {
+      if (terms.length === 1) sendTo(terms[0], text, ref);
+      else if (terms.length > 1) {
+        setSendPayload({ text, ref });
+        setPickTerms(terms);
+      }
+    });
+  };
+  const sendTo = (term: LiveTerminal, text: string, ref: string) => {
+    window.dw.write(term.id, `${ref}\n${text}\n`);
+    setSendPayload(null);
+    setPickTerms([]);
+  };
+
   const rows: React.ReactNode[] = [];
   const render = (dir: string, depth: number) => {
     const err = errors.get(dir);
@@ -229,6 +253,12 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
             setFileDrag(ev, e.path);
           }}
           onClick={() => e.isDir && toggle(e.path)}
+          onDoubleClick={() => {
+            if (!e.isDir) {
+              setOpenFile(e.path);
+              setView('list');
+            }
+          }}
           onContextMenu={(ev) => openMenu(ev, e)}
         >
           <span className="dw-ft-caret">{e.isDir ? (isOpen ? '▾' : '▸') : ''}</span>
@@ -298,6 +328,14 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
         </button>
       </div>
 
+      {openFile ? (
+        <CodeEditor
+          filePath={openFile}
+          onClose={() => setOpenFile(null)}
+          onSend={handleSend}
+        />
+      ) : (
+      <>
       <div className="dw-ft-subbar nodrag">
         <div className="dw-ft-tabs">
           <button
@@ -362,6 +400,36 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
             void load(root);
           }}
         />
+      )}
+      </>
+      )}
+
+      {sendPayload && pickTerms.length > 0 && (
+        <div className="dw-ft-prompt nodrag">
+          <div className="dw-ft-prompt-title">Send “{sendPayload.ref}” to…</div>
+          <div className="dw-git-branches">
+            {pickTerms.map((t) => (
+              <button
+                key={t.id}
+                className="dw-git-branch"
+                onClick={() => sendTo(t, sendPayload.text, sendPayload.ref)}
+              >
+                {t.name}
+              </button>
+            ))}
+          </div>
+          <div className="dw-ft-prompt-actions">
+            <button
+              className="dw-btn-small"
+              onClick={() => {
+                setSendPayload(null);
+                setPickTerms([]);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
 
       {menu && (
