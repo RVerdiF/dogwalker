@@ -275,6 +275,25 @@ export class Broker {
     socket: net.Socket,
     req: Extract<BrokerRequest, { cmd: 'portal' }>,
   ): Promise<void> {
+    // `new` creates a portal wired to the caller (agent-created portals, §9);
+    // the renderer then materializes a canvas node for it.
+    if (req.op === 'new') {
+      const id = 'p' + crypto.randomBytes(4).toString('hex');
+      const name = `portal-${id.slice(1, 5)}`;
+      const url = req.arg || 'about:blank';
+      this.portals.create(id, id, url);
+      this.graph.addNode(id, name, 'portal');
+      this.graph.connect(req.from, id);
+      this.portals.notifyCreated(id, name, url, id);
+      this.history.append({
+        ts: Date.now(),
+        kind: 'ask',
+        from: req.from,
+        to: id,
+        body: `(portal new) ${url}`.slice(0, 100),
+      });
+      return this.respond(socket, { ok: true, data: { name, id } });
+    }
     const portalId = this.graph.resolvePeer(req.from, req.target, 'portal');
     if (!portalId || !this.portals.has(portalId)) {
       return this.respond(socket, {

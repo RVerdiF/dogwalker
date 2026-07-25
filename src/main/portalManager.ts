@@ -82,6 +82,12 @@ export class PortalManager {
     }
   }
 
+  /** Tell the renderer to add a canvas node for a portal main just created. */
+  notifyCreated(id: string, name: string, url: string, partition: string): void {
+    if (this.renderer.isDestroyed()) return;
+    this.renderer.send('portal:created', { id, name, url, partition });
+  }
+
   private sendNav(id: string): void {
     const e = this.views.get(id);
     if (!e || this.renderer.isDestroyed()) return;

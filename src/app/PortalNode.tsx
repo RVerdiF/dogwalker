@@ -112,6 +112,17 @@ function PortalNodeInner({ id, data, selected }: NodeProps<PortalFlowNode>) {
         >
           ⟳
         </button>
+        <button
+          className="dw-portal-btn nodrag"
+          title="New linked portal (shares this session)"
+          onClick={() =>
+            window.dispatchEvent(
+              new CustomEvent('dw:portal-link', { detail: { stableId: data.stableId } }),
+            )
+          }
+        >
+          ⧉
+        </button>
         <input
           className="dw-portal-url nodrag"
           value={addr}

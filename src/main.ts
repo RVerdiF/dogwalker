@@ -21,7 +21,7 @@ import { runFsTest } from './main/fsTest';
 import { GitService } from './main/gitService';
 import { runGitTest } from './main/gitTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
-import { runPortalCliTest } from './main/portalCliTest';
+import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
 import type { AppSettings } from './shared/ipc';
 import type {
   ProcessMetric,
@@ -344,6 +344,10 @@ const createWindow = () => {
 
   if (process.env.DW_PORTALCLITEST) {
     void runPortalCliTest(ptys, graph, portals, socketPath);
+  }
+
+  if (process.env.DW_PORTALLINKTEST) {
+    void runPortalLinkTest(ptys, graph, portals, socketPath);
   }
 };
 

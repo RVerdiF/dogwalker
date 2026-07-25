@@ -38,7 +38,17 @@ export interface NoteReq {
 export interface PortalReq {
   cmd: 'portal';
   from: string;
-  op: 'navigate' | 'click' | 'type' | 'scroll' | 'screenshot' | 'js' | 'dom' | 'console';
+  op:
+    | 'new'
+    | 'navigate'
+    | 'click'
+    | 'type'
+    | 'scroll'
+    | 'screenshot'
+    | 'js'
+    | 'dom'
+    | 'console';
+  /** The target portal (unused for `new`, which creates one wired to the caller). */
   target: string;
   /** url (navigate) · selector (click/type/dom) · code (js). */
   arg?: string;

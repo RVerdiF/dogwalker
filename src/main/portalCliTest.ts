@@ -130,3 +130,62 @@ export async function runPortalCliTest(
   ptys.kill(agent);
   ptys.kill(stranger);
 }
+
+/**
+ * Linked portals + agent-created portals (DW_PORTALLINKTEST=1). Two portals on
+ * one partition share cookies (multi-account: same login in two views); a third
+ * on its own partition is isolated. Then a terminal creates a portal over the
+ * CLI and finds it wired to itself.
+ */
+export async function runPortalLinkTest(
+  ptys: PtyManager,
+  graph: GraphStore,
+  portals: PortalManager,
+  sock: string,
+): Promise<void> {
+  const r: Record<string, unknown> = {};
+  const COOKIE = { url: 'https://dogwalker.test/', name: 'link', value: 'yes' };
+
+  // Two portals sharing a partition, one isolated.
+  portals.create('la', 'shared-xyz', 'about:blank');
+  portals.create('lb', 'shared-xyz', 'about:blank');
+  portals.create('lc', 'iso-1', 'about:blank');
+  await wait(600);
+
+  const sA = portals.entry('la')!.view.webContents.session;
+  const sB = portals.entry('lb')!.view.webContents.session;
+  const sC = portals.entry('lc')!.view.webContents.session;
+  await sA.cookies.set(COOKIE);
+  const seenByLinked = await sB.cookies.get({ url: COOKIE.url });
+  const seenByIsolated = await sC.cookies.get({ url: COOKIE.url });
+  r.linkedShareSession = seenByLinked.some((k) => k.name === 'link' && k.value === 'yes');
+  r.isolatedSeparate = !seenByIsolated.some((k) => k.name === 'link');
+
+  // Agent-created portal via the CLI.
+  const agent = ptys.spawn({
+    preset: 'shell',
+    cols: 80,
+    rows: 24,
+    workspaceId: 'test',
+    cwd: '',
+    name: 'creator',
+    stableId: 'creator',
+  }).id;
+  await wait(1500);
+  const made = await rpc(sock, { cmd: 'portal', from: agent, op: 'new', target: '', arg: 'about:blank' });
+  const data = made.data as { name?: string; id?: string };
+  r.agentCreated = made.ok && typeof data.name === 'string';
+  const newId = data.id ?? '';
+  r.agentPortalExists = portals.has(newId) && graph.kindOf(newId) === 'portal';
+  r.agentPortalWired = graph.areConnected(agent, newId);
+
+  console.log('PORTALLINKTEST RESULT ' + JSON.stringify(r));
+
+  // Let the renderer finish materializing the agent-created node (its
+  // portal:created handler runs once) before removing it, so cleanup doesn't
+  // race the add. Removing the graph node then reconciles the canvas node away.
+  await wait(1200);
+  for (const id of ['la', 'lb', 'lc', newId]) portals.destroy(id);
+  graph.removeNode(newId);
+  ptys.kill(agent);
+}

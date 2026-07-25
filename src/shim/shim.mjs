@@ -84,15 +84,20 @@ async function buildRequest() {
     }
     case 'portal': {
       const op = argv[1];
-      const target = argv[2];
-      const ops = ['navigate', 'click', 'type', 'scroll', 'screenshot', 'js', 'dom', 'console'];
-      if (!ops.includes(op) || !target) {
+      const ops = ['new', 'navigate', 'click', 'type', 'scroll', 'screenshot', 'js', 'dom', 'console'];
+      if (!ops.includes(op)) {
         die(
-          'usage: dogwalker portal <op> <portal> [args]\n' +
-            '  navigate <url> | click <selector> | type <selector> <text> |\n' +
-            '  scroll <dx> <dy> | screenshot | js <code> | dom [selector] | console',
+          'usage: dogwalker portal <op> [portal] [args]\n' +
+            '  new [url] | navigate <portal> <url> | click <portal> <selector> |\n' +
+            '  type <portal> <selector> <text> | scroll <portal> <dx> <dy> |\n' +
+            '  screenshot <portal> | js <portal> <code> | dom <portal> [selector] | console <portal>',
         );
       }
+      if (op === 'new') {
+        return { cmd: 'portal', from, op, target: '', arg: argv.slice(2).join(' ') || 'about:blank' };
+      }
+      const target = argv[2];
+      if (!target) die(`usage: dogwalker portal ${op} <portal> ...`);
       const req = { cmd: 'portal', from, op, target };
       if (op === 'navigate') req.arg = argv.slice(3).join(' ');
       else if (op === 'click') req.arg = argv.slice(3).join(' ');
@@ -123,6 +128,8 @@ function render(cmd, data) {
     process.stdout.write(data.body + '\n');
   } else if (cmd === 'note' && data && typeof data.content === 'string') {
     process.stdout.write(data.content.replace(/\s+$/, '') + '\n');
+  } else if (cmd === 'portal' && data && typeof data.name === 'string') {
+    process.stdout.write(data.name + '\n');
   } else if (cmd === 'portal' && data && typeof data.path === 'string') {
     process.stdout.write(data.path + '\n');
   } else if (cmd === 'portal' && data && typeof data.html === 'string') {

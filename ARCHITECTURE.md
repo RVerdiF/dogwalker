@@ -171,6 +171,18 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
   temp-file path so agents ingest it like a composer image. Results cross the
   wire as JSON.
 
+**Built — linked + agent-created portals (v0.4 block 3)**
+- Linking is a shared session partition: a portal's "link" button creates a
+  sibling with the same `persist:` partition (so both hold the same login —
+  multi-account testing across two views), leashed to it. Unlinked portals keep
+  their own partition, so accounts never leak.
+- Agents create portals themselves: `portal new [url]` (broker makes the view +
+  graph node, wires it to the caller, and tells the renderer to materialize a
+  canvas node) and `@New Portal` in the composer. The canvas reconciles portal
+  nodes against the graph, so a portal an agent or peer destroys disappears.
+- The agent skill (`skills/dogwalker/SKILL.md`) documents the whole `portal`
+  contract so agents discover and use it.
+
 ## 10. Persistence & hibernation
 
 - Workspace file (JSON): metadata (name, icon, **cwd** — terminals spawn there), node layout, terminal configs, connections, floors, routines, drafts.

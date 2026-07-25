@@ -1,6 +1,6 @@
 ---
 name: dogwalker
-description: Talk to other agents and read their terminals from inside a Dogwalker canvas. Use whenever you need to ask a connected teammate to do something, check what another terminal is doing, read or write a shared note, or list who you are connected to.
+description: Talk to other agents and read their terminals from inside a Dogwalker canvas. Use whenever you need to ask a connected teammate to do something, check what another terminal is doing, read or write a shared note, drive a connected browser portal, or list who you are connected to.
 ---
 
 # Dogwalker CLI
@@ -32,6 +32,34 @@ You can only reach terminals you are wired to. Run `dogwalker list` to see them.
   that persists across sessions; use them to leave findings, specs, or TODOs the
   user and other agents can see.
 - `dogwalker connect <name>` / `dogwalker disconnect <name>` — manage leashes.
+
+## Portals (embedded browsers)
+
+A **portal** is a real browser window on the canvas. If you are connected to one,
+you can drive it — navigate, read it, click, type, screenshot — entirely from the
+CLI. You can also create your own.
+
+- `dogwalker portal new [url]` — create a new portal wired to you, optionally at a
+  starting URL. Prints its name; use that name in the commands below.
+- `dogwalker portal navigate <portal> <url>` — load a URL.
+- `dogwalker portal dom <portal> [selector]` — print the page's HTML (whole page,
+  or just the element matching a CSS selector). Read this to find what to click or
+  type into.
+- `dogwalker portal click <portal> <selector>` — click the first element matching a
+  CSS selector, e.g. `dogwalker portal click viewer "button#submit"`.
+- `dogwalker portal type <portal> <selector> <text>` — focus a field and set its
+  value, e.g. `dogwalker portal type viewer "input[name=q]" hello`.
+- `dogwalker portal scroll <portal> <dx> <dy>` — scroll the page by an offset.
+- `dogwalker portal js <portal> <code>` — evaluate JavaScript in the page and print
+  the (JSON) result, e.g. `dogwalker portal js viewer "document.title"`.
+- `dogwalker portal screenshot <portal>` — capture the page; prints a file path.
+  **Read that image file** to see the page (it works even when the portal is
+  scrolled off-screen).
+- `dogwalker portal console <portal>` — print the page's recent console output.
+
+A typical browser task: `portal new` → `portal navigate` → `portal dom` to find
+selectors → `portal type` / `portal click` to interact → `portal screenshot` and
+read the image to confirm the result.
 
 ## When another agent asks you something
 

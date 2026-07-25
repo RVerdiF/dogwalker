@@ -93,6 +93,14 @@ const api: DwApi = {
     ipcRenderer.on('portal:nav', listener);
     return () => ipcRenderer.removeListener('portal:nav', listener);
   },
+  onPortalCreated: (cb) => {
+    const listener = (
+      _e: IpcRendererEvent,
+      ev: { id: string; name: string; url: string; partition: string },
+    ) => cb(ev);
+    ipcRenderer.on('portal:created', listener);
+    return () => ipcRenderer.removeListener('portal:created', listener);
+  },
 
   searchFiles: (root, limit) => ipcRenderer.invoke('fs:searchFiles', { root, limit }),
   grepFiles: (root, query, limit) =>

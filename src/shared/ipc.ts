@@ -341,6 +341,10 @@ export interface DwApi {
   portalState(id: string): Promise<PortalState | null>;
   /** Page navigated (self- or user-driven); renderer refreshes the URL bar. */
   onPortalNav(cb: (e: { id: string } & PortalState) => void): () => void;
+  /** An agent created a portal via the CLI; the canvas adds a node for it. */
+  onPortalCreated(
+    cb: (e: { id: string; name: string; url: string; partition: string }) => void,
+  ): () => void;
 
   /** All file paths under a root (recursive, skips heavy dirs) for fuzzy search. */
   searchFiles(root: string, limit: number): Promise<string[]>;

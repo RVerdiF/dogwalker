@@ -355,21 +355,46 @@ export function Canvas({
     [setNodes],
   );
 
-  const addPortal = useCallback(() => {
-    const n = spawnCount.current++;
-    const stableId = crypto.randomUUID();
-    void addPortalNode({
-      kind: 'portal',
-      stableId,
-      name: `portal-${n + 1}`,
-      url: 'about:blank',
-      partition: stableId, // isolated session by default (linking is v0.4 block 3)
-      x: (n % GRID_COLS) * GRID_GAP_X,
-      y: Math.floor(n / GRID_COLS) * GRID_GAP_Y,
-      w: PORTAL_W,
-      h: PORTAL_H,
-    });
-  }, [addPortalNode]);
+  const addPortal = useCallback(
+    async (opts?: { partition?: string; url?: string; at?: { x: number; y: number } }) => {
+      const n = spawnCount.current++;
+      const stableId = crypto.randomUUID();
+      const name = `portal-${n + 1}`;
+      await addPortalNode({
+        kind: 'portal',
+        stableId,
+        name,
+        url: opts?.url ?? 'about:blank',
+        // Isolated session by default; a shared partition links two portals.
+        partition: opts?.partition ?? stableId,
+        x: opts?.at?.x ?? (n % GRID_COLS) * GRID_GAP_X,
+        y: opts?.at?.y ?? Math.floor(n / GRID_COLS) * GRID_GAP_Y,
+        w: PORTAL_W,
+        h: PORTAL_H,
+      });
+      return { id: stableId, name };
+    },
+    [addPortalNode],
+  );
+
+  // Linking: a new portal that shares the source's session partition (so both
+  // hold the same login), placed beside it and leashed to it.
+  const addLinkedPortal = useCallback(
+    async (sourceStableId: string) => {
+      const src = nodesRef.current.find(
+        (nd) => nd.type === 'portal' && nd.data.stableId === sourceStableId,
+      );
+      if (!src) return;
+      const data = src.data as { partition: string; url: string };
+      const at = {
+        x: src.position.x + PORTAL_W + 40,
+        y: src.position.y,
+      };
+      const { id } = await addPortal({ partition: data.partition, url: data.url, at });
+      await window.dw.connect(sourceStableId, id);
+    },
+    [addPortal],
+  );
 
   const baseName = (p: string) =>
     p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
@@ -1088,6 +1113,12 @@ export function Canvas({
     return name;
   }, [addNote, composerTarget]);
 
+  const onComposerNewPortal = useCallback(async () => {
+    const { id, name } = await addPortal();
+    if (composerTarget) await window.dw.connect(composerTarget.id, id);
+    return name;
+  }, [addPortal, composerTarget]);
+
   // ---- selection layout ops (PRODUCT.md §3.3) ------------------------------
   const selectedBoxes = useCallback((): Box[] => {
     const byId = new Map(nodesRef.current.map((n) => [n.id, n]));
@@ -1244,6 +1275,50 @@ export function Canvas({
       window.removeEventListener('dw:group-ungroup', onUngroup);
     };
   }, [setNodes, ungroup]);
+
+  // A portal's "link" button asks for a session-sharing sibling.
+  useEffect(() => {
+    const onLink = (e: Event) =>
+      void addLinkedPortal((e as CustomEvent<{ stableId: string }>).detail.stableId);
+    window.addEventListener('dw:portal-link', onLink);
+    return () => window.removeEventListener('dw:portal-link', onLink);
+  }, [addLinkedPortal]);
+
+  // Agent-created portals (CLI `portal new`): main already made the view, graph
+  // node and leash — add the canvas node at the viewport center to show it.
+  useEffect(() => {
+    return window.dw.onPortalCreated((e) => {
+      if (nodesRef.current.some((n) => n.data.stableId === e.id)) return;
+      const at = screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      });
+      void addPortalNode({
+        kind: 'portal',
+        stableId: e.id,
+        name: e.name,
+        url: e.url,
+        partition: e.partition,
+        x: at.x - PORTAL_W / 2,
+        y: at.y - PORTAL_H / 2,
+        w: PORTAL_W,
+        h: PORTAL_H,
+      });
+    });
+  }, [addPortalNode, screenToFlowPosition]);
+
+  // Reconcile portal nodes with the graph: if a portal's graph node vanishes
+  // (an agent or a peer destroyed it), drop its stale canvas node.
+  useEffect(() => {
+    if (!loaded.current) return;
+    const live = new Set(
+      graph.nodes.filter((n) => n.kind === 'portal').map((n) => n.id),
+    );
+    setNodes((ns) => {
+      const next = ns.filter((n) => n.type !== 'portal' || live.has(n.data.stableId));
+      return next.length === ns.length ? ns : next;
+    });
+  }, [graph, setNodes]);
 
   /** The single selected terminal, when there is exactly one (for its limit). */
   const soleTerminal = useMemo(() => {
@@ -1900,7 +1975,7 @@ export function Canvas({
         onSpawn={(p) => void spawnNew(p)}
         onAddNote={() => void addNote()}
         onAddFileTree={() => addFileTree()}
-        onAddPortal={() => addPortal()}
+        onAddPortal={() => void addPortal()}
       />
       {isDev && (
         <DevBar
@@ -1997,6 +2072,7 @@ export function Canvas({
         target={composerTarget}
         mentions={composerMentions}
         onNewNote={onComposerNewNote}
+        onNewPortal={onComposerNewPortal}
         focusSignal={focusSignal}
       />
       {menu && (
