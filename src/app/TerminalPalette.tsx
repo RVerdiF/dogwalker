@@ -4,6 +4,7 @@ interface Props {
   onSpawn: (preset: PresetId) => void;
   onAddNote: () => void;
   onAddFileTree: () => void;
+  onAddPortal: () => void;
 }
 
 /** End-user presets (stress is dev-only and lives on the DevBar). */
@@ -19,7 +20,12 @@ const PALETTE: Array<{ id: PresetId; label: string; icon: string }> = [
  * a preset to drop a new terminal on the canvas. Per-terminal deletion is the ×
  * on each node's header.
  */
-export function TerminalPalette({ onSpawn, onAddNote, onAddFileTree }: Props) {
+export function TerminalPalette({
+  onSpawn,
+  onAddNote,
+  onAddFileTree,
+  onAddPortal,
+}: Props) {
   return (
     <div className="dw-palette">
       <span className="dw-palette-plus">＋</span>
@@ -50,6 +56,14 @@ export function TerminalPalette({ onSpawn, onAddNote, onAddFileTree }: Props) {
       >
         <span className="dw-palette-chip-icon">🗂</span>
         Files
+      </button>
+      <button
+        className="dw-palette-chip"
+        title="New portal (embedded browser)"
+        onClick={onAddPortal}
+      >
+        <span className="dw-palette-chip-icon">🌐</span>
+        Portal
       </button>
     </div>
   );

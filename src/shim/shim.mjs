@@ -82,9 +82,38 @@ async function buildRequest() {
         : argv.slice(3).join(' ');
       return { cmd: 'note', from, op, target, body };
     }
+    case 'portal': {
+      const op = argv[1];
+      const ops = ['new', 'navigate', 'click', 'type', 'scroll', 'screenshot', 'js', 'dom', 'console'];
+      if (!ops.includes(op)) {
+        die(
+          'usage: dogwalker portal <op> [portal] [args]\n' +
+            '  new [url] | navigate <portal> <url> | click <portal> <selector> |\n' +
+            '  type <portal> <selector> <text> | scroll <portal> <dx> <dy> |\n' +
+            '  screenshot <portal> | js <portal> <code> | dom <portal> [selector] | console <portal>',
+        );
+      }
+      if (op === 'new') {
+        return { cmd: 'portal', from, op, target: '', arg: argv.slice(2).join(' ') || 'about:blank' };
+      }
+      const target = argv[2];
+      if (!target) die(`usage: dogwalker portal ${op} <portal> ...`);
+      const req = { cmd: 'portal', from, op, target };
+      if (op === 'navigate') req.arg = argv.slice(3).join(' ');
+      else if (op === 'click') req.arg = argv.slice(3).join(' ');
+      else if (op === 'type') {
+        req.arg = argv[3];
+        req.value = argv.slice(4).join(' ');
+      } else if (op === 'scroll') {
+        req.x = Number(argv[3]) || 0;
+        req.y = Number(argv[4]) || 0;
+      } else if (op === 'js') req.arg = argv.slice(3).join(' ');
+      else if (op === 'dom') req.arg = argv.slice(3).join(' ') || undefined;
+      return req;
+    }
     default:
       die(
-        'commands: ask <t> <msg> | check <t> | list | note read|append|write <n> | connect <t> | disconnect <t>',
+        'commands: ask <t> <msg> | check <t> | list | note read|append|write <n> | portal <op> <p> | connect <t> | disconnect <t>',
       );
   }
 }
@@ -99,6 +128,18 @@ function render(cmd, data) {
     process.stdout.write(data.body + '\n');
   } else if (cmd === 'note' && data && typeof data.content === 'string') {
     process.stdout.write(data.content.replace(/\s+$/, '') + '\n');
+  } else if (cmd === 'portal' && data && typeof data.name === 'string') {
+    process.stdout.write(data.name + '\n');
+  } else if (cmd === 'portal' && data && typeof data.path === 'string') {
+    process.stdout.write(data.path + '\n');
+  } else if (cmd === 'portal' && data && typeof data.html === 'string') {
+    process.stdout.write(data.html.replace(/\s+$/, '') + '\n');
+  } else if (cmd === 'portal' && data && typeof data.output === 'string') {
+    process.stdout.write(data.output.replace(/\s+$/, '') + '\n');
+  } else if (cmd === 'portal' && data && 'result' in data) {
+    process.stdout.write(
+      (typeof data.result === 'string' ? data.result : JSON.stringify(data.result)) + '\n',
+    );
   } else {
     process.stdout.write('ok\n');
   }

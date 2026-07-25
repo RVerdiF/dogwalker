@@ -1502,6 +1502,83 @@ body,
   color: #e0a35a;
 }
 
+/* ---- Portal node (embedded browser) ------------------------------------ */
+.dw-portal {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #0f1114;
+  border: 1px solid #2a2e37;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dw-portal.dw-node-selected {
+  border-color: #8ab4ff;
+  box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.2);
+}
+
+.dw-portal-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 6px;
+  background: #1a1d24;
+  border-bottom: 1px solid #2a2e37;
+  cursor: grab;
+  user-select: none;
+}
+
+.dw-portal-btn {
+  border: none;
+  background: transparent;
+  color: #b6bccb;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px 5px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.dw-portal-btn:hover:not(:disabled) {
+  background: #262a33;
+}
+
+.dw-portal-btn:disabled {
+  color: #4a4f5b;
+  cursor: default;
+}
+
+.dw-portal-url {
+  flex: 1;
+  min-width: 0;
+  background: #0c0e11;
+  border: 1px solid #333a47;
+  border-radius: 12px;
+  color: #dfe3ec;
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.dw-portal-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #16181d;
+}
+
+.dw-portal-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #565d6b;
+  font-size: 13px;
+  pointer-events: none;
+}
+
 /* A terminal highlights when a file is dragged over it (drag-to-agent). */
 .dw-node.dw-drop-over {
   outline: 2px dashed #8ab4ff;

@@ -145,6 +145,44 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
 - Automation via CDP attached by the portal controller in main; exposed to agents only through `dogwalker portal ...` (broker-gated by connection).
 - Screenshot returns a temp-file path (so agents ingest it the same way as composer images). JS eval and DOM reads return JSON. Console messages are ring-buffered per portal.
 
+**Built — portal plumbing (v0.4 block 1)**
+- **PortalManager** (`src/main/portalManager.ts`) owns a `WebContentsView` per
+  portal in a `persist:dw-portal-<partition>` session (isolated by default, so
+  logins survive and don't leak). Main owns the browser lifecycle + navigation
+  (`create`/`navigate`/`back`/`forward`/`reload`/`destroy`), a per-portal console
+  ring buffer, and pushes `portal:nav` state to the renderer. Geometry lives in
+  the renderer: `PortalNode` (kind `portal`, persisted with `url`+`partition`)
+  reports its body's on-screen rect and the canvas zoom (`setBounds`) on every
+  pan/zoom/move/resize, so the native view stays glued to the node and scales
+  with zoom via `setZoomFactor`. Mount creates the view, unmount destroys it;
+  the persistent partition keeps sessions across recreation. Linking attaches
+  here in block 3.
+
+**Built — portal automation (v0.4 block 2)**
+- Portals are graph nodes (kind `portal`, registered on create), so a terminal
+  leashed to one can drive it — and only it — through the `portal` verb; the
+  broker gates every op with `graph.resolvePeer(from, target, 'portal')`, the
+  same connection-graph authorization as `ask`/`note`. No ambient reach.
+- The `portal` CLI (shim + broker + `PortalManager`): `navigate`, `click`,
+  `type`, `scroll`, `js`, `dom`, `console`, `screenshot`. Interaction runs
+  through `executeJavaScript` (selector-based, value-setter-safe typing); DOM
+  reads return capped outer HTML; `console` drains the per-portal ring buffer;
+  `screenshot` uses CDP `Page.captureScreenshot` (works offscreen) and returns a
+  temp-file path so agents ingest it like a composer image. Results cross the
+  wire as JSON.
+
+**Built — linked + agent-created portals (v0.4 block 3)**
+- Linking is a shared session partition: a portal's "link" button creates a
+  sibling with the same `persist:` partition (so both hold the same login —
+  multi-account testing across two views), leashed to it. Unlinked portals keep
+  their own partition, so accounts never leak.
+- Agents create portals themselves: `portal new [url]` (broker makes the view +
+  graph node, wires it to the caller, and tells the renderer to materialize a
+  canvas node) and `@New Portal` in the composer. The canvas reconciles portal
+  nodes against the graph, so a portal an agent or peer destroys disappears.
+- The agent skill (`skills/dogwalker/SKILL.md`) documents the whole `portal`
+  contract so agents discover and use it.
+
 ## 10. Persistence & hibernation
 
 - Workspace file (JSON): metadata (name, icon, **cwd** — terminals spawn there), node layout, terminal configs, connections, floors, routines, drafts.

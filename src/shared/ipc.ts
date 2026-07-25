@@ -51,7 +51,7 @@ export interface ProcessMetric {
   memoryMB: number;
 }
 
-export type NodeKind = 'terminal' | 'note';
+export type NodeKind = 'terminal' | 'note' | 'portal';
 
 /** A node in the authoritative main-process graph (identity only, no layout). */
 export interface GraphNode {
@@ -126,12 +126,29 @@ export interface PreviewSpec extends BaseSpec {
   filePath: string;
 }
 
+/** An embedded, automatable browser (PRODUCT.md §9). */
+export interface PortalSpec extends BaseSpec {
+  kind: 'portal';
+  url: string;
+  /** Session partition; isolated (own stableId) unless linked to share one. */
+  partition: string;
+}
+
 export type NodeSpec =
   | TerminalSpec
   | NoteSpec
   | GroupSpec
   | FileTreeSpec
-  | PreviewSpec;
+  | PreviewSpec
+  | PortalSpec;
+
+/** A portal's navigation state, pushed to the renderer to drive its URL bar. */
+export interface PortalState {
+  url: string;
+  title: string;
+  canGoBack: boolean;
+  canGoForward: boolean;
+}
 
 /** One entry in a directory listing (File Tree). */
 export interface FileEntry {
@@ -303,6 +320,32 @@ export interface DwApi {
   /** Delete an entry (recursive for directories). */
   removeEntry(target: string): Promise<void>;
   statEntry(target: string): Promise<FileEntry | null>;
+  // Portals (embedded browsers; the view lives in main, geometry in renderer).
+  /** Register the portal as a graph node so it can be leashed + CLI-reached. */
+  portalRegister(id: string, name: string): Promise<void>;
+  /** Remove the portal's graph node (workspace switch / close). */
+  portalUnregister(id: string): Promise<void>;
+  portalCreate(id: string, partition: string, url: string): void;
+  /** Align the overlaid browser view to the node's on-screen body rect. */
+  portalSetBounds(
+    id: string,
+    rect: { x: number; y: number; width: number; height: number },
+    zoom: number,
+    visible: boolean,
+  ): void;
+  portalNavigate(id: string, url: string): void;
+  portalBack(id: string): void;
+  portalForward(id: string): void;
+  portalReload(id: string): void;
+  portalDestroy(id: string): void;
+  portalState(id: string): Promise<PortalState | null>;
+  /** Page navigated (self- or user-driven); renderer refreshes the URL bar. */
+  onPortalNav(cb: (e: { id: string } & PortalState) => void): () => void;
+  /** An agent created a portal via the CLI; the canvas adds a node for it. */
+  onPortalCreated(
+    cb: (e: { id: string; name: string; url: string; partition: string }) => void,
+  ): () => void;
+
   /** All file paths under a root (recursive, skips heavy dirs) for fuzzy search. */
   searchFiles(root: string, limit: number): Promise<string[]>;
   /** Case-insensitive content search under a root (`>`-prefixed search). */

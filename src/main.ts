@@ -20,6 +20,8 @@ import { FsService } from './main/fsService';
 import { runFsTest } from './main/fsTest';
 import { GitService } from './main/gitService';
 import { runGitTest } from './main/gitTest';
+import { PortalManager, type PortalBounds } from './main/portalManager';
+import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
 import type { AppSettings } from './shared/ipc';
 import type {
   ProcessMetric,
@@ -64,7 +66,8 @@ const createWindow = () => {
   const socketPath = brokerPipePath();
 
   ptys = new PtyManager(mainWindow.webContents, graph, { socketPath, shimDir });
-  broker = new Broker(socketPath, graph, ptys, history, notes);
+  const portals = new PortalManager(mainWindow, mainWindow.webContents);
+  broker = new Broker(socketPath, graph, ptys, history, notes, portals);
   broker.listen();
 
   const wc = mainWindow.webContents;
@@ -244,6 +247,38 @@ const createWindow = () => {
   ipcMain.handle('git:pull', (_e, cwd: string) => git.pull(cwd));
   ipcMain.handle('git:push', (_e, cwd: string) => git.push(cwd));
 
+  ipcMain.handle(
+    'portal:register',
+    (_e, { id, name }: { id: string; name: string }) =>
+      graph.addNode(id, name, 'portal'),
+  );
+  ipcMain.handle('portal:unregister', (_e, id: string) => graph.removeNode(id));
+  ipcMain.on(
+    'portal:create',
+    (_e, { id, partition, url }: { id: string; partition: string; url: string }) =>
+      portals.create(id, partition, url),
+  );
+  ipcMain.on(
+    'portal:setBounds',
+    (
+      _e,
+      {
+        id,
+        rect,
+        zoom,
+        visible,
+      }: { id: string; rect: PortalBounds; zoom: number; visible: boolean },
+    ) => portals.setBounds(id, rect, zoom, visible),
+  );
+  ipcMain.on('portal:navigate', (_e, { id, url }: { id: string; url: string }) =>
+    portals.navigate(id, url),
+  );
+  ipcMain.on('portal:back', (_e, id: string) => portals.back(id));
+  ipcMain.on('portal:forward', (_e, id: string) => portals.forward(id));
+  ipcMain.on('portal:reload', (_e, id: string) => portals.reload(id));
+  ipcMain.on('portal:destroy', (_e, id: string) => portals.destroy(id));
+  ipcMain.handle('portal:state', (_e, id: string) => portals.state(id));
+
   // Dev visibility: renderer console mirrored to stdout (no devtools needed).
   wc.on('console-message', (event) => {
     console.log(`[renderer:${event.level}] ${event.message}`);
@@ -251,6 +286,7 @@ const createWindow = () => {
   mainWindow.on('closed', () => {
     ptys?.killAll();
     broker?.close();
+    portals.destroyAll();
     ptys = null;
     broker = null;
   });
@@ -279,6 +315,7 @@ const createWindow = () => {
       process.env.DW_EDITORTEST ? 'editortest=1' : '',
       process.env.DW_SEARCHTEST ? 'searchtest=1' : '',
       process.env.DW_IMGTEST ? 'imgtest=1' : '',
+      process.env.DW_PORTALTEST ? 'portaltest=1' : '',
     ]
       .filter(Boolean)
       .join('&');
@@ -303,6 +340,14 @@ const createWindow = () => {
 
   if (process.env.DW_BROKERTEST) {
     void runBrokerTest(ptys, graph, socketPath);
+  }
+
+  if (process.env.DW_PORTALCLITEST) {
+    void runPortalCliTest(ptys, graph, portals, socketPath);
+  }
+
+  if (process.env.DW_PORTALLINKTEST) {
+    void runPortalLinkTest(ptys, graph, portals, socketPath);
   }
 };
 

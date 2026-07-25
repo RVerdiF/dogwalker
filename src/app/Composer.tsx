@@ -16,6 +16,8 @@ interface Props {
   mentions: Mention[];
   /** Create a note wired to the target; resolves to its name to insert. */
   onNewNote: () => Promise<string>;
+  /** Create a portal wired to the target; resolves to its name to insert. */
+  onNewPortal: () => Promise<string>;
   focusSignal: number;
 }
 
@@ -26,10 +28,11 @@ const DRAFT_DEBOUNCE_MS = 300;
  * Enter submits (atomic inject), Shift+Enter makes a newline. Typing @ opens a
  * menu of connected terminals/notes plus "New note". Pasted images are written
  * to a temp file and their path inserted, which every agent CLI can read.
- * Drafts persist per terminal. (Portal/@Walker mentions and nav-key pass-through
- * arrive with their features / v0.2.)
+ * Drafts persist per terminal. "New portal" creates a browser wired to the
+ * target (§9); @Walker mentions and nav-key pass-through arrive with their
+ * features.
  */
-export function Composer({ target, mentions, onNewNote, focusSignal }: Props) {
+export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal }: Props) {
   const [text, setText] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -56,7 +59,11 @@ export function Composer({ target, mentions, onNewNote, focusSignal }: Props) {
   const items = useMemo(() => {
     const q = query.toLowerCase();
     const matches = mentions.filter((m) => m.name.toLowerCase().includes(q));
-    return [{ name: 'New note', kind: 'new' as const }, ...matches];
+    return [
+      { name: 'New note', kind: 'new' as const },
+      { name: 'New portal', kind: 'new-portal' as const },
+      ...matches,
+    ];
   }, [mentions, query]);
 
   if (!target) return null;
@@ -85,7 +92,12 @@ export function Composer({ target, mentions, onNewNote, focusSignal }: Props) {
   };
 
   const insertMention = async (item: (typeof items)[number]) => {
-    const name = item.kind === 'new' ? await onNewNote() : item.name;
+    const name =
+      item.kind === 'new'
+        ? await onNewNote()
+        : item.kind === 'new-portal'
+          ? await onNewPortal()
+          : item.name;
     const caret = ref.current?.selectionStart ?? text.length;
     const before = text.slice(0, caret).replace(/@(\w*)$/, `@${name} `);
     const next = before + text.slice(caret);

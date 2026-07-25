@@ -35,12 +35,37 @@ export interface NoteReq {
   chain?: boolean;
 }
 
+export interface PortalReq {
+  cmd: 'portal';
+  from: string;
+  op:
+    | 'new'
+    | 'navigate'
+    | 'click'
+    | 'type'
+    | 'scroll'
+    | 'screenshot'
+    | 'js'
+    | 'dom'
+    | 'console';
+  /** The target portal (unused for `new`, which creates one wired to the caller). */
+  target: string;
+  /** url (navigate) · selector (click/type/dom) · code (js). */
+  arg?: string;
+  /** text to type. */
+  value?: string;
+  /** scroll deltas. */
+  x?: number;
+  y?: number;
+}
+
 export type BrokerRequest =
   | AskReq
   | CheckReq
   | ListReq
   | ConnectReq
-  | NoteReq;
+  | NoteReq
+  | PortalReq;
 
 export interface BrokerResponse {
   ok: boolean;

@@ -18,6 +18,7 @@ import type {
   GraphSnapshot,
   NodeSpec,
   NoteSpec,
+  PortalSpec,
   PresetId,
   PreviewSpec,
   TerminalSpec,
@@ -30,6 +31,7 @@ import { NoteNode, type NoteFlowNode } from './NoteNode';
 import { GroupNode, type GroupFlowNode } from './GroupNode';
 import { FileTreeNode, type FileTreeFlowNode } from './FileTreeNode';
 import { PreviewNode, type PreviewFlowNode } from './PreviewNode';
+import { PortalNode, type PortalFlowNode } from './PortalNode';
 import { getFileDrag, setFileDrag } from './dnd';
 import { fuzzyFilter, fuzzyScore } from './fuzzy';
 import { FloatingLeash } from './FloatingLeash';
@@ -55,7 +57,8 @@ type DwNode =
   | NoteFlowNode
   | GroupFlowNode
   | FileTreeFlowNode
-  | PreviewFlowNode;
+  | PreviewFlowNode
+  | PortalFlowNode;
 
 const nodeTypes = {
   terminal: TerminalNode,
@@ -63,6 +66,7 @@ const nodeTypes = {
   group: GroupNode,
   filetree: FileTreeNode,
   preview: PreviewNode,
+  portal: PortalNode,
 };
 const edgeTypes = { leash: FloatingLeash };
 
@@ -96,6 +100,8 @@ const FT_W = 340;
 const FT_H = 380;
 const PV_W = 320;
 const PV_H = 300;
+const PORTAL_W = 720;
+const PORTAL_H = 520;
 const GRID_GAP_X = 620;
 const GRID_GAP_Y = 440;
 const GRID_COLS = 5;
@@ -324,6 +330,72 @@ export function Canvas({
     [setNodes],
   );
 
+  const addPortalNode = useCallback(
+    async (spec: PortalSpec) => {
+      // Register in the graph (awaited) before the node mounts, so restored
+      // leashes to this portal resolve. The browser view is created by the node.
+      await window.dw.portalRegister(spec.stableId, spec.name);
+      stableToLive.current.set(spec.stableId, spec.stableId);
+      const node: PortalFlowNode = {
+        id: spec.stableId,
+        type: 'portal',
+        dragHandle: '.dw-drag',
+        position: { x: spec.x, y: spec.y },
+        style: { width: spec.w, height: spec.h },
+        data: {
+          name: spec.name,
+          stableId: spec.stableId,
+          url: spec.url,
+          partition: spec.partition,
+        },
+      };
+      setNodes((ns) => [...ns, node]);
+      return spec.stableId;
+    },
+    [setNodes],
+  );
+
+  const addPortal = useCallback(
+    async (opts?: { partition?: string; url?: string; at?: { x: number; y: number } }) => {
+      const n = spawnCount.current++;
+      const stableId = crypto.randomUUID();
+      const name = `portal-${n + 1}`;
+      await addPortalNode({
+        kind: 'portal',
+        stableId,
+        name,
+        url: opts?.url ?? 'about:blank',
+        // Isolated session by default; a shared partition links two portals.
+        partition: opts?.partition ?? stableId,
+        x: opts?.at?.x ?? (n % GRID_COLS) * GRID_GAP_X,
+        y: opts?.at?.y ?? Math.floor(n / GRID_COLS) * GRID_GAP_Y,
+        w: PORTAL_W,
+        h: PORTAL_H,
+      });
+      return { id: stableId, name };
+    },
+    [addPortalNode],
+  );
+
+  // Linking: a new portal that shares the source's session partition (so both
+  // hold the same login), placed beside it and leashed to it.
+  const addLinkedPortal = useCallback(
+    async (sourceStableId: string) => {
+      const src = nodesRef.current.find(
+        (nd) => nd.type === 'portal' && nd.data.stableId === sourceStableId,
+      );
+      if (!src) return;
+      const data = src.data as { partition: string; url: string };
+      const at = {
+        x: src.position.x + PORTAL_W + 40,
+        y: src.position.y,
+      };
+      const { id } = await addPortal({ partition: data.partition, url: data.url, at });
+      await window.dw.connect(sourceStableId, id);
+    },
+    [addPortal],
+  );
+
   const baseName = (p: string) =>
     p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
 
@@ -442,6 +514,7 @@ export function Canvas({
         if (spec.kind === 'note') await addNoteNode(spec);
         else if (spec.kind === 'filetree') addFileTreeNode(spec);
         else if (spec.kind === 'preview') addPreviewNode(spec);
+        else if (spec.kind === 'portal') await addPortalNode(spec);
         else await addTerminal(spec as TerminalSpec, liveByStable.get(spec.stableId));
       }
       // Re-attach members now that every node exists.
@@ -487,6 +560,9 @@ export function Canvas({
       setNodes((ns) => {
         for (const n of ns) {
           if (n.type === 'terminal') terminals.dispose(n.id);
+          // Portals' native views are destroyed on unmount; drop their graph
+          // nodes too so a viewless portal isn't left CLI-reachable.
+          else if (n.type === 'portal') void window.dw.portalUnregister(n.id);
         }
         return [];
       });
@@ -527,6 +603,13 @@ export function Canvas({
         return { ...base, kind: 'filetree' as const, rootPath: n.data.rootPath };
       if (n.type === 'preview')
         return { ...base, kind: 'preview' as const, filePath: n.data.filePath };
+      if (n.type === 'portal')
+        return {
+          ...base,
+          kind: 'portal' as const,
+          url: n.data.url,
+          partition: n.data.partition,
+        };
       return {
         ...base,
         kind: 'terminal' as const,
@@ -991,7 +1074,8 @@ export function Canvas({
     setNodes((ns) => {
       for (const n of ns) {
         if (n.type === 'note') void window.dw.unloadNote(n.id);
-        else {
+        else if (n.type === 'portal') void window.dw.portalUnregister(n.id);
+        else if (n.type === 'terminal') {
           window.dw.kill(n.id);
           terminals.dispose(n.id);
         }
@@ -1028,6 +1112,12 @@ export function Canvas({
     if (composerTarget) await window.dw.connect(composerTarget.id, id);
     return name;
   }, [addNote, composerTarget]);
+
+  const onComposerNewPortal = useCallback(async () => {
+    const { id, name } = await addPortal();
+    if (composerTarget) await window.dw.connect(composerTarget.id, id);
+    return name;
+  }, [addPortal, composerTarget]);
 
   // ---- selection layout ops (PRODUCT.md §3.3) ------------------------------
   const selectedBoxes = useCallback((): Box[] => {
@@ -1185,6 +1275,50 @@ export function Canvas({
       window.removeEventListener('dw:group-ungroup', onUngroup);
     };
   }, [setNodes, ungroup]);
+
+  // A portal's "link" button asks for a session-sharing sibling.
+  useEffect(() => {
+    const onLink = (e: Event) =>
+      void addLinkedPortal((e as CustomEvent<{ stableId: string }>).detail.stableId);
+    window.addEventListener('dw:portal-link', onLink);
+    return () => window.removeEventListener('dw:portal-link', onLink);
+  }, [addLinkedPortal]);
+
+  // Agent-created portals (CLI `portal new`): main already made the view, graph
+  // node and leash — add the canvas node at the viewport center to show it.
+  useEffect(() => {
+    return window.dw.onPortalCreated((e) => {
+      if (nodesRef.current.some((n) => n.data.stableId === e.id)) return;
+      const at = screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      });
+      void addPortalNode({
+        kind: 'portal',
+        stableId: e.id,
+        name: e.name,
+        url: e.url,
+        partition: e.partition,
+        x: at.x - PORTAL_W / 2,
+        y: at.y - PORTAL_H / 2,
+        w: PORTAL_W,
+        h: PORTAL_H,
+      });
+    });
+  }, [addPortalNode, screenToFlowPosition]);
+
+  // Reconcile portal nodes with the graph: if a portal's graph node vanishes
+  // (an agent or a peer destroyed it), drop its stale canvas node.
+  useEffect(() => {
+    if (!loaded.current) return;
+    const live = new Set(
+      graph.nodes.filter((n) => n.kind === 'portal').map((n) => n.id),
+    );
+    setNodes((ns) => {
+      const next = ns.filter((n) => n.type !== 'portal' || live.has(n.data.stableId));
+      return next.length === ns.length ? ns : next;
+    });
+  }, [graph, setNodes]);
 
   /** The single selected terminal, when there is exactly one (for its limit). */
   const soleTerminal = useMemo(() => {
@@ -1684,6 +1818,51 @@ export function Canvas({
     })();
   }, []);
 
+  // Portal plumbing: create a native browser view, drive navigation + history
+  // through main, read back state, and tear it down.
+  useEffect(() => {
+    if (!new URLSearchParams(window.location.search).has('portaltest')) return;
+    if (harnessRan.current) return;
+    harnessRan.current = true;
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const id = 'portaltest-' + Date.now();
+    const url1 = 'data:text/html,<title>DWPortalOne</title><h1>one</h1>';
+    const url2 = 'data:text/html,<title>DWPortalTwo</title><h1>two</h1>';
+    const until = async (pred: (s: NonNullable<Awaited<ReturnType<typeof window.dw.portalState>>>) => boolean) => {
+      for (let i = 0; i < 25; i++) {
+        await sleep(200);
+        const s = await window.dw.portalState(id);
+        if (s && pred(s)) return s;
+      }
+      return await window.dw.portalState(id);
+    };
+    void (async () => {
+      const results: Record<string, unknown> = {};
+      window.dw.portalCreate(id, id, 'about:blank');
+      await sleep(400);
+
+      window.dw.portalNavigate(id, url1);
+      const s1 = await until((s) => s.title.includes('DWPortalOne'));
+      results.navigated = !!s1 && s1.title.includes('DWPortalOne');
+      results.urlReported = !!s1 && s1.url.startsWith('data:text/html');
+
+      window.dw.portalNavigate(id, url2);
+      const s2 = await until((s) => s.title.includes('DWPortalTwo'));
+      results.secondNav = !!s2 && s2.title.includes('DWPortalTwo');
+      results.canGoBack = !!s2 && s2.canGoBack === true;
+
+      window.dw.portalBack(id);
+      const s3 = await until((s) => s.title.includes('DWPortalOne'));
+      results.wentBack = !!s3 && s3.title.includes('DWPortalOne');
+
+      window.dw.portalDestroy(id);
+      await sleep(400);
+      results.destroyed = (await window.dw.portalState(id)) === null;
+
+      console.log('PORTALTEST RESULT ' + JSON.stringify(results));
+    })();
+  }, []);
+
   // Layout ops test: pure geometry + the canvas wiring that applies it.
   useEffect(() => {
     if (!new URLSearchParams(window.location.search).has('layouttest')) return;
@@ -1796,6 +1975,7 @@ export function Canvas({
         onSpawn={(p) => void spawnNew(p)}
         onAddNote={() => void addNote()}
         onAddFileTree={() => addFileTree()}
+        onAddPortal={() => void addPortal()}
       />
       {isDev && (
         <DevBar
@@ -1892,6 +2072,7 @@ export function Canvas({
         target={composerTarget}
         mentions={composerMentions}
         onNewNote={onComposerNewNote}
+        onNewPortal={onComposerNewPortal}
         focusSignal={focusSignal}
       />
       {menu && (
