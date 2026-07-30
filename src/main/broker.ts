@@ -5,11 +5,13 @@ import type { PtyManager } from './ptyManager';
 import type { History } from './history';
 import type { NoteStore } from './noteStore';
 import type { PortalManager } from './portalManager';
+import type { WorkspaceStore } from './workspaceStore';
 import {
   encode,
   type BrokerRequest,
   type BrokerResponse,
 } from '../shared/protocol';
+import type { PresetId } from '../shared/ipc';
 
 const ASK_TIMEOUT_DEFAULT_MS = 180_000;
 const ASK_TIMEOUT_MIN_MS = 1_000;
@@ -31,6 +33,7 @@ export class Broker {
     private history: History,
     private notes: NoteStore,
     private portals: PortalManager,
+    private workspaces: WorkspaceStore,
   ) {
     this.server = net.createServer((socket) => this.onConnection(socket));
   }
@@ -91,6 +94,10 @@ export class Broker {
       case 'portal':
         void this.handlePortal(socket, req);
         return;
+      case 'recruit':
+      case 'dismiss':
+      case 'assign':
+        return this.handleWalker(socket, req);
       default:
         return this.respond(socket, { ok: false, error: 'unknown command' });
     }
@@ -357,6 +364,90 @@ export class Broker {
     } catch (e) {
       this.respond(socket, { ok: false, error: (e as Error).message });
     }
+  }
+
+  /**
+   * Walker verbs (PRODUCT.md §5.4): a Walker terminal manages a team. `recruit`
+   * spawns a teammate wired to the Walker on the Walker's own layer, inheriting
+   * its cwd; `dismiss` removes a connected recruit; `assign` relabels its role.
+   * Only a Walker-flagged terminal may call these.
+   */
+  private handleWalker(
+    socket: net.Socket,
+    req: Extract<BrokerRequest, { cmd: 'recruit' | 'dismiss' | 'assign' }>,
+  ): void {
+    if (!this.ptys.isWalker(req.from)) {
+      return this.respond(socket, {
+        ok: false,
+        error: 'not a Walker terminal — flag it as a Walker to manage a team',
+      });
+    }
+    if (req.cmd === 'recruit') {
+      const preset = (req.agent || 'shell') as PresetId;
+      const role = (req.role || preset).trim();
+      const stableId = crypto.randomBytes(6).toString('hex');
+      // Default to the Walker's own layer; `--floor` places the recruit on a
+      // sibling floor of the same workspace (its worktree cwd + layer).
+      let layer = this.ptys.workspaceOf(req.from);
+      let cwd = this.ptys.cwdOf(req.from);
+      let floorName = this.ptys.floorOf(req.from);
+      if (req.floor) {
+        const t = this.workspaces.resolveFloorTarget(layer, req.floor);
+        if (!t) {
+          return this.respond(socket, { ok: false, error: `no floor named "${req.floor}"` });
+        }
+        layer = t.layerId;
+        cwd = t.cwd;
+        floorName = req.floor;
+      }
+      const { id } = this.ptys.spawn({
+        preset,
+        name: role,
+        cols: 80,
+        rows: 24,
+        workspaceId: layer,
+        floorName,
+        cwd,
+        stableId,
+        walker: false,
+      });
+      this.graph.connect(req.from, id);
+      this.ptys.announceRecruit({
+        id,
+        stableId,
+        name: role,
+        preset,
+        walkerId: req.from,
+        workspaceId: layer,
+      });
+      this.history.append({
+        ts: Date.now(),
+        kind: 'ask',
+        from: req.from,
+        to: id,
+        body: `(recruit ${preset} as ${role})`,
+      });
+      return this.respond(socket, { ok: true, data: { name: role, id, stableId } });
+    }
+    // dismiss / assign target a connected recruit.
+    const target = this.graph.resolvePeer(req.from, req.target ?? '', 'terminal');
+    if (!target) {
+      return this.respond(socket, {
+        ok: false,
+        error: `no connected recruit named "${req.target ?? ''}"`,
+      });
+    }
+    if (req.cmd === 'dismiss') {
+      this.ptys.announceDismiss(target);
+      this.ptys.kill(target); // kill removes its graph node + edges
+      return this.respond(socket, { ok: true });
+    }
+    // assign
+    const role = (req.role || '').trim();
+    if (!role) return this.respond(socket, { ok: false, error: 'assign needs a role' });
+    this.graph.rename(target, role);
+    this.ptys.announceReassign(target, role);
+    return this.respond(socket, { ok: true, data: { name: role } });
   }
 
   private respond(socket: net.Socket, res: BrokerResponse): void {

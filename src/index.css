@@ -122,6 +122,167 @@ body,
   padding: 0 2px;
 }
 
+/* ---- Routines (PRODUCT.md §11) ----------------------------------------- */
+.dw-routine-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.dw-routine-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.dw-routine-name {
+  flex: 1;
+}
+
+.dw-routine-row input,
+.dw-routine-row select,
+.dw-routine-prompt {
+  background: #0f1114;
+  border: 1px solid #3a3f4b;
+  border-radius: 6px;
+  color: #e6e8ee;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.dw-routine-every {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #9aa0ae;
+  font-size: 12px;
+}
+
+.dw-routine-every input {
+  width: 64px;
+}
+
+.dw-routine-prompt {
+  width: 100%;
+  resize: vertical;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+}
+
+.dw-routine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dw-routine-empty {
+  color: #6f7686;
+  font-size: 13px;
+}
+
+.dw-routine-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  background: #16181f;
+  border: 1px solid #262a33;
+  border-radius: 8px;
+}
+
+.dw-routine-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+  background: #55596a;
+}
+
+.dw-routine-dot.idle {
+  background: #7ee0a8;
+}
+
+.dw-routine-dot.running {
+  background: #8ab4ff;
+  box-shadow: 0 0 0 3px rgba(138, 180, 255, 0.25);
+  animation: dw-routine-pulse 1.1s ease-in-out infinite;
+}
+
+.dw-routine-dot.paused {
+  background: #e0a35a;
+}
+
+@keyframes dw-routine-pulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.dw-routine-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dw-routine-title {
+  color: #e6e8ee;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.dw-routine-meta {
+  color: #7c8598;
+  font-weight: 400;
+  font-size: 11px;
+  margin-left: 6px;
+}
+
+.dw-routine-prompt-preview {
+  color: #aab0bd;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-top: 3px;
+}
+
+.dw-routine-err {
+  color: #f0a0a0;
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.dw-routine-actions {
+  display: flex;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+/* ---- Walker mode (PRODUCT.md §5.4) ------------------------------------- */
+.dw-walker-crown {
+  font-size: 11px;
+  margin-right: 3px;
+}
+
+.dw-walker-toggle {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 3px;
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.dw-walker-toggle:hover {
+  opacity: 0.9;
+}
+
+.dw-walker-toggle.on {
+  filter: none;
+  opacity: 1;
+}
+
 .dw-hook-ok {
   color: #7ee0a8;
 }

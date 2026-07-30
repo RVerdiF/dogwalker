@@ -23,6 +23,10 @@ interface Entry {
   workspaceId: string;
   /** Human floor label ('ground' or a floor name) for `list` context (§10). */
   floorName: string;
+  /** Working directory the shell started in (so recruits inherit it, §5.4). */
+  cwd: string;
+  /** Manager agent flag (PRODUCT.md §5.4). */
+  walker: boolean;
   stableId: string;
   preset: PresetId;
   // Attention state (ARCHITECTURE.md §6).
@@ -127,6 +131,8 @@ export class PtyManager {
       name: opts.name,
       workspaceId: opts.workspaceId,
       floorName: opts.floorName ?? 'ground',
+      cwd: opts.cwd,
+      walker: opts.walker ?? false,
       stableId: opts.stableId,
       preset: opts.preset,
       attention: false,
@@ -268,6 +274,53 @@ export class PtyManager {
 
   has(id: string): boolean {
     return this.entries.has(id);
+  }
+
+  /** Live PTY id for a persistent stableId, if that terminal is running. */
+  findByStable(stableId: string): string | null {
+    for (const [id, e] of this.entries) {
+      if (e.stableId === stableId) return id;
+    }
+    return null;
+  }
+
+  // ---- Walker mode (PRODUCT.md §5.4) --------------------------------------
+  isWalker(id: string): boolean {
+    return this.entries.get(id)?.walker ?? false;
+  }
+  setWalker(id: string, walker: boolean): void {
+    const e = this.entries.get(id);
+    if (e) e.walker = walker;
+  }
+  cwdOf(id: string): string {
+    return this.entries.get(id)?.cwd ?? '';
+  }
+  workspaceOf(id: string): string {
+    return this.entries.get(id)?.workspaceId ?? '';
+  }
+  nameOf(id: string): string {
+    return this.entries.get(id)?.name ?? '';
+  }
+  presetOf(id: string): PresetId | undefined {
+    return this.entries.get(id)?.preset;
+  }
+
+  /** Tell the renderer to adopt a recruit near its Walker (§5.4). */
+  announceRecruit(e: {
+    id: string;
+    stableId: string;
+    name: string;
+    preset: PresetId;
+    walkerId: string;
+    workspaceId: string;
+  }): void {
+    if (!this.target.isDestroyed()) this.target.send('terminal:recruited', e);
+  }
+  announceDismiss(id: string): void {
+    if (!this.target.isDestroyed()) this.target.send('terminal:dismissed', id);
+  }
+  announceReassign(id: string, name: string): void {
+    if (!this.target.isDestroyed()) this.target.send('terminal:reassigned', { id, name });
   }
 
   /** OS pid of a terminal's shell (root of its process tree). */

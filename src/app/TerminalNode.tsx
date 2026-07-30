@@ -22,6 +22,8 @@ export interface TerminalNodeData extends Record<string, unknown> {
   attention?: boolean;
   /** Runaway guard in MB; 0/absent = off. */
   memoryLimitMB?: number;
+  /** Manager agent (PRODUCT.md §5.4): gets recruit/dismiss/assign verbs. */
+  walker?: boolean;
 }
 
 export type TerminalFlowNode = Node<TerminalNodeData, 'terminal'>;
@@ -31,7 +33,13 @@ const TIER_LABELS: Record<Tier, string> = { 1: 'GL', 2: 'DOM', 3: 'ZZZ' };
 function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [dropOver, setDropOver] = useState(false);
-  const { deleteElements } = useReactFlow();
+  const { deleteElements, updateNodeData } = useReactFlow();
+
+  const toggleWalker = () => {
+    const next = !data.walker;
+    updateNodeData(id, { walker: next });
+    window.dw.setWalker(id, next);
+  };
 
   // A file dragged from a File Tree node lands here as its path, typed into the
   // terminal (not submitted) so the agent — or the user — can act on it.
@@ -105,9 +113,17 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
       <div className="dw-drag dw-node-header">
         {data.attention && <span className="dw-attention" title="Needs attention" />}
         <span className="dw-node-name">
+          {data.walker && <span className="dw-walker-crown" title="Walker">👑</span>}
           {data.name}
           {data.exited ? ' · exited' : ''}
         </span>
+        <button
+          className={`dw-walker-toggle nodrag ${data.walker ? 'on' : ''}`}
+          onClick={toggleWalker}
+          title={data.walker ? 'Walker (manages a team) — click to unset' : 'Make this a Walker (manager agent)'}
+        >
+          👑
+        </button>
         <span className={`dw-tier dw-tier-${data.tier}`}>
           {TIER_LABELS[data.tier]}
         </span>

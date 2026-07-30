@@ -36,6 +36,24 @@ You can only reach terminals you are wired to. Run `dogwalker list` to see them.
   user and other agents can see.
 - `dogwalker connect <name>` / `dogwalker disconnect <name>` — manage leashes.
 
+## Walker mode (managing a team)
+
+If your terminal is flagged as a **Walker** (a crown 👑 on its header), you can
+assemble and manage a team of agents from the CLI. Recruits spawn already wired
+to you, so you can `ask` them immediately.
+
+- `dogwalker recruit --agent <preset> --role <role> [--floor <floor>]` — spawn a
+  new agent connected to you, labeled by its role. Prints the recruit's name.
+  E.g. `dogwalker recruit --agent claude --role reviewer`.
+- `dogwalker dismiss <recruit>` — remove a recruit you no longer need (kills its
+  terminal and cleans up its node and connections). Dismiss recruits when their
+  work is done rather than leaving them idle.
+- `dogwalker assign <recruit> --role <role>` — relabel a recruit's role in place.
+
+Typical flow when the user asks you to assemble a team: `recruit` each member
+with a clear role, wire shared context to them (e.g. `connect` them to a SPEC
+note), `ask` each to do its part, and `dismiss` them when finished.
+
 ## Portals (embedded browsers)
 
 A **portal** is a real browser window on the canvas. If you are connected to one,

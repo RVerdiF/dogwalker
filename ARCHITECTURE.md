@@ -475,3 +475,38 @@ dot; a keystroke clears both.
 **v0.1 status: feature-complete on branch `v0.1-core-loop`.** Remaining before
 tagging v0.1 proper: exit-criteria dogfooding (the app used to build itself) and
 a pass over the README quick start — tracked in [ROADMAP.md](ROADMAP.md).
+
+**Built — routines (v0.6 block 1)**
+- **RoutineService** (`src/main/routineService.ts`, PRODUCT.md §11) — a routine
+  is a scheduled prompt aimed at an agent (by `targetStableId`). Its `&&`/newline
+  steps run one at a time, each injected then awaited to quiescence (the same
+  `ptyManager.awaitQuiet` signal `ask` uses) before the next — so multi-step
+  chains respect agent turns. A tick landing while a run is in flight is dropped
+  (a `running` guard), so a slow agent never overlaps or leaves zombie state; a
+  routine whose target isn't live skips quietly. Persisted to `routines.json`
+  (never resurrecting a `running` status); status changes emit `routine:update`.
+  The renderer's Panel → Routines section creates/pauses/runs/deletes them with a
+  live status dot.
+
+**Built — Walker mode (v0.6 block 2)**
+- A terminal can be flagged a **Walker** (crown toggle in its header; `walker` on
+  the PTY entry + persisted in the spec). Only a Walker may call the manager
+  verbs, broker-gated by `ptys.isWalker(from)`: `recruit --agent <preset> --role
+  <role>` spawns a teammate on the Walker's own layer, inheriting its cwd and
+  wired to it; `dismiss <recruit>` kills the recruit (its graph node + edges go
+  with it); `assign <recruit> --role <role>` relabels it. The broker spawns the
+  PTY directly (so the recruit is automatable at once) and announces it to the
+  renderer, which adopts the node beside the Walker (`terminal:recruited`); a
+  recruit on another layer is alive and wired but its node appears when that layer
+  is opened. The composer marks Walkers among mentions (👑). `recruit --floor
+  <name>` places the recruit on a sibling floor's layer + worktree cwd (resolved
+  by `WorkspaceStore.resolveFloorTarget`); it stays wired to the Walker, so a
+  cross-floor `ask` round-trips.
+
+**Validated — v0.6 dogfooding (`DW_V06BDD=1`)** — the exit-criteria user
+scenarios end to end over the real broker: a Walker assembles a coder+reviewer+
+tester team all wired to it and reading a shared SPEC note; a routine chain
+`echo BUILD_OK && echo TEST_OK && dogwalker note append SUMMARY …` writes the
+result to a note and returns to idle (no zombie); dismissing the reviewer
+removes its terminal, graph node and every edge; and a `recruit --floor feat`
+teammate answers its Walker's `ask` across the floor boundary.

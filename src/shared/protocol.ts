@@ -59,13 +59,28 @@ export interface PortalReq {
   y?: number;
 }
 
+/** Walker (manager agent) verbs, PRODUCT.md §5.4. Only Walker terminals may. */
+export interface WalkerReq {
+  cmd: 'recruit' | 'dismiss' | 'assign';
+  from: string;
+  /** recruit: preset to spawn. */
+  agent?: string;
+  /** recruit/assign: the recruit's role (its label). */
+  role?: string;
+  /** recruit: floor to place the recruit on (unused for now → Walker's layer). */
+  floor?: string;
+  /** dismiss/assign: the recruit node (id or name). */
+  target?: string;
+}
+
 export type BrokerRequest =
   | AskReq
   | CheckReq
   | ListReq
   | ConnectReq
   | NoteReq
-  | PortalReq;
+  | PortalReq
+  | WalkerReq;
 
 export interface BrokerResponse {
   ok: boolean;

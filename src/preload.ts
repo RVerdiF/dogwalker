@@ -4,6 +4,8 @@ import type {
   DwApi,
   GraphSnapshot,
   PortalState,
+  PresetId,
+  Routine,
   SpawnOptions,
 } from './shared/ipc';
 
@@ -32,6 +34,32 @@ const api: DwApi = {
   },
   notify: (title, body) => ipcRenderer.send('notify', { title, body }),
   setMemoryLimit: (id, mb) => ipcRenderer.send('pty:memoryLimit', { id, mb }),
+  setWalker: (id, walker) => ipcRenderer.send('pty:setWalker', { id, walker }),
+  onRecruited: (cb) => {
+    const listener = (
+      _e: IpcRendererEvent,
+      ev: {
+        id: string;
+        stableId: string;
+        name: string;
+        preset: PresetId;
+        walkerId: string;
+        workspaceId: string;
+      },
+    ) => cb(ev);
+    ipcRenderer.on('terminal:recruited', listener);
+    return () => ipcRenderer.removeListener('terminal:recruited', listener);
+  },
+  onDismissed: (cb) => {
+    const listener = (_e: IpcRendererEvent, id: string) => cb(id);
+    ipcRenderer.on('terminal:dismissed', listener);
+    return () => ipcRenderer.removeListener('terminal:dismissed', listener);
+  },
+  onReassigned: (cb) => {
+    const listener = (_e: IpcRendererEvent, ev: { id: string; name: string }) => cb(ev);
+    ipcRenderer.on('terminal:reassigned', listener);
+    return () => ipcRenderer.removeListener('terminal:reassigned', listener);
+  },
 
   graph: () => ipcRenderer.invoke('graph:get'),
   connect: (a, b) => ipcRenderer.invoke('graph:connect', { a, b }),
@@ -159,6 +187,20 @@ const api: DwApi = {
     ipcRenderer.send('compose:setDraft', { stableId, text }),
   saveDropImage: (name, bytes) =>
     ipcRenderer.invoke('compose:saveImage', { name, bytes }),
+
+  listRoutines: (workspaceId) => ipcRenderer.invoke('routine:list', workspaceId),
+  createRoutine: (workspaceId, opts) =>
+    ipcRenderer.invoke('routine:create', { workspaceId, opts }),
+  updateRoutine: (id, partial) => ipcRenderer.invoke('routine:update', { id, partial }),
+  setRoutineEnabled: (id, enabled) =>
+    ipcRenderer.invoke('routine:setEnabled', { id, enabled }),
+  runRoutineNow: (id) => ipcRenderer.invoke('routine:runNow', id),
+  deleteRoutine: (id) => ipcRenderer.invoke('routine:delete', id),
+  onRoutineUpdate: (cb) => {
+    const listener = (_e: IpcRendererEvent, r: Routine) => cb(r);
+    ipcRenderer.on('routine:update', listener);
+    return () => ipcRenderer.removeListener('routine:update', listener);
+  },
 
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (partial) => ipcRenderer.invoke('settings:set', partial),

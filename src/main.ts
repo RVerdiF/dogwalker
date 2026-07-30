@@ -23,13 +23,18 @@ import { GitService } from './main/gitService';
 import { runGitTest } from './main/gitTest';
 import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
 import { runCrossFloorTest } from './main/crossFloorTest';
+import { runWalkerTest } from './main/walkerTest';
+import { runV06Bdd } from './main/v06BddTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
+import { RoutineService } from './main/routineService';
+import { runRoutineTest } from './main/routineTest';
 import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
 import type { AppSettings } from './shared/ipc';
 import type {
   FloorRecord,
   ProcessMetric,
+  Routine,
   SidebarEntry,
   SpawnOptions,
   WorkspaceLayout,
@@ -98,13 +103,14 @@ const createWindow = () => {
   const graph = new GraphStore();
   const history = new History(path.join(app.getPath('userData'), 'history'));
   const notes = new NoteStore(app.getPath('userData'), graph);
+  const workspaces = new WorkspaceStore(app.getPath('userData'));
   const shimDir = createShimDir();
   installSkill();
   const socketPath = brokerPipePath();
 
   ptys = new PtyManager(mainWindow.webContents, graph, { socketPath, shimDir });
   const portals = new PortalManager(mainWindow, mainWindow.webContents);
-  broker = new Broker(socketPath, graph, ptys, history, notes, portals);
+  broker = new Broker(socketPath, graph, ptys, history, notes, portals, workspaces);
   broker.listen();
 
   const wc = mainWindow.webContents;
@@ -147,6 +153,37 @@ const createWindow = () => {
       notes.saveImage(id, name, bytes),
   );
 
+  // Routines: scheduled prompts to agents (PRODUCT.md §11).
+  const routines = new RoutineService(app.getPath('userData'), ptys, (r) => {
+    if (!wc.isDestroyed()) wc.send('routine:update', r);
+  });
+  ipcMain.handle('routine:list', (_e, workspaceId: string) => routines.list(workspaceId));
+  ipcMain.handle(
+    'routine:create',
+    (
+      _e,
+      {
+        workspaceId,
+        opts,
+      }: {
+        workspaceId: string;
+        opts: { name: string; targetStableId: string; prompt: string; intervalMs: number };
+      },
+    ) => routines.create(workspaceId, opts),
+  );
+  ipcMain.handle(
+    'routine:update',
+    (_e, { id, partial }: { id: string; partial: Partial<Routine> }) =>
+      routines.update(id, partial),
+  );
+  ipcMain.handle(
+    'routine:setEnabled',
+    (_e, { id, enabled }: { id: string; enabled: boolean }) =>
+      routines.setEnabled(id, enabled),
+  );
+  ipcMain.handle('routine:runNow', (_e, id: string) => routines.runNow(id));
+  ipcMain.handle('routine:delete', (_e, id: string) => routines.remove(id));
+
   ipcMain.on('notify', (_e, { title, body }: { title: string; body: string }) => {
     if (Notification.isSupported()) new Notification({ title, body }).show();
   });
@@ -181,7 +218,6 @@ const createWindow = () => {
     },
   );
 
-  const workspaces = new WorkspaceStore(app.getPath('userData'));
   seedFirstRun(workspaces, notes);
   ipcMain.handle('ws:list', () => workspaces.list());
   ipcMain.handle('ws:create', (_e, { name, icon }: { name: string; icon: string }) =>
@@ -485,6 +521,7 @@ const createWindow = () => {
     ptys?.killAll();
     broker?.close();
     portals.destroyAll();
+    routines.disposeAll();
     ptys = null;
     broker = null;
   });
@@ -552,6 +589,18 @@ const createWindow = () => {
     void runCrossFloorTest(ptys, graph, git, socketPath);
   }
 
+  if (process.env.DW_ROUTINETEST) {
+    void runRoutineTest(ptys, routines);
+  }
+
+  if (process.env.DW_WALKERTEST) {
+    void runWalkerTest(ptys, graph, socketPath);
+  }
+
+  if (process.env.DW_V06BDD) {
+    void runV06Bdd(ptys, graph, notes, routines, workspaces, git, socketPath);
+  }
+
   if (process.env.DW_BROKERTEST) {
     void runBrokerTest(ptys, graph, socketPath);
   }
@@ -577,6 +626,9 @@ ipcMain.on(
 ipcMain.on('pty:kill', (_e, id: string) => ptys?.kill(id));
 ipcMain.on('pty:memoryLimit', (_e, { id, mb }: { id: string; mb: number }) =>
   ptys?.setMemoryLimit(id, mb),
+);
+ipcMain.on('pty:setWalker', (_e, { id, walker }: { id: string; walker: boolean }) =>
+  ptys?.setWalker(id, walker),
 );
 ipcMain.handle('mirror:serialize', (_e, id: string) => ptys?.serialize(id) ?? '');
 ipcMain.handle('perf:metrics', (): ProcessMetric[] =>

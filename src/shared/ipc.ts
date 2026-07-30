@@ -29,6 +29,8 @@ export interface SpawnOptions {
   cwd: string;
   /** 0 = off. Above it, the heaviest child process is killed. */
   memoryLimitMB?: number;
+  /** Flag this terminal as a Walker (manager agent, PRODUCT.md §5.4). */
+  walker?: boolean;
 }
 
 export interface SpawnResult {
@@ -103,6 +105,8 @@ export interface TerminalSpec extends BaseSpec {
   preset: PresetId;
   /** Runaway guard in MB; 0/absent = off. */
   memoryLimitMB?: number;
+  /** Manager agent (PRODUCT.md §5.4): may recruit/dismiss/assign teammates. */
+  walker?: boolean;
 }
 
 /** A note's persisted layout; its markdown body lives in a file keyed by id. */
@@ -255,6 +259,22 @@ export interface FloorMeta {
   path: string;
 }
 
+/** A scheduled prompt aimed at an agent terminal (PRODUCT.md §11). */
+export interface Routine {
+  id: string;
+  workspaceId: string;
+  name: string;
+  /** The agent terminal this drives, by persistent stableId. */
+  targetStableId: string;
+  /** Prompt text; `&&`/newlines chain steps that wait on turn completion. */
+  prompt: string;
+  intervalMs: number;
+  enabled: boolean;
+  status: 'idle' | 'running' | 'paused';
+  lastRun?: number;
+  lastError?: string;
+}
+
 /** The outcome of running a floor lifecycle hook (PRODUCT.md §10). */
 export interface HookResult {
   /** False when no such hook is configured. */
@@ -295,6 +315,23 @@ export interface DwApi {
   notify(title: string, body: string): void;
   /** Runaway guard for a terminal, in MB (0 turns it off). */
   setMemoryLimit(id: string, mb: number): void;
+  /** Flag/unflag a live terminal as a Walker (manager agent, §5.4). */
+  setWalker(id: string, walker: boolean): void;
+  /** A Walker recruited a teammate — the canvas adopts it near the Walker. */
+  onRecruited(
+    cb: (e: {
+      id: string;
+      stableId: string;
+      name: string;
+      preset: PresetId;
+      walkerId: string;
+      workspaceId: string;
+    }) => void,
+  ): () => void;
+  /** A recruit was dismissed — the canvas removes its node. */
+  onDismissed(cb: (id: string) => void): () => void;
+  /** A recruit was reassigned — the canvas relabels its node. */
+  onReassigned(cb: (e: { id: string; name: string }) => void): () => void;
 
   // Graph (authoritative in main; renderer reflects it).
   graph(): Promise<GraphSnapshot>;
@@ -474,6 +511,19 @@ export interface DwApi {
   setDraft(stableId: string, text: string): void;
   /** Write a pasted image to a temp file; returns the absolute path to embed. */
   saveDropImage(name: string, bytes: Uint8Array): Promise<string>;
+
+  // Routines (scheduled prompts to agents, PRODUCT.md §11).
+  listRoutines(workspaceId: string): Promise<Routine[]>;
+  createRoutine(
+    workspaceId: string,
+    opts: { name: string; targetStableId: string; prompt: string; intervalMs: number },
+  ): Promise<Routine>;
+  updateRoutine(id: string, partial: Partial<Routine>): Promise<Routine | null>;
+  setRoutineEnabled(id: string, enabled: boolean): Promise<Routine | null>;
+  runRoutineNow(id: string): Promise<void>;
+  deleteRoutine(id: string): Promise<void>;
+  /** Fires when a routine's status changes (renderer updates the indicator). */
+  onRoutineUpdate(cb: (r: Routine) => void): () => void;
 
   // Settings & themes.
   getSettings(): Promise<AppSettings>;
