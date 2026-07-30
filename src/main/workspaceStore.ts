@@ -3,6 +3,8 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 import type {
+  FloorMeta,
+  FloorRecord,
   SidebarEntry,
   WorkspaceFile,
   WorkspaceLayout,
@@ -212,5 +214,63 @@ export class WorkspaceStore {
     const index = this.readIndex();
     index.active = id;
     this.writeIndex(index);
+  }
+
+  // ---- Floors (git-worktree layers, PRODUCT.md §10) -----------------------
+
+  /** Layer-aware layout read: 'ground' is the workspace's own layout. */
+  loadLayer(id: string, floorId: string): WorkspaceLayout {
+    if (!fs.existsSync(this.filePath(id))) return { ...EMPTY_LAYOUT };
+    const ws = this.read(id);
+    if (floorId === 'ground') return ws.layout;
+    const floor = (ws.floors ?? []).find((f) => f.id === floorId);
+    return floor ? floor.layout : { ...EMPTY_LAYOUT };
+  }
+
+  saveLayer(id: string, floorId: string, layout: WorkspaceLayout): void {
+    if (!fs.existsSync(this.filePath(id))) return;
+    if (floorId === 'ground') return this.saveLayout(id, layout);
+    const ws = this.read(id);
+    const floor = (ws.floors ?? []).find((f) => f.id === floorId);
+    if (!floor) return;
+    floor.layout = layout;
+    this.writeWorkspace(ws);
+  }
+
+  listFloors(id: string): { floors: FloorMeta[]; active: string } {
+    if (!fs.existsSync(this.filePath(id))) return { floors: [], active: 'ground' };
+    const ws = this.read(id);
+    const floors = (ws.floors ?? []).map(({ id: fid, name, branch, path }) => ({
+      id: fid,
+      name,
+      branch,
+      path,
+    }));
+    return { floors, active: ws.activeFloor ?? 'ground' };
+  }
+
+  addFloor(id: string, record: FloorRecord): void {
+    if (!fs.existsSync(this.filePath(id))) return;
+    const ws = this.read(id);
+    ws.floors = [...(ws.floors ?? []), record];
+    ws.activeFloor = record.id;
+    this.writeWorkspace(ws);
+  }
+
+  removeFloorRecord(id: string, floorId: string): FloorRecord | null {
+    if (!fs.existsSync(this.filePath(id))) return null;
+    const ws = this.read(id);
+    const floor = (ws.floors ?? []).find((f) => f.id === floorId) ?? null;
+    ws.floors = (ws.floors ?? []).filter((f) => f.id !== floorId);
+    if (ws.activeFloor === floorId) ws.activeFloor = 'ground';
+    this.writeWorkspace(ws);
+    return floor;
+  }
+
+  setActiveFloor(id: string, floorId: string): void {
+    if (!fs.existsSync(this.filePath(id))) return;
+    const ws = this.read(id);
+    ws.activeFloor = floorId;
+    this.writeWorkspace(ws);
   }
 }

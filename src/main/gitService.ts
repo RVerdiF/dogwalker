@@ -145,6 +145,10 @@ export class GitService {
   merge(cwd: string, branch: string): Promise<GitResult> {
     return this.op(cwd, ['merge', branch]);
   }
+  /** Undo an in-progress merge — used to keep a Land conflict from half-merging. */
+  mergeAbort(cwd: string): Promise<GitResult> {
+    return this.op(cwd, ['merge', '--abort']);
+  }
   stash(cwd: string): Promise<GitResult> {
     return this.op(cwd, ['stash', 'push']);
   }
@@ -159,5 +163,65 @@ export class GitService {
   }
   push(cwd: string): Promise<GitResult> {
     return this.op(cwd, ['push']);
+  }
+
+  // ---- Worktrees (Floors, ARCHITECTURE.md §8) -----------------------------
+
+  /** True if the working tree has no staged or unstaged changes. */
+  async isClean(cwd: string): Promise<boolean> {
+    const r = await this.git(cwd, ['status', '--porcelain']);
+    return r.ok && r.stdout.trim() === '';
+  }
+
+  /** Paths + branches of every worktree of the repo. */
+  async worktreeList(cwd: string): Promise<Array<{ path: string; branch: string }>> {
+    const r = await this.git(cwd, ['worktree', 'list', '--porcelain']);
+    if (!r.ok) return [];
+    const out: Array<{ path: string; branch: string }> = [];
+    let path = '';
+    let branch = '';
+    for (const line of r.stdout.split('\n')) {
+      if (line.startsWith('worktree ')) path = line.slice(9).trim();
+      else if (line.startsWith('branch ')) branch = line.slice(7).replace('refs/heads/', '').trim();
+      else if (line.trim() === '') {
+        if (path) out.push({ path, branch });
+        path = '';
+        branch = '';
+      }
+    }
+    if (path) out.push({ path, branch });
+    return out;
+  }
+
+  /**
+   * Add a worktree. With `createBranch`, cut a new branch off HEAD (`-b`);
+   * otherwise check out the existing branch. Fails (surfaced via `output`) if
+   * the branch is already checked out elsewhere — the one-checkout constraint.
+   */
+  worktreeAdd(
+    cwd: string,
+    path: string,
+    branch: string,
+    createBranch: boolean,
+  ): Promise<GitResult> {
+    const args = createBranch
+      ? ['worktree', 'add', '-b', branch, path]
+      : ['worktree', 'add', path, branch];
+    return this.op(cwd, args);
+  }
+
+  worktreeRemove(cwd: string, path: string, force: boolean): Promise<GitResult> {
+    const args = ['worktree', 'remove', ...(force ? ['--force'] : []), path];
+    return this.op(cwd, args);
+  }
+
+  deleteBranch(cwd: string, branch: string, force: boolean): Promise<GitResult> {
+    return this.op(cwd, ['branch', force ? '-D' : '-d', branch]);
+  }
+
+  /** Diff stat of a branch vs a base (for the Land dialog preview). */
+  async diffStat(cwd: string, base: string, branch: string): Promise<string> {
+    const r = await this.git(cwd, ['diff', '--stat', `${base}...${branch}`]);
+    return r.ok ? r.stdout.trim() : '';
   }
 }

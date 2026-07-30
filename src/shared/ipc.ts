@@ -22,6 +22,8 @@ export interface SpawnOptions {
   rows: number;
   /** Owning workspace — terminals outlive a workspace switch (background). */
   workspaceId: string;
+  /** Human floor label ('ground' or a floor name) — shown in `list` (§10). */
+  floorName?: string;
   /** Persistent node id, so a returning canvas can re-adopt this terminal. */
   stableId: string;
   cwd: string;
@@ -232,8 +234,40 @@ export interface WorkspaceMeta {
   cwd: string;
 }
 
+/**
+ * A floor: a git-worktree layer of the workspace's repo with its own canvas
+ * (PRODUCT.md §10). The workspace's own `layout`/`cwd` is the implicit "ground".
+ */
+export interface FloorRecord {
+  id: string;
+  name: string;
+  branch: string;
+  /** Absolute worktree path; terminals on this floor are rooted here. */
+  path: string;
+  layout: WorkspaceLayout;
+}
+
+/** Floor identity without its (potentially large) layout, for listing. */
+export interface FloorMeta {
+  id: string;
+  name: string;
+  branch: string;
+  path: string;
+}
+
+/** The outcome of running a floor lifecycle hook (PRODUCT.md §10). */
+export interface HookResult {
+  /** False when no such hook is configured. */
+  ran: boolean;
+  ok: boolean;
+  output: string;
+}
+
 export interface WorkspaceFile extends WorkspaceMeta {
   layout: WorkspaceLayout;
+  floors?: FloorRecord[];
+  /** 'ground' or a floor id; which layer is shown. */
+  activeFloor?: string;
 }
 
 /**
@@ -282,6 +316,57 @@ export interface DwApi {
   createWorkspace(name: string, icon: string): Promise<WorkspaceMeta>;
   loadWorkspace(id: string): Promise<WorkspaceFile>;
   saveLayout(id: string, layout: WorkspaceLayout): Promise<void>;
+  /** Layer-aware layout load: floorId 'ground' = the workspace's own layout. */
+  loadLayer(workspaceId: string, floorId: string): Promise<WorkspaceLayout>;
+  saveLayer(workspaceId: string, floorId: string, layout: WorkspaceLayout): Promise<void>;
+
+  // Floors (git-worktree layers of a workspace, PRODUCT.md §10).
+  listFloors(workspaceId: string): Promise<{ floors: FloorMeta[]; active: string }>;
+  /** The outcome of running a floor lifecycle hook (PRODUCT.md §10). */
+  // (defined here for reuse by createFloor + hookRun below)
+  /** Create a floor: add a worktree on a new/existing branch, own canvas. */
+  createFloor(
+    workspaceId: string,
+    opts: { name: string; branch: string; createBranch: boolean; cloneGround: boolean },
+  ): Promise<{
+    ok: boolean;
+    error?: string;
+    floor?: FloorMeta;
+    setup?: HookResult;
+  }>;
+  /** Run the project's `run` hook for a floor (on demand). */
+  runFloorHook(workspaceId: string, floorId: string): Promise<HookResult>;
+  /** Remove a floor: drop its worktree (and optionally its branch). */
+  removeFloor(
+    workspaceId: string,
+    floorId: string,
+    deleteBranch: boolean,
+  ): Promise<{ ok: boolean; error?: string }>;
+  setActiveFloor(workspaceId: string, floorId: string): Promise<void>;
+  /** Local branches of the workspace repo (for the create dialog). */
+  repoBranches(workspaceId: string): Promise<string[]>;
+  /** Pre-land state for the Land dialog (branches, diff stat, clean checks). */
+  landInfo(
+    workspaceId: string,
+    floorId: string,
+  ): Promise<{
+    floorBranch: string;
+    groundBranch: string;
+    branches: string[];
+    diffStat: string;
+    floorClean: boolean;
+    groundClean: boolean;
+  }>;
+  /**
+   * Land a floor: merge its branch into the target, then remove the worktree
+   * (and optionally its branch). A conflict is surfaced and safely aborted —
+   * the tree is never left half-merged.
+   */
+  land(
+    workspaceId: string,
+    floorId: string,
+    opts: { targetBranch: string; deleteBranch: boolean },
+  ): Promise<{ ok: boolean; stage?: string; error?: string }>;
   renameWorkspace(
     id: string,
     name: string,

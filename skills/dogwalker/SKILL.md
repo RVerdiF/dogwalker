@@ -13,7 +13,10 @@ You can only reach terminals you are wired to. Run `dogwalker list` to see them.
 
 ## Commands
 
-- `dogwalker list` — names of the terminals you are connected to.
+- `dogwalker list` — names of the terminals you are connected to. Each line is
+  `name  id  [floor]` — the floor tag tells you which layer a teammate works on
+  (`[ground]` or a floor name), so you can reach agents across floors you're
+  wired to.
 - `dogwalker ask <name> <message> [--timeout <seconds>]` — send a message to a
   connected terminal and **wait for its answer**. The message is delivered to
   that terminal as if typed there; Dogwalker waits until it finishes responding,

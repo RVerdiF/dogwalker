@@ -10,6 +10,7 @@ import { installSkill } from './main/skillInstall';
 import { runBrokerTest } from './main/brokerTest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
+import crypto from 'node:crypto';
 import { WorkspaceStore } from './main/workspaceStore';
 import { NoteStore } from './main/noteStore';
 import { DraftStore } from './main/draftStore';
@@ -20,10 +21,14 @@ import { FsService } from './main/fsService';
 import { runFsTest } from './main/fsTest';
 import { GitService } from './main/gitService';
 import { runGitTest } from './main/gitTest';
+import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
+import { runCrossFloorTest } from './main/crossFloorTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
+import { HookService } from './main/hookService';
 import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
 import type { AppSettings } from './shared/ipc';
 import type {
+  FloorRecord,
   ProcessMetric,
   SidebarEntry,
   SpawnOptions,
@@ -37,6 +42,38 @@ if (started) {
 
 let ptys: PtyManager | null = null;
 let broker: Broker | null = null;
+
+/**
+ * Deep-copy a layout for "clone ground" when creating a floor, regenerating
+ * every node's stableId (and remapping parents/edges) so the clone shares no
+ * identity with the ground layer — otherwise notes/portals would collide on a
+ * single graph node or note file across layers.
+ */
+function cloneLayout(layout: WorkspaceLayout): WorkspaceLayout {
+  const idMap = new Map<string, string>();
+  const fresh = (old: string): string => {
+    let next = idMap.get(old);
+    if (!next) {
+      next = 'n' + crypto.randomBytes(6).toString('hex');
+      idMap.set(old, next);
+    }
+    return next;
+  };
+  const nodes = layout.nodes.map((n) => ({
+    ...n,
+    stableId: fresh(n.stableId),
+    parentStableId: n.parentStableId ? fresh(n.parentStableId) : undefined,
+  }));
+  const edges = layout.edges.map(
+    ([a, b]) => [fresh(a), fresh(b)] as [string, string],
+  );
+  return { nodes, edges, viewport: layout.viewport };
+}
+
+function floorDir(workspaceCwd: string, workspaceId: string, floorName: string): string {
+  const safe = floorName.replace(/[^\w.-]/g, '_') || 'floor';
+  return path.join(path.dirname(workspaceCwd), '.dogwalker-floors', workspaceId, safe);
+}
 
 function brokerPipePath(): string {
   if (process.platform === 'win32') {
@@ -157,6 +194,18 @@ const createWindow = () => {
       workspaces.saveLayout(id, layout),
   );
   ipcMain.handle(
+    'ws:loadLayer',
+    (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) =>
+      workspaces.loadLayer(workspaceId, floorId),
+  );
+  ipcMain.handle(
+    'ws:saveLayer',
+    (
+      _e,
+      { workspaceId, floorId, layout }: { workspaceId: string; floorId: string; layout: WorkspaceLayout },
+    ) => workspaces.saveLayer(workspaceId, floorId, layout),
+  );
+  ipcMain.handle(
     'ws:rename',
     (
       _e,
@@ -247,6 +296,155 @@ const createWindow = () => {
   ipcMain.handle('git:pull', (_e, cwd: string) => git.pull(cwd));
   ipcMain.handle('git:push', (_e, cwd: string) => git.push(cwd));
 
+  // Floors: git-worktree layers of a workspace (PRODUCT.md §10).
+  const hooks = new HookService();
+  const hookCtx = (
+    rootPath: string,
+    f: { name: string; branch: string; path: string },
+  ) => ({ floorName: f.name, branch: f.branch, floorPath: f.path, rootPath });
+  ipcMain.handle('floor:list', (_e, workspaceId: string) =>
+    workspaces.listFloors(workspaceId),
+  );
+  ipcMain.handle('floor:repoBranches', async (_e, workspaceId: string) => {
+    const ws = workspaces.load(workspaceId);
+    return (await git.branches(ws.cwd)).map((b) => b.name);
+  });
+  ipcMain.handle(
+    'floor:create',
+    async (
+      _e,
+      {
+        workspaceId,
+        opts,
+      }: {
+        workspaceId: string;
+        opts: { name: string; branch: string; createBranch: boolean; cloneGround: boolean };
+      },
+    ) => {
+      const ws = workspaces.load(workspaceId);
+      const dir = floorDir(ws.cwd, workspaceId, opts.name);
+      if (fs.existsSync(dir)) {
+        return { ok: false, error: `a floor path already exists at ${dir}` };
+      }
+      const res = await git.worktreeAdd(ws.cwd, dir, opts.branch, opts.createBranch);
+      if (!res.ok) return { ok: false, error: res.output };
+      const record: FloorRecord = {
+        id: 'f' + crypto.randomBytes(4).toString('hex'),
+        name: opts.name,
+        branch: opts.branch,
+        path: dir,
+        layout: opts.cloneGround ? cloneLayout(ws.layout) : { nodes: [], edges: [] },
+      };
+      workspaces.addFloor(workspaceId, record);
+      // Auto-run the setup hook (deps, .env) in the fresh worktree.
+      const setup = await hooks.runHook('setup', hookCtx(ws.cwd, record));
+      return {
+        ok: true,
+        floor: { id: record.id, name: record.name, branch: record.branch, path: record.path },
+        setup,
+      };
+    },
+  );
+  ipcMain.handle(
+    'floor:hookRun',
+    async (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) => {
+      const ws = workspaces.load(workspaceId);
+      const floor = workspaces.listFloors(workspaceId).floors.find((f) => f.id === floorId);
+      if (!floor) return { ran: false, ok: false, output: 'floor not found' };
+      return hooks.runHook('run', hookCtx(ws.cwd, floor));
+    },
+  );
+  ipcMain.handle(
+    'floor:remove',
+    async (
+      _e,
+      {
+        workspaceId,
+        floorId,
+        deleteBranch,
+      }: { workspaceId: string; floorId: string; deleteBranch: boolean },
+    ) => {
+      const ws = workspaces.load(workspaceId);
+      const floor = workspaces.removeFloorRecord(workspaceId, floorId);
+      if (!floor) return { ok: true };
+      // Teardown hook, then release the layer's terminals and drop the worktree.
+      await hooks.runHook('teardown', hookCtx(ws.cwd, floor));
+      ptys?.killWorkspace(floorId);
+      const rm = await git.worktreeRemove(ws.cwd, floor.path, true);
+      if (deleteBranch) await git.deleteBranch(ws.cwd, floor.branch, true);
+      return { ok: rm.ok, error: rm.ok ? undefined : rm.output };
+    },
+  );
+  ipcMain.handle(
+    'floor:setActive',
+    (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) =>
+      workspaces.setActiveFloor(workspaceId, floorId),
+  );
+  ipcMain.handle(
+    'floor:landInfo',
+    async (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) => {
+      const ws = workspaces.load(workspaceId);
+      const floor = workspaces.listFloors(workspaceId).floors.find((f) => f.id === floorId);
+      const ground = await git.status(ws.cwd);
+      const branches = (await git.branches(ws.cwd)).map((b) => b.name);
+      const floorBranch = floor?.branch ?? '';
+      const diffStat = floor ? await git.diffStat(ws.cwd, ground.branch, floorBranch) : '';
+      const floorClean = floor ? await git.isClean(floor.path) : true;
+      return {
+        floorBranch,
+        groundBranch: ground.branch,
+        branches,
+        diffStat,
+        floorClean,
+        groundClean: ground.files.length === 0,
+      };
+    },
+  );
+  ipcMain.handle(
+    'floor:land',
+    async (
+      _e,
+      {
+        workspaceId,
+        floorId,
+        opts,
+      }: {
+        workspaceId: string;
+        floorId: string;
+        opts: { targetBranch: string; deleteBranch: boolean };
+      },
+    ) => {
+      const ws = workspaces.load(workspaceId);
+      const cwd = ws.cwd;
+      const floor = workspaces.listFloors(workspaceId).floors.find((f) => f.id === floorId);
+      if (!floor) return { ok: false, stage: 'gone', error: 'floor not found' };
+      // A safe merge needs both trees committed.
+      if (!(await git.isClean(floor.path)))
+        return { ok: false, stage: 'dirty-floor', error: 'commit or discard the floor changes first' };
+      if (!(await git.isClean(cwd)))
+        return { ok: false, stage: 'dirty-ground', error: 'the ground has uncommitted changes' };
+      // Land onto the chosen branch (check it out in the ground if needed).
+      const ground = await git.status(cwd);
+      if (ground.branch !== opts.targetBranch) {
+        const co = await git.checkout(cwd, opts.targetBranch);
+        if (!co.ok) return { ok: false, stage: 'checkout', error: co.output };
+      }
+      const merge = await git.merge(cwd, floor.branch);
+      if (!merge.ok) {
+        // Never leave a half-merged tree.
+        await git.mergeAbort(cwd);
+        return { ok: false, stage: 'conflict', error: merge.output };
+      }
+      // Merged — tear the floor down (teardown hook first).
+      await hooks.runHook('teardown', hookCtx(cwd, floor));
+      ptys?.killWorkspace(floorId);
+      workspaces.removeFloorRecord(workspaceId, floorId);
+      await git.worktreeRemove(cwd, floor.path, true);
+      if (opts.deleteBranch) await git.deleteBranch(cwd, floor.branch, true);
+      return { ok: true };
+    },
+  );
+
   ipcMain.handle(
     'portal:register',
     (_e, { id, name }: { id: string; name: string }) =>
@@ -336,6 +534,22 @@ const createWindow = () => {
 
   if (process.env.DW_GITTEST) {
     void runGitTest(git);
+  }
+
+  if (process.env.DW_FLOORTEST) {
+    void runFloorTest(workspaces, git);
+  }
+
+  if (process.env.DW_LANDTEST) {
+    void runLandTest(git);
+  }
+
+  if (process.env.DW_HOOKTEST) {
+    void runHookTest(hooks, git);
+  }
+
+  if (process.env.DW_CROSSFLOORTEST) {
+    void runCrossFloorTest(ptys, graph, git, socketPath);
   }
 
   if (process.env.DW_BROKERTEST) {

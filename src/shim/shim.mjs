@@ -123,7 +123,10 @@ function render(cmd, data) {
     process.stdout.write(data.screen.replace(/\s+$/, '') + '\n');
   } else if (cmd === 'list' && data && Array.isArray(data.peers)) {
     if (data.peers.length === 0) process.stdout.write('(no connected terminals)\n');
-    for (const p of data.peers) process.stdout.write(`${p.name}\t${p.id}\n`);
+    for (const p of data.peers) {
+      const floor = p.floor ? `\t[${p.floor}]` : '';
+      process.stdout.write(`${p.name}\t${p.id}${floor}\n`);
+    }
   } else if (cmd === 'ask' && data && typeof data.body === 'string') {
     process.stdout.write(data.body + '\n');
   } else if (cmd === 'note' && data && typeof data.content === 'string') {

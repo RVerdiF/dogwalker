@@ -113,6 +113,10 @@ const SAVE_DEBOUNCE_MS = 400;
 interface Props {
   workspaceId: string;
   workspaceCwd: string;
+  /** Which layer is shown: 'ground' or a floor id (PRODUCT.md §10). */
+  floorId: string;
+  /** Human floor label ('ground' or the floor name), shown in `list`. */
+  floorLabel: string;
   isDev: boolean;
   notifyOnAttention: boolean;
 }
@@ -120,9 +124,14 @@ interface Props {
 export function Canvas({
   workspaceId,
   workspaceCwd,
+  floorId,
+  floorLabel,
   isDev,
   notifyOnAttention,
 }: Props) {
+  // Terminals + layout are scoped to the layer. Ground reuses the workspace id
+  // so pre-floor grouping (and the test harnesses) are unchanged.
+  const layerId = floorId === 'ground' ? workspaceId : floorId;
   const [nodes, setNodes, onNodesChange] = useNodesState<DwNode>([]);
   const [graph, setGraph] = useState<GraphSnapshot>({ nodes: [], edges: [] });
   const [historyPair, setHistoryPair] = useState<{
@@ -211,7 +220,8 @@ export function Canvas({
             name: spec.name,
             cols: 80,
             rows: 24,
-            workspaceId,
+            workspaceId: layerId,
+            floorName: floorLabel,
             stableId: spec.stableId,
             cwd: workspaceCwd,
             memoryLimitMB: spec.memoryLimitMB ?? 0,
@@ -238,7 +248,7 @@ export function Canvas({
       setNodes((ns) => [...ns, node]);
       return id;
     },
-    [setNodes, workspaceId, workspaceCwd],
+    [setNodes, layerId, workspaceCwd, floorLabel],
   );
 
   const addNoteNode = useCallback(
@@ -290,13 +300,13 @@ export function Canvas({
           name: spec.name,
           stableId: spec.stableId,
           rootPath: spec.rootPath,
-          workspaceId,
+          workspaceId: layerId,
         },
       };
       setNodes((ns) => [...ns, node]);
       return spec.stableId;
     },
-    [setNodes, workspaceId],
+    [setNodes, layerId],
   );
 
   const addFileTree = useCallback(() => {
@@ -496,19 +506,19 @@ export function Canvas({
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const ws = await window.dw.loadWorkspace(workspaceId);
+      const layout = await window.dw.loadLayer(workspaceId, floorId);
       if (cancelled) return;
-      // Terminals kept running while this workspace was in the background.
-      const live = await window.dw.listTerminals(workspaceId);
+      // Terminals kept running while this layer was in the background.
+      const live = await window.dw.listTerminals(layerId);
       const liveByStable = new Map(live.map((t) => [t.stableId, t.id]));
       if (cancelled) return;
-      spawnCount.current = ws.layout.nodes.length;
+      spawnCount.current = layout.nodes.length;
       // Groups must exist before their members: React Flow requires a parent to
       // precede its children in the nodes array.
-      for (const spec of ws.layout.nodes) {
+      for (const spec of layout.nodes) {
         if (spec.kind === 'group') addGroupNode(spec);
       }
-      for (const spec of ws.layout.nodes) {
+      for (const spec of layout.nodes) {
         // Missing kind (pre-notes layouts) means terminal.
         if (spec.kind === 'group') continue;
         if (spec.kind === 'note') await addNoteNode(spec);
@@ -519,7 +529,7 @@ export function Canvas({
       }
       // Re-attach members now that every node exists.
       const parentOf = new Map(
-        ws.layout.nodes
+        layout.nodes
           .filter((s) => s.parentStableId)
           .map((s) => [s.stableId, s.parentStableId as string]),
       );
@@ -533,7 +543,7 @@ export function Canvas({
           }),
         );
       }
-      for (const [sa, sb] of ws.layout.edges) {
+      for (const [sa, sb] of layout.edges) {
         const la = stableToLive.current.get(sa);
         const lb = stableToLive.current.get(sb);
         if (la && lb) await window.dw.connect(la, lb);
@@ -542,7 +552,7 @@ export function Canvas({
       // restore itself can't persist a stale viewport). Always set it — a
       // workspace with no saved camera must land at the origin, never inherit
       // whatever the previous workspace was showing.
-      setViewport(ws.layout.viewport ?? { x: 0, y: 0, zoom: 1 });
+      setViewport(layout.viewport ?? { x: 0, y: 0, zoom: 1 });
       loaded.current = true;
     })();
     return () => {
@@ -570,7 +580,7 @@ export function Canvas({
       spawnCount.current = 0;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workspaceId]);
+  }, [workspaceId, floorId]);
 
   // ---- persistence: debounced layout snapshot ------------------------------
   const persist = useCallback(() => {
@@ -633,8 +643,8 @@ export function Canvas({
         zoom: Number(vp.zoom.toFixed(3)),
       },
     };
-    void window.dw.saveLayout(workspaceId, layout);
-  }, [nodes, graph.edges, workspaceId, getViewport]);
+    void window.dw.saveLayer(workspaceId, floorId, layout);
+  }, [nodes, graph.edges, workspaceId, floorId, getViewport]);
 
   useEffect(() => {
     if (!loaded.current) return;

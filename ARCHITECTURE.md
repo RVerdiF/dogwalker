@@ -139,6 +139,50 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
 - Hooks (setup / run / teardown) run in the floor dir with env: `DOGWALKER_FLOOR_NAME`, `DOGWALKER_BRANCH_NAME`, `DOGWALKER_FLOOR_PATH`, `DOGWALKER_ROOT_PATH`, `DOGWALKER_PROJECT_NAME`.
 - Known, documented constraints (surfaced in UI, not worked around): one checkout per branch across worktrees; untracked files (deps, `.env`) require setup hooks.
 
+**Built — floor model + create/switch/delete (v0.5 block 1)**
+- A floor is a **layer** of a workspace: the workspace's own `layout`/`cwd` is the
+  implicit "ground"; each floor (`FloorRecord` in the workspace file) has its own
+  `layout`, its own `branch`, and a worktree `path` under
+  `<parent>/.dogwalker-floors/<workspaceId>/<name>` (outside the repo tree).
+  `GitService` gained the worktree verbs (`worktreeAdd/Remove/List`, `isClean`,
+  `deleteBranch`, `diffStat`); `WorkspaceStore` the floor CRUD + `loadLayer`/
+  `saveLayer` (ground routes to the workspace layout).
+- The renderer keys everything on a **layer id** — `workspaceId` for ground,
+  the floor id otherwise — passed to the PTY manager as the grouping id, so a
+  floor's terminals are separate and survive backgrounding (ground and a floor
+  can each run a dev server). The `Canvas` loads/saves via the layer, the
+  `FloorBar` switches/creates/deletes, and "clone ground" copies the arrangement
+  with regenerated stableIds so layers never share a graph node or note file.
+
+**Built — Land flow (v0.5 block 2)**
+- Land merges a floor's branch into a chosen target and removes the worktree.
+  The Land dialog (`landInfo`) shows the target branch picker, a `diff --stat`
+  preview, and blocks when either tree is dirty. `land` runs the safe sequence:
+  clean-check floor + ground → check out the target in the ground if needed →
+  `git merge <floorBranch>`. On success it kills the layer's terminals, drops
+  the worktree and (optionally) the branch. **On conflict it `git merge --abort`s
+  and surfaces git's message** — the tree is never left half-merged and the
+  worktree stays put for the user to resolve.
+
+**Built — floor hooks (v0.5 block 3)**
+- Hooks live in the project's `.dogwalker/hooks.json` at the ground root
+  (versionable): `{ setup, run, teardown }` shell strings. `HookService` runs a
+  hook in the floor's worktree with the `DOGWALKER_*` env
+  (`FLOOR_NAME`/`BRANCH_NAME`/`FLOOR_PATH`/`ROOT_PATH`/`PROJECT_NAME`), so setup
+  can install deps or copy an `.env` that worktrees don't inherit. `setup`
+  auto-runs on create, `run` on demand (a chip button, output shown), `teardown`
+  before the worktree is removed on delete or land. A missing hook is a no-op.
+
+**Built — floor-aware broker/CLI + constraints (v0.5 block 4)**
+- Every terminal carries its floor label (`floorName` on the PTY entry). The
+  broker's `list` annotates each peer with `[floor]`, so an agent sees which
+  layer a teammate works on. Because the graph is global and terminals outlive
+  layer switches, `ask`/`check` reach a **cross-floor** target the moment it's
+  wired (e.g. via `dogwalker connect <name>`) — no floor-specific routing.
+- Worktree constraints are surfaced, not worked around: the create dialog spells
+  out one-checkout-per-branch and untracked-files-need-setup, and git's own
+  "branch already checked out" error is shown when it happens.
+
 ## 9. Portals
 
 - One `WebContentsView` per portal with an isolated `session` partition; linked portals share a partition (multi-account testing).

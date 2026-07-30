@@ -23,12 +23,252 @@ body,
 .dw-main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dw-canvas-area {
+  flex: 1;
+  min-height: 0;
   position: relative;
 }
 
 .dw-canvas-host {
   position: absolute;
   inset: 0;
+}
+
+/* ---- Floor rail (PRODUCT.md §10) --------------------------------------- */
+.dw-floorbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #121218;
+  border-bottom: 1px solid #23232e;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.dw-floorbar-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6f7686;
+  margin-right: 2px;
+}
+
+.dw-floor-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+}
+
+.dw-floor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #2c2c38;
+  background: #1b1b24;
+  color: #cfd3dc;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dw-floor-chip:hover {
+  background: #23232e;
+}
+
+.dw-floor-chip.active {
+  border-color: #8ab4ff;
+  box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.18);
+}
+
+.dw-floor-branch {
+  color: #7c8598;
+  font-size: 10px;
+  background: #12141a;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.dw-floor-run {
+  border: none;
+  background: transparent;
+  color: #7ee0a8;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.dw-floor-run:hover:not(:disabled) {
+  color: #a6f0c4;
+}
+
+.dw-floor-run:disabled {
+  color: #55596a;
+  cursor: default;
+}
+
+.dw-floor-land {
+  border: none;
+  background: transparent;
+  color: #7ea8ff;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.dw-hook-ok {
+  color: #7ee0a8;
+}
+
+.dw-hook-err {
+  color: #f0a0a0;
+}
+
+.dw-floor-land:hover {
+  color: #a9c6ff;
+}
+
+.dw-floor-x {
+  border: none;
+  background: transparent;
+  color: #6a6a78;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.dw-floor-x:hover {
+  color: #ff8080;
+}
+
+.dw-land-diffstat {
+  margin: 0;
+  max-height: 160px;
+  overflow: auto;
+  background: #0f1114;
+  border: 1px solid #262a33;
+  border-radius: 6px;
+  padding: 8px;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 11px;
+  color: #b6bccb;
+  white-space: pre;
+}
+
+.dw-floor-add {
+  border: 1px dashed #3a3a48;
+  background: transparent;
+  color: #8a8a99;
+  font-size: 15px;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.dw-floor-add:hover {
+  color: #cfd3dc;
+  border-color: #55596a;
+}
+
+/* ---- Floor create dialog ------------------------------------------------ */
+.dw-floor-dialog-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 6, 10, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 60;
+}
+
+.dw-floor-dialog {
+  width: 380px;
+  max-width: 90vw;
+  background: #16181f;
+  border: 1px solid #2f333f;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.dw-floor-dialog h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  color: #e6e8ee;
+}
+
+.dw-floor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #9aa0ae;
+}
+
+.dw-floor-field input[type='text'],
+.dw-floor-field input:not([type]),
+.dw-floor-field select {
+  background: #0f1114;
+  border: 1px solid #3a3f4b;
+  border-radius: 6px;
+  color: #e6e8ee;
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.dw-floor-branch-row {
+  display: flex;
+  gap: 14px;
+  color: #cfd3dc;
+}
+
+.dw-floor-branch-row label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dw-floor-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #cfd3dc;
+  margin-bottom: 12px;
+}
+
+.dw-floor-error {
+  color: #f0a0a0;
+  font-size: 12px;
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+}
+
+.dw-floor-hint {
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #7c8598;
+}
+
+.dw-floor-hint code {
+  background: #0f1114;
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.dw-floor-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .dw-canvas-host .react-flow {
