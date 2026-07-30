@@ -273,4 +273,27 @@ export class WorkspaceStore {
     ws.activeFloor = floorId;
     this.writeWorkspace(ws);
   }
+
+  /**
+   * Resolve `recruit --floor <name>` (PRODUCT.md §5.4): given the caller's
+   * current layer (a workspace id for ground, or a floor id), find its workspace
+   * and the named floor's layer id + cwd. `'ground'` maps back to the workspace.
+   */
+  resolveFloorTarget(
+    walkerLayer: string,
+    floorName: string,
+  ): { layerId: string; cwd: string } | null {
+    const index = this.readIndex();
+    for (const wsId of this.wsIds(index)) {
+      if (!fs.existsSync(this.filePath(wsId))) continue;
+      const ws = this.read(wsId);
+      const onThisWs =
+        wsId === walkerLayer || (ws.floors ?? []).some((f) => f.id === walkerLayer);
+      if (!onThisWs) continue;
+      if (floorName === 'ground') return { layerId: wsId, cwd: ws.cwd };
+      const floor = (ws.floors ?? []).find((f) => f.name === floorName);
+      return floor ? { layerId: floor.id, cwd: floor.path } : null;
+    }
+    return null;
+  }
 }

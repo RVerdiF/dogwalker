@@ -24,6 +24,7 @@ import { runGitTest } from './main/gitTest';
 import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
 import { runCrossFloorTest } from './main/crossFloorTest';
 import { runWalkerTest } from './main/walkerTest';
+import { runV06Bdd } from './main/v06BddTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { RoutineService } from './main/routineService';
@@ -102,13 +103,14 @@ const createWindow = () => {
   const graph = new GraphStore();
   const history = new History(path.join(app.getPath('userData'), 'history'));
   const notes = new NoteStore(app.getPath('userData'), graph);
+  const workspaces = new WorkspaceStore(app.getPath('userData'));
   const shimDir = createShimDir();
   installSkill();
   const socketPath = brokerPipePath();
 
   ptys = new PtyManager(mainWindow.webContents, graph, { socketPath, shimDir });
   const portals = new PortalManager(mainWindow, mainWindow.webContents);
-  broker = new Broker(socketPath, graph, ptys, history, notes, portals);
+  broker = new Broker(socketPath, graph, ptys, history, notes, portals, workspaces);
   broker.listen();
 
   const wc = mainWindow.webContents;
@@ -216,7 +218,6 @@ const createWindow = () => {
     },
   );
 
-  const workspaces = new WorkspaceStore(app.getPath('userData'));
   seedFirstRun(workspaces, notes);
   ipcMain.handle('ws:list', () => workspaces.list());
   ipcMain.handle('ws:create', (_e, { name, icon }: { name: string; icon: string }) =>
@@ -594,6 +595,10 @@ const createWindow = () => {
 
   if (process.env.DW_WALKERTEST) {
     void runWalkerTest(ptys, graph, socketPath);
+  }
+
+  if (process.env.DW_V06BDD) {
+    void runV06Bdd(ptys, graph, notes, routines, workspaces, git, socketPath);
   }
 
   if (process.env.DW_BROKERTEST) {

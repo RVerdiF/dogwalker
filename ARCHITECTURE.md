@@ -498,4 +498,15 @@ a pass over the README quick start — tracked in [ROADMAP.md](ROADMAP.md).
   PTY directly (so the recruit is automatable at once) and announces it to the
   renderer, which adopts the node beside the Walker (`terminal:recruited`); a
   recruit on another layer is alive and wired but its node appears when that layer
-  is opened. The composer marks Walkers among mentions (👑).
+  is opened. The composer marks Walkers among mentions (👑). `recruit --floor
+  <name>` places the recruit on a sibling floor's layer + worktree cwd (resolved
+  by `WorkspaceStore.resolveFloorTarget`); it stays wired to the Walker, so a
+  cross-floor `ask` round-trips.
+
+**Validated — v0.6 dogfooding (`DW_V06BDD=1`)** — the exit-criteria user
+scenarios end to end over the real broker: a Walker assembles a coder+reviewer+
+tester team all wired to it and reading a shared SPEC note; a routine chain
+`echo BUILD_OK && echo TEST_OK && dogwalker note append SUMMARY …` writes the
+result to a note and returns to idle (no zombie); dismissing the reviewer
+removes its terminal, graph node and every edge; and a `recruit --floor feat`
+teammate answers its Walker's `ask` across the floor boundary.
