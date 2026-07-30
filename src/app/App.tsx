@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import type { AppSettings, SidebarEntry, WorkspaceMeta } from '../shared/ipc';
+import type { AppSettings, FloorMeta, SidebarEntry, WorkspaceMeta } from '../shared/ipc';
 import { BUILTIN_THEMES, type ThemeSpec } from '../shared/themes';
 import { terminals } from './terminalService';
 import { Canvas } from './Canvas';
 import { Sidebar } from './Sidebar';
 import { Panel } from './Panel';
+import { FloorBar } from './FloorBar';
 import { reorderByDrop, sectionsOf } from './sidebarOps';
 
 const IS_DEV = import.meta.env.DEV;
@@ -26,6 +27,8 @@ export function App() {
   const [workspaces, setWorkspaces] = useState<WorkspaceMeta[]>([]);
   const [sidebar, setSidebar] = useState<SidebarEntry[]>([]);
   const [activeId, setActiveId] = useState<string>('');
+  const [floors, setFloors] = useState<FloorMeta[]>([]);
+  const [floorId, setFloorId] = useState<string>('ground');
   const [panelOpen, setPanelOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [themes, setThemes] = useState<ThemeSpec[]>(BUILTIN_THEMES);
@@ -49,6 +52,28 @@ export function App() {
       .listCustomThemes()
       .then((custom) => setThemes([...BUILTIN_THEMES, ...custom]));
   }, [refresh]);
+
+  // Load the active workspace's floors (and which layer was last shown).
+  const refreshFloors = useCallback(async (wsId: string) => {
+    if (!wsId) return;
+    const { floors: list, active } = await window.dw.listFloors(wsId);
+    setFloors(list);
+    setFloorId((cur) =>
+      cur !== 'ground' && list.some((f) => f.id === cur) ? cur : active,
+    );
+  }, []);
+
+  useEffect(() => {
+    void refreshFloors(activeId);
+  }, [activeId, refreshFloors]);
+
+  const switchFloor = useCallback(
+    (id: string) => {
+      setFloorId(id);
+      void window.dw.setActiveFloor(activeId, id);
+    },
+    [activeId],
+  );
 
   // Track the OS light/dark scheme for the follow-system option.
   useEffect(() => {
@@ -412,14 +437,30 @@ export function App() {
       />
       <div className="dw-main">
         {activeId && (
-          <ReactFlowProvider key={activeId}>
-            <Canvas
+          <>
+            <FloorBar
               workspaceId={activeId}
-              workspaceCwd={activeWorkspace?.cwd ?? ''}
-              isDev={IS_DEV}
-              notifyOnAttention={settings.notifyOnAttention}
+              floors={floors}
+              activeFloor={floorId}
+              onSwitch={switchFloor}
+              onChanged={() => void refreshFloors(activeId)}
             />
-          </ReactFlowProvider>
+            <div className="dw-canvas-area">
+              <ReactFlowProvider key={`${activeId}:${floorId}`}>
+                <Canvas
+                  workspaceId={activeId}
+                  workspaceCwd={
+                    floorId === 'ground'
+                      ? activeWorkspace?.cwd ?? ''
+                      : floors.find((f) => f.id === floorId)?.path ?? ''
+                  }
+                  floorId={floorId}
+                  isDev={IS_DEV}
+                  notifyOnAttention={settings.notifyOnAttention}
+                />
+              </ReactFlowProvider>
+            </div>
+          </>
         )}
       </div>
       <Panel

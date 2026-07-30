@@ -54,6 +54,18 @@ const api: DwApi = {
   createWorkspace: (name, icon) => ipcRenderer.invoke('ws:create', { name, icon }),
   loadWorkspace: (id) => ipcRenderer.invoke('ws:load', id),
   saveLayout: (id, layout) => ipcRenderer.invoke('ws:saveLayout', { id, layout }),
+  loadLayer: (workspaceId, floorId) =>
+    ipcRenderer.invoke('ws:loadLayer', { workspaceId, floorId }),
+  saveLayer: (workspaceId, floorId, layout) =>
+    ipcRenderer.invoke('ws:saveLayer', { workspaceId, floorId, layout }),
+  listFloors: (workspaceId) => ipcRenderer.invoke('floor:list', workspaceId),
+  createFloor: (workspaceId, opts) =>
+    ipcRenderer.invoke('floor:create', { workspaceId, opts }),
+  removeFloor: (workspaceId, floorId, deleteBranch) =>
+    ipcRenderer.invoke('floor:remove', { workspaceId, floorId, deleteBranch }),
+  setActiveFloor: (workspaceId, floorId) =>
+    ipcRenderer.invoke('floor:setActive', { workspaceId, floorId }),
+  repoBranches: (workspaceId) => ipcRenderer.invoke('floor:repoBranches', workspaceId),
   renameWorkspace: (id, name, icon, cwd) =>
     ipcRenderer.invoke('ws:rename', { id, name, icon, cwd }),
   deleteWorkspace: (id) => ipcRenderer.invoke('ws:delete', id),

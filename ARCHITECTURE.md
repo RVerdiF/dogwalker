@@ -139,6 +139,21 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
 - Hooks (setup / run / teardown) run in the floor dir with env: `DOGWALKER_FLOOR_NAME`, `DOGWALKER_BRANCH_NAME`, `DOGWALKER_FLOOR_PATH`, `DOGWALKER_ROOT_PATH`, `DOGWALKER_PROJECT_NAME`.
 - Known, documented constraints (surfaced in UI, not worked around): one checkout per branch across worktrees; untracked files (deps, `.env`) require setup hooks.
 
+**Built — floor model + create/switch/delete (v0.5 block 1)**
+- A floor is a **layer** of a workspace: the workspace's own `layout`/`cwd` is the
+  implicit "ground"; each floor (`FloorRecord` in the workspace file) has its own
+  `layout`, its own `branch`, and a worktree `path` under
+  `<parent>/.dogwalker-floors/<workspaceId>/<name>` (outside the repo tree).
+  `GitService` gained the worktree verbs (`worktreeAdd/Remove/List`, `isClean`,
+  `deleteBranch`, `diffStat`); `WorkspaceStore` the floor CRUD + `loadLayer`/
+  `saveLayer` (ground routes to the workspace layout).
+- The renderer keys everything on a **layer id** — `workspaceId` for ground,
+  the floor id otherwise — passed to the PTY manager as the grouping id, so a
+  floor's terminals are separate and survive backgrounding (ground and a floor
+  can each run a dev server). The `Canvas` loads/saves via the layer, the
+  `FloorBar` switches/creates/deletes, and "clone ground" copies the arrangement
+  with regenerated stableIds so layers never share a graph node or note file.
+
 ## 9. Portals
 
 - One `WebContentsView` per portal with an isolated `session` partition; linked portals share a partition (multi-account testing).
