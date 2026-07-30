@@ -154,6 +154,16 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
   `FloorBar` switches/creates/deletes, and "clone ground" copies the arrangement
   with regenerated stableIds so layers never share a graph node or note file.
 
+**Built — Land flow (v0.5 block 2)**
+- Land merges a floor's branch into a chosen target and removes the worktree.
+  The Land dialog (`landInfo`) shows the target branch picker, a `diff --stat`
+  preview, and blocks when either tree is dirty. `land` runs the safe sequence:
+  clean-check floor + ground → check out the target in the ground if needed →
+  `git merge <floorBranch>`. On success it kills the layer's terminals, drops
+  the worktree and (optionally) the branch. **On conflict it `git merge --abort`s
+  and surfaces git's message** — the tree is never left half-merged and the
+  worktree stays put for the user to resolve.
+
 ## 9. Portals
 
 - One `WebContentsView` per portal with an isolated `session` partition; linked portals share a partition (multi-account testing).

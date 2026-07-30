@@ -145,6 +145,10 @@ export class GitService {
   merge(cwd: string, branch: string): Promise<GitResult> {
     return this.op(cwd, ['merge', branch]);
   }
+  /** Undo an in-progress merge — used to keep a Land conflict from half-merging. */
+  mergeAbort(cwd: string): Promise<GitResult> {
+    return this.op(cwd, ['merge', '--abort']);
+  }
   stash(cwd: string): Promise<GitResult> {
     return this.op(cwd, ['stash', 'push']);
   }

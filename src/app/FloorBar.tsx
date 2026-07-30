@@ -17,6 +17,7 @@ interface Props {
  */
 export function FloorBar({ workspaceId, floors, activeFloor, onSwitch, onChanged }: Props) {
   const [creating, setCreating] = useState(false);
+  const [landing, setLanding] = useState<FloorMeta | null>(null);
 
   return (
     <div className="dw-floorbar">
@@ -37,6 +38,13 @@ export function FloorBar({ workspaceId, floors, activeFloor, onSwitch, onChanged
           >
             🧱 {f.name}
             <span className="dw-floor-branch">{f.branch}</span>
+          </button>
+          <button
+            className="dw-floor-land"
+            title="Land this floor — merge its branch and remove the worktree"
+            onClick={() => setLanding(f)}
+          >
+            ⤒
           </button>
           <button
             className="dw-floor-x"
@@ -67,6 +75,129 @@ export function FloorBar({ workspaceId, floors, activeFloor, onSwitch, onChanged
           }}
         />
       )}
+      {landing && (
+        <LandDialog
+          workspaceId={workspaceId}
+          floor={landing}
+          onClose={() => setLanding(null)}
+          onLanded={() => {
+            setLanding(null);
+            onSwitch('ground');
+            onChanged();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function LandDialog({
+  workspaceId,
+  floor,
+  onClose,
+  onLanded,
+}: {
+  workspaceId: string;
+  floor: FloorMeta;
+  onClose: () => void;
+  onLanded: () => void;
+}) {
+  const [info, setInfo] = useState<{
+    floorBranch: string;
+    groundBranch: string;
+    branches: string[];
+    diffStat: string;
+    floorClean: boolean;
+    groundClean: boolean;
+  } | null>(null);
+  const [target, setTarget] = useState('');
+  const [deleteBranch, setDeleteBranch] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    void window.dw.landInfo(workspaceId, floor.id).then((i) => {
+      setInfo(i);
+      setTarget(i.groundBranch);
+    });
+  }, [workspaceId, floor.id]);
+
+  const land = async () => {
+    setBusy(true);
+    setError('');
+    const res = await window.dw.land(workspaceId, floor.id, {
+      targetBranch: target,
+      deleteBranch,
+    });
+    setBusy(false);
+    if (res.ok) return onLanded();
+    setError(`${res.stage ?? 'failed'}: ${res.error ?? ''}`.trim());
+  };
+
+  const blocked = info ? !info.floorClean || !info.groundClean : true;
+
+  return (
+    <div className="dw-floor-dialog-scrim" onClick={onClose}>
+      <div className="dw-floor-dialog" onClick={(e) => e.stopPropagation()}>
+        <h3>Land “{floor.name}”</h3>
+        {!info ? (
+          <div className="dw-floor-field">Checking…</div>
+        ) : (
+          <>
+            <div className="dw-floor-field">
+              <span>
+                Merge <b>{info.floorBranch}</b> into
+              </span>
+              <select value={target} onChange={(e) => setTarget(e.target.value)}>
+                {info.branches
+                  .filter((b) => b !== info.floorBranch)
+                  .map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div className="dw-floor-field">
+              <span>Changes</span>
+              <pre className="dw-land-diffstat">
+                {info.diffStat || '(no differences from the target)'}
+              </pre>
+            </div>
+            {!info.floorClean && (
+              <div className="dw-floor-error">
+                The floor has uncommitted changes — commit or discard them first.
+              </div>
+            )}
+            {!info.groundClean && (
+              <div className="dw-floor-error">
+                The ground has uncommitted changes — commit or discard them first.
+              </div>
+            )}
+            <label className="dw-floor-toggle">
+              <input
+                type="checkbox"
+                checked={deleteBranch}
+                onChange={(e) => setDeleteBranch(e.target.checked)}
+              />
+              Delete branch <code>{info.floorBranch}</code> after landing
+            </label>
+            {error && <div className="dw-floor-error">{error}</div>}
+            <div className="dw-floor-actions">
+              <button
+                className="dw-btn-primary"
+                disabled={busy || blocked}
+                onClick={() => void land()}
+              >
+                {busy ? 'Landing…' : 'Land'}
+              </button>
+              <button className="dw-btn-small" onClick={onClose}>
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

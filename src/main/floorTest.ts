@@ -96,3 +96,65 @@ export async function runFloorTest(
   rmrf(repo);
   rmrf(wtRoot);
 }
+
+/**
+ * Land validation (DW_LANDTEST=1): a clean floor merges into the ground and its
+ * worktree is removed; a conflicting floor surfaces the conflict and is aborted,
+ * leaving the ground clean and the worktree intact (no half-merge).
+ */
+export async function runLandTest(git: GitService): Promise<void> {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-landtest-'));
+  const wtRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-landtest-wt-'));
+  const floorA = path.join(wtRoot, 'featA');
+  const floorB = path.join(wtRoot, 'featB');
+  const results: Record<string, unknown> = {};
+  const at = (cwd: string) => (...args: string[]) =>
+    execFileSync('git', args, { cwd, stdio: 'pipe' }).toString();
+  const sh = at(repo);
+  try {
+    sh('init', '-b', 'main');
+    sh('config', 'user.email', 'test@dogwalker.dev');
+    sh('config', 'user.name', 'Dogwalker Test');
+    sh('config', 'commit.gpgsign', 'false');
+    sh('config', 'core.autocrlf', 'false');
+    fs.writeFileSync(path.join(repo, 'README.md'), 'base\n');
+    sh('add', '-A');
+    sh('commit', '-m', 'init');
+
+    // --- Clean land: a disjoint change merges. ---
+    await git.worktreeAdd(repo, floorA, 'feat-a', true);
+    fs.writeFileSync(path.join(floorA, 'only.txt'), 'from the floor\n');
+    at(floorA)('add', '-A');
+    at(floorA)('commit', '-m', 'add only.txt');
+    const m1 = await git.merge(repo, 'feat-a');
+    results.cleanMerge = m1.ok;
+    results.mergedFile = fs.existsSync(path.join(repo, 'only.txt'));
+    const rm = await git.worktreeRemove(repo, floorA, true);
+    results.worktreeGone = rm.ok && !fs.existsSync(floorA);
+
+    // --- Conflict land: same line diverges → surfaced + aborted. ---
+    await git.worktreeAdd(repo, floorB, 'feat-b', true); // branches off current main
+    fs.writeFileSync(path.join(floorB, 'README.md'), 'feat-side\n');
+    at(floorB)('add', '-A');
+    at(floorB)('commit', '-m', 'floor edits readme');
+    // Diverge the same line on the ground.
+    fs.writeFileSync(path.join(repo, 'README.md'), 'main-side\n');
+    sh('add', '-A');
+    sh('commit', '-m', 'ground edits readme');
+
+    const m2 = await git.merge(repo, 'feat-b');
+    results.conflictDetected = !m2.ok;
+    const ab = await git.mergeAbort(repo);
+    results.aborted = ab.ok;
+    results.groundCleanAfterAbort = await git.isClean(repo);
+    // Intact = the ground's own content survives, with no conflict markers left.
+    const readme = fs.readFileSync(path.join(repo, 'README.md'), 'utf8');
+    results.readmeIntact = readme.includes('main-side') && !readme.includes('<<<<<<<');
+    results.floorIntact = fs.existsSync(floorB);
+  } catch (e) {
+    results.threw = (e as Error).message;
+  }
+  console.log('LANDTEST RESULT ' + JSON.stringify(results));
+  rmrf(repo);
+  rmrf(wtRoot);
+}

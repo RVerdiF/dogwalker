@@ -66,6 +66,10 @@ const api: DwApi = {
   setActiveFloor: (workspaceId, floorId) =>
     ipcRenderer.invoke('floor:setActive', { workspaceId, floorId }),
   repoBranches: (workspaceId) => ipcRenderer.invoke('floor:repoBranches', workspaceId),
+  landInfo: (workspaceId, floorId) =>
+    ipcRenderer.invoke('floor:landInfo', { workspaceId, floorId }),
+  land: (workspaceId, floorId, opts) =>
+    ipcRenderer.invoke('floor:land', { workspaceId, floorId, opts }),
   renameWorkspace: (id, name, icon, cwd) =>
     ipcRenderer.invoke('ws:rename', { id, name, icon, cwd }),
   deleteWorkspace: (id) => ipcRenderer.invoke('ws:delete', id),

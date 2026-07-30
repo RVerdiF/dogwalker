@@ -326,6 +326,28 @@ export interface DwApi {
   setActiveFloor(workspaceId: string, floorId: string): Promise<void>;
   /** Local branches of the workspace repo (for the create dialog). */
   repoBranches(workspaceId: string): Promise<string[]>;
+  /** Pre-land state for the Land dialog (branches, diff stat, clean checks). */
+  landInfo(
+    workspaceId: string,
+    floorId: string,
+  ): Promise<{
+    floorBranch: string;
+    groundBranch: string;
+    branches: string[];
+    diffStat: string;
+    floorClean: boolean;
+    groundClean: boolean;
+  }>;
+  /**
+   * Land a floor: merge its branch into the target, then remove the worktree
+   * (and optionally its branch). A conflict is surfaced and safely aborted —
+   * the tree is never left half-merged.
+   */
+  land(
+    workspaceId: string,
+    floorId: string,
+    opts: { targetBranch: string; deleteBranch: boolean },
+  ): Promise<{ ok: boolean; stage?: string; error?: string }>;
   renameWorkspace(
     id: string,
     name: string,

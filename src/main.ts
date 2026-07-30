@@ -21,7 +21,7 @@ import { FsService } from './main/fsService';
 import { runFsTest } from './main/fsTest';
 import { GitService } from './main/gitService';
 import { runGitTest } from './main/gitTest';
-import { runFloorTest } from './main/floorTest';
+import { runFloorTest, runLandTest } from './main/floorTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
 import type { AppSettings } from './shared/ipc';
@@ -360,6 +360,69 @@ const createWindow = () => {
     (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) =>
       workspaces.setActiveFloor(workspaceId, floorId),
   );
+  ipcMain.handle(
+    'floor:landInfo',
+    async (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) => {
+      const ws = workspaces.load(workspaceId);
+      const floor = workspaces.listFloors(workspaceId).floors.find((f) => f.id === floorId);
+      const ground = await git.status(ws.cwd);
+      const branches = (await git.branches(ws.cwd)).map((b) => b.name);
+      const floorBranch = floor?.branch ?? '';
+      const diffStat = floor ? await git.diffStat(ws.cwd, ground.branch, floorBranch) : '';
+      const floorClean = floor ? await git.isClean(floor.path) : true;
+      return {
+        floorBranch,
+        groundBranch: ground.branch,
+        branches,
+        diffStat,
+        floorClean,
+        groundClean: ground.files.length === 0,
+      };
+    },
+  );
+  ipcMain.handle(
+    'floor:land',
+    async (
+      _e,
+      {
+        workspaceId,
+        floorId,
+        opts,
+      }: {
+        workspaceId: string;
+        floorId: string;
+        opts: { targetBranch: string; deleteBranch: boolean };
+      },
+    ) => {
+      const ws = workspaces.load(workspaceId);
+      const cwd = ws.cwd;
+      const floor = workspaces.listFloors(workspaceId).floors.find((f) => f.id === floorId);
+      if (!floor) return { ok: false, stage: 'gone', error: 'floor not found' };
+      // A safe merge needs both trees committed.
+      if (!(await git.isClean(floor.path)))
+        return { ok: false, stage: 'dirty-floor', error: 'commit or discard the floor changes first' };
+      if (!(await git.isClean(cwd)))
+        return { ok: false, stage: 'dirty-ground', error: 'the ground has uncommitted changes' };
+      // Land onto the chosen branch (check it out in the ground if needed).
+      const ground = await git.status(cwd);
+      if (ground.branch !== opts.targetBranch) {
+        const co = await git.checkout(cwd, opts.targetBranch);
+        if (!co.ok) return { ok: false, stage: 'checkout', error: co.output };
+      }
+      const merge = await git.merge(cwd, floor.branch);
+      if (!merge.ok) {
+        // Never leave a half-merged tree.
+        await git.mergeAbort(cwd);
+        return { ok: false, stage: 'conflict', error: merge.output };
+      }
+      // Merged — tear the floor down.
+      ptys?.killWorkspace(floorId);
+      workspaces.removeFloorRecord(workspaceId, floorId);
+      await git.worktreeRemove(cwd, floor.path, true);
+      if (opts.deleteBranch) await git.deleteBranch(cwd, floor.branch, true);
+      return { ok: true };
+    },
+  );
 
   ipcMain.handle(
     'portal:register',
@@ -454,6 +517,10 @@ const createWindow = () => {
 
   if (process.env.DW_FLOORTEST) {
     void runFloorTest(workspaces, git);
+  }
+
+  if (process.env.DW_LANDTEST) {
+    void runLandTest(git);
   }
 
   if (process.env.DW_BROKERTEST) {
