@@ -380,6 +380,8 @@ export interface DwApi {
     deleteBranch: boolean,
   ): Promise<{ ok: boolean; error?: string }>;
   setActiveFloor(workspaceId: string, floorId: string): Promise<void>;
+  /** Drop floor records whose worktree is gone + `git worktree prune` (recovery). */
+  reconcileFloors(workspaceId: string): Promise<{ floors: FloorMeta[]; active: string }>;
   /** Local branches of the workspace repo (for the create dialog). */
   repoBranches(workspaceId: string): Promise<string[]>;
   /** Pre-land state for the Land dialog (branches, diff stat, clean checks). */

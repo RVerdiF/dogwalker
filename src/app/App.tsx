@@ -56,7 +56,9 @@ export function App() {
   // Load the active workspace's floors (and which layer was last shown).
   const refreshFloors = useCallback(async (wsId: string) => {
     if (!wsId) return;
-    const { floors: list, active } = await window.dw.listFloors(wsId);
+    // Reconcile first: a floor whose worktree was deleted outside Dogwalker
+    // shouldn't linger as a dead layer (v0.7 recovery).
+    const { floors: list, active } = await window.dw.reconcileFloors(wsId);
     setFloors(list);
     setFloorId((cur) =>
       cur !== 'ground' && list.some((f) => f.id === cur) ? cur : active,

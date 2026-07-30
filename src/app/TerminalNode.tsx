@@ -117,6 +117,19 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
           {data.name}
           {data.exited ? ' · exited' : ''}
         </span>
+        {data.exited && (
+          <button
+            className="dw-node-restart nodrag"
+            title="Restart this terminal"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent('dw:terminal-restart', { detail: { id } }),
+              )
+            }
+          >
+            ↻
+          </button>
+        )}
         <button
           className={`dw-walker-toggle nodrag ${data.walker ? 'on' : ''}`}
           onClick={toggleWalker}

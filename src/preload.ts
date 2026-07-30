@@ -95,6 +95,7 @@ const api: DwApi = {
     ipcRenderer.invoke('floor:hookRun', { workspaceId, floorId }),
   setActiveFloor: (workspaceId, floorId) =>
     ipcRenderer.invoke('floor:setActive', { workspaceId, floorId }),
+  reconcileFloors: (workspaceId) => ipcRenderer.invoke('floor:reconcile', workspaceId),
   repoBranches: (workspaceId) => ipcRenderer.invoke('floor:repoBranches', workspaceId),
   landInfo: (workspaceId, floorId) =>
     ipcRenderer.invoke('floor:landInfo', { workspaceId, floorId }),

@@ -510,3 +510,17 @@ tester team all wired to it and reading a shared SPEC note; a routine chain
 result to a note and returns to idle (no zombie); dismissing the reviewer
 removes its terminal, graph node and every edge; and a `recruit --floor feat`
 teammate answers its Walker's `ask` across the floor boundary.
+
+**Built — failure recovery (v0.7 block 1)**
+- **Orphaned worktrees**: on opening a workspace the renderer runs
+  `floor:reconcile` — floor records whose worktree directory was deleted outside
+  Dogwalker are dropped and `git worktree prune` clears git's stale metadata. It
+  never touches a worktree that still exists.
+- **Dead targets**: a terminal that exits removes its own graph node
+  (`graph.removeNode` on PTY exit), so an `ask`/`check`/`portal`/Walker verb to it
+  resolves to "not connected" **instantly** rather than blocking on the `ask`
+  timeout — no hangs.
+- **Terminal restart**: an exited terminal shows a ↻ that respawns it in place —
+  fresh PTY, same stableId + geometry (leashes re-form from the saved layout).
+- **Portal renderer crash**: a `render-process-gone` reloads the portal in place.
+- Validated by `DW_RECOVERYTEST` (orphan reconcile + fast-fail to dead targets).

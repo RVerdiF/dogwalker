@@ -25,6 +25,7 @@ import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
 import { runCrossFloorTest } from './main/crossFloorTest';
 import { runWalkerTest } from './main/walkerTest';
 import { runV06Bdd } from './main/v06BddTest';
+import { runRecoveryTest } from './main/recoveryTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { RoutineService } from './main/routineService';
@@ -416,6 +417,17 @@ const createWindow = () => {
     (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) =>
       workspaces.setActiveFloor(workspaceId, floorId),
   );
+  // Recovery (v0.7): drop floor records whose worktree vanished, and let git
+  // prune its own stale worktree metadata. Safe — it never deletes a worktree
+  // that still exists on disk.
+  ipcMain.handle('floor:reconcile', async (_e, workspaceId: string) => {
+    const ws = workspaces.load(workspaceId);
+    for (const f of workspaces.listFloors(workspaceId).floors) {
+      if (!fs.existsSync(f.path)) workspaces.removeFloorRecord(workspaceId, f.id);
+    }
+    await git.worktreePrune(ws.cwd);
+    return workspaces.listFloors(workspaceId);
+  });
   ipcMain.handle(
     'floor:landInfo',
     async (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) => {
@@ -599,6 +611,10 @@ const createWindow = () => {
 
   if (process.env.DW_V06BDD) {
     void runV06Bdd(ptys, graph, notes, routines, workspaces, git, socketPath);
+  }
+
+  if (process.env.DW_RECOVERYTEST) {
+    void runRecoveryTest(ptys, graph, workspaces, git, socketPath);
   }
 
   if (process.env.DW_BROKERTEST) {
