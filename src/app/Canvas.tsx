@@ -225,6 +225,7 @@ export function Canvas({
             stableId: spec.stableId,
             cwd: workspaceCwd,
             memoryLimitMB: spec.memoryLimitMB ?? 0,
+            walker: spec.walker ?? false,
           })
         ).id;
         terminals.create(id);
@@ -243,6 +244,7 @@ export function Canvas({
           exited: false,
           stableId: spec.stableId,
           memoryLimitMB: spec.memoryLimitMB ?? 0,
+          walker: spec.walker ?? false,
         },
       };
       setNodes((ns) => [...ns, node]);
@@ -624,6 +626,7 @@ export function Canvas({
         ...base,
         kind: 'terminal' as const,
         preset: n.data.preset,
+        walker: n.data.walker ?? false,
         memoryLimitMB: n.data.memoryLimitMB ?? 0,
       };
     });
@@ -1112,9 +1115,16 @@ export function Canvas({
       if (e.a === composerTarget.id) peers.add(e.b);
       else if (e.b === composerTarget.id) peers.add(e.a);
     }
+    const walkerIds = new Set(
+      nodesRef.current.filter((n) => n.type === 'terminal' && n.data.walker).map((n) => n.id),
+    );
     return graph.nodes
       .filter((n) => peers.has(n.id) && (n.kind === 'terminal' || n.kind === 'note'))
-      .map((n) => ({ name: n.name, kind: n.kind as 'terminal' | 'note' }));
+      .map((n) => ({
+        name: n.name,
+        kind: n.kind as 'terminal' | 'note',
+        walker: walkerIds.has(n.id),
+      }));
   }, [composerTarget, graph]);
 
   const onComposerNewNote = useCallback(async () => {
@@ -1329,6 +1339,54 @@ export function Canvas({
       return next.length === ns.length ? ns : next;
     });
   }, [graph, setNodes]);
+
+  // Walker recruits (PRODUCT.md §5.4): the broker spawns + wires them; here we
+  // adopt each near its Walker, and reflect dismiss/assign on the canvas.
+  useEffect(() => {
+    const offRecruit = window.dw.onRecruited((e) => {
+      // Only this layer materializes a node; recruits on other layers are alive
+      // and wired (ask works) and appear when that layer is next opened.
+      if (e.workspaceId !== layerId) return;
+      if (nodesRef.current.some((n) => n.data.stableId === e.stableId)) return;
+      const walker = nodesRef.current.find((n) => n.id === e.walkerId);
+      const w = walker?.measured?.width ?? NODE_W;
+      const at = walker
+        ? { x: walker.position.x + w + 60, y: walker.position.y }
+        : { x: 0, y: 0 };
+      spawnCount.current++;
+      void addTerminal(
+        {
+          kind: 'terminal',
+          stableId: e.stableId,
+          name: e.name,
+          preset: e.preset,
+          x: at.x,
+          y: at.y,
+          w: NODE_W,
+          h: NODE_H,
+        },
+        e.id, // adopt the PTY the broker already spawned
+      );
+    });
+    const offDismiss = window.dw.onDismissed((id) => {
+      terminals.dispose(id);
+      setNodes((ns) => ns.filter((n) => n.id !== id));
+    });
+    const offReassign = window.dw.onReassigned(({ id, name }) => {
+      setNodes((ns) =>
+        ns.map((n) =>
+          n.id === id && n.type === 'terminal'
+            ? { ...n, data: { ...n.data, name } }
+            : n,
+        ),
+      );
+    });
+    return () => {
+      offRecruit();
+      offDismiss();
+      offReassign();
+    };
+  }, [layerId, addTerminal, setNodes]);
 
   /** The single selected terminal, when there is exactly one (for its limit). */
   const soleTerminal = useMemo(() => {

@@ -29,6 +29,8 @@ export interface SpawnOptions {
   cwd: string;
   /** 0 = off. Above it, the heaviest child process is killed. */
   memoryLimitMB?: number;
+  /** Flag this terminal as a Walker (manager agent, PRODUCT.md §5.4). */
+  walker?: boolean;
 }
 
 export interface SpawnResult {
@@ -103,6 +105,8 @@ export interface TerminalSpec extends BaseSpec {
   preset: PresetId;
   /** Runaway guard in MB; 0/absent = off. */
   memoryLimitMB?: number;
+  /** Manager agent (PRODUCT.md §5.4): may recruit/dismiss/assign teammates. */
+  walker?: boolean;
 }
 
 /** A note's persisted layout; its markdown body lives in a file keyed by id. */
@@ -311,6 +315,23 @@ export interface DwApi {
   notify(title: string, body: string): void;
   /** Runaway guard for a terminal, in MB (0 turns it off). */
   setMemoryLimit(id: string, mb: number): void;
+  /** Flag/unflag a live terminal as a Walker (manager agent, §5.4). */
+  setWalker(id: string, walker: boolean): void;
+  /** A Walker recruited a teammate — the canvas adopts it near the Walker. */
+  onRecruited(
+    cb: (e: {
+      id: string;
+      stableId: string;
+      name: string;
+      preset: PresetId;
+      walkerId: string;
+      workspaceId: string;
+    }) => void,
+  ): () => void;
+  /** A recruit was dismissed — the canvas removes its node. */
+  onDismissed(cb: (id: string) => void): () => void;
+  /** A recruit was reassigned — the canvas relabels its node. */
+  onReassigned(cb: (e: { id: string; name: string }) => void): () => void;
 
   // Graph (authoritative in main; renderer reflects it).
   graph(): Promise<GraphSnapshot>;

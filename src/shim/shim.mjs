@@ -111,9 +111,34 @@ async function buildRequest() {
       else if (op === 'dom') req.arg = argv.slice(3).join(' ') || undefined;
       return req;
     }
+    case 'recruit': {
+      // dogwalker recruit --agent <preset> --role <role> [--floor <floor>]
+      const flag = (name) => {
+        const i = argv.indexOf(name);
+        return i >= 0 ? argv[i + 1] : undefined;
+      };
+      const agent = flag('--agent');
+      const role = flag('--role');
+      if (!agent || !role) {
+        die('usage: dogwalker recruit --agent <preset> --role <role> [--floor <floor>]');
+      }
+      return { cmd: 'recruit', from, agent, role, floor: flag('--floor') };
+    }
+    case 'dismiss': {
+      const target = argv[1];
+      if (!target) die('usage: dogwalker dismiss <recruit>');
+      return { cmd: 'dismiss', from, target };
+    }
+    case 'assign': {
+      const target = argv[1];
+      const ri = argv.indexOf('--role');
+      const role = ri >= 0 ? argv[ri + 1] : undefined;
+      if (!target || !role) die('usage: dogwalker assign <recruit> --role <role>');
+      return { cmd: 'assign', from, target, role };
+    }
     default:
       die(
-        'commands: ask <t> <msg> | check <t> | list | note read|append|write <n> | portal <op> <p> | connect <t> | disconnect <t>',
+        'commands: ask <t> <msg> | check <t> | list | note read|append|write <n> | portal <op> <p> | recruit --agent <a> --role <r> | dismiss <r> | assign <r> --role <r> | connect <t> | disconnect <t>',
       );
   }
 }
@@ -143,6 +168,8 @@ function render(cmd, data) {
     process.stdout.write(
       (typeof data.result === 'string' ? data.result : JSON.stringify(data.result)) + '\n',
     );
+  } else if ((cmd === 'recruit' || cmd === 'assign') && data && typeof data.name === 'string') {
+    process.stdout.write(data.name + '\n');
   } else {
     process.stdout.write('ok\n');
   }

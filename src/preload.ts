@@ -4,6 +4,7 @@ import type {
   DwApi,
   GraphSnapshot,
   PortalState,
+  PresetId,
   Routine,
   SpawnOptions,
 } from './shared/ipc';
@@ -33,6 +34,32 @@ const api: DwApi = {
   },
   notify: (title, body) => ipcRenderer.send('notify', { title, body }),
   setMemoryLimit: (id, mb) => ipcRenderer.send('pty:memoryLimit', { id, mb }),
+  setWalker: (id, walker) => ipcRenderer.send('pty:setWalker', { id, walker }),
+  onRecruited: (cb) => {
+    const listener = (
+      _e: IpcRendererEvent,
+      ev: {
+        id: string;
+        stableId: string;
+        name: string;
+        preset: PresetId;
+        walkerId: string;
+        workspaceId: string;
+      },
+    ) => cb(ev);
+    ipcRenderer.on('terminal:recruited', listener);
+    return () => ipcRenderer.removeListener('terminal:recruited', listener);
+  },
+  onDismissed: (cb) => {
+    const listener = (_e: IpcRendererEvent, id: string) => cb(id);
+    ipcRenderer.on('terminal:dismissed', listener);
+    return () => ipcRenderer.removeListener('terminal:dismissed', listener);
+  },
+  onReassigned: (cb) => {
+    const listener = (_e: IpcRendererEvent, ev: { id: string; name: string }) => cb(ev);
+    ipcRenderer.on('terminal:reassigned', listener);
+    return () => ipcRenderer.removeListener('terminal:reassigned', listener);
+  },
 
   graph: () => ipcRenderer.invoke('graph:get'),
   connect: (a, b) => ipcRenderer.invoke('graph:connect', { a, b }),

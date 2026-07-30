@@ -258,6 +258,31 @@ body,
   flex-shrink: 0;
 }
 
+/* ---- Walker mode (PRODUCT.md §5.4) ------------------------------------- */
+.dw-walker-crown {
+  font-size: 11px;
+  margin-right: 3px;
+}
+
+.dw-walker-toggle {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0 3px;
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.dw-walker-toggle:hover {
+  opacity: 0.9;
+}
+
+.dw-walker-toggle.on {
+  filter: none;
+  opacity: 1;
+}
+
 .dw-hook-ok {
   color: #7ee0a8;
 }

@@ -487,3 +487,15 @@ a pass over the README quick start — tracked in [ROADMAP.md](ROADMAP.md).
   (never resurrecting a `running` status); status changes emit `routine:update`.
   The renderer's Panel → Routines section creates/pauses/runs/deletes them with a
   live status dot.
+
+**Built — Walker mode (v0.6 block 2)**
+- A terminal can be flagged a **Walker** (crown toggle in its header; `walker` on
+  the PTY entry + persisted in the spec). Only a Walker may call the manager
+  verbs, broker-gated by `ptys.isWalker(from)`: `recruit --agent <preset> --role
+  <role>` spawns a teammate on the Walker's own layer, inheriting its cwd and
+  wired to it; `dismiss <recruit>` kills the recruit (its graph node + edges go
+  with it); `assign <recruit> --role <role>` relabels it. The broker spawns the
+  PTY directly (so the recruit is automatable at once) and announces it to the
+  renderer, which adopts the node beside the Walker (`terminal:recruited`); a
+  recruit on another layer is alive and wired but its node appears when that layer
+  is opened. The composer marks Walkers among mentions (👑).

@@ -9,6 +9,8 @@ export interface ComposerTarget {
 export interface Mention {
   name: string;
   kind: 'terminal' | 'note';
+  /** A Walker (manager agent, §5.4) — marked in the mention menu. */
+  walker?: boolean;
 }
 
 interface Props {
@@ -175,7 +177,13 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
                 }}
               >
                 <span className="dw-mention-icon">
-                  {it.kind === 'new' ? '＋' : it.kind === 'note' ? '📝' : '🖥'}
+                  {it.kind === 'new' || it.kind === 'new-portal'
+                    ? '＋'
+                    : 'walker' in it && it.walker
+                      ? '👑'
+                      : it.kind === 'note'
+                        ? '📝'
+                        : '🖥'}
                 </span>
                 {it.name}
               </button>

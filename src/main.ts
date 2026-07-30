@@ -23,6 +23,7 @@ import { GitService } from './main/gitService';
 import { runGitTest } from './main/gitTest';
 import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
 import { runCrossFloorTest } from './main/crossFloorTest';
+import { runWalkerTest } from './main/walkerTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { RoutineService } from './main/routineService';
@@ -591,6 +592,10 @@ const createWindow = () => {
     void runRoutineTest(ptys, routines);
   }
 
+  if (process.env.DW_WALKERTEST) {
+    void runWalkerTest(ptys, graph, socketPath);
+  }
+
   if (process.env.DW_BROKERTEST) {
     void runBrokerTest(ptys, graph, socketPath);
   }
@@ -616,6 +621,9 @@ ipcMain.on(
 ipcMain.on('pty:kill', (_e, id: string) => ptys?.kill(id));
 ipcMain.on('pty:memoryLimit', (_e, { id, mb }: { id: string; mb: number }) =>
   ptys?.setMemoryLimit(id, mb),
+);
+ipcMain.on('pty:setWalker', (_e, { id, walker }: { id: string; walker: boolean }) =>
+  ptys?.setWalker(id, walker),
 );
 ipcMain.handle('mirror:serialize', (_e, id: string) => ptys?.serialize(id) ?? '');
 ipcMain.handle('perf:metrics', (): ProcessMetric[] =>
