@@ -95,6 +95,24 @@ body,
   border-radius: 8px;
 }
 
+.dw-floor-run {
+  border: none;
+  background: transparent;
+  color: #7ee0a8;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.dw-floor-run:hover:not(:disabled) {
+  color: #a6f0c4;
+}
+
+.dw-floor-run:disabled {
+  color: #55596a;
+  cursor: default;
+}
+
 .dw-floor-land {
   border: none;
   background: transparent;
@@ -102,6 +120,14 @@ body,
   font-size: 14px;
   cursor: pointer;
   padding: 0 2px;
+}
+
+.dw-hook-ok {
+  color: #7ee0a8;
+}
+
+.dw-hook-err {
+  color: #f0a0a0;
 }
 
 .dw-floor-land:hover {

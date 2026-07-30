@@ -253,6 +253,14 @@ export interface FloorMeta {
   path: string;
 }
 
+/** The outcome of running a floor lifecycle hook (PRODUCT.md §10). */
+export interface HookResult {
+  /** False when no such hook is configured. */
+  ran: boolean;
+  ok: boolean;
+  output: string;
+}
+
 export interface WorkspaceFile extends WorkspaceMeta {
   layout: WorkspaceLayout;
   floors?: FloorRecord[];
@@ -312,11 +320,20 @@ export interface DwApi {
 
   // Floors (git-worktree layers of a workspace, PRODUCT.md §10).
   listFloors(workspaceId: string): Promise<{ floors: FloorMeta[]; active: string }>;
+  /** The outcome of running a floor lifecycle hook (PRODUCT.md §10). */
+  // (defined here for reuse by createFloor + hookRun below)
   /** Create a floor: add a worktree on a new/existing branch, own canvas. */
   createFloor(
     workspaceId: string,
     opts: { name: string; branch: string; createBranch: boolean; cloneGround: boolean },
-  ): Promise<{ ok: boolean; error?: string; floor?: FloorMeta }>;
+  ): Promise<{
+    ok: boolean;
+    error?: string;
+    floor?: FloorMeta;
+    setup?: HookResult;
+  }>;
+  /** Run the project's `run` hook for a floor (on demand). */
+  runFloorHook(workspaceId: string, floorId: string): Promise<HookResult>;
   /** Remove a floor: drop its worktree (and optionally its branch). */
   removeFloor(
     workspaceId: string,

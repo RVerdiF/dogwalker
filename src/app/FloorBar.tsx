@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { FloorMeta } from '../shared/ipc';
+import type { FloorMeta, HookResult } from '../shared/ipc';
 
 interface Props {
   workspaceId: string;
@@ -18,6 +18,16 @@ interface Props {
 export function FloorBar({ workspaceId, floors, activeFloor, onSwitch, onChanged }: Props) {
   const [creating, setCreating] = useState(false);
   const [landing, setLanding] = useState<FloorMeta | null>(null);
+  const [hookOut, setHookOut] = useState<{ title: string; result: HookResult } | null>(null);
+  const [running, setRunning] = useState('');
+
+  const runHook = (f: FloorMeta) => {
+    setRunning(f.id);
+    void window.dw.runFloorHook(workspaceId, f.id).then((result) => {
+      setRunning('');
+      setHookOut({ title: `Run hook · ${f.name}`, result });
+    });
+  };
 
   return (
     <div className="dw-floorbar">
@@ -38,6 +48,14 @@ export function FloorBar({ workspaceId, floors, activeFloor, onSwitch, onChanged
           >
             🧱 {f.name}
             <span className="dw-floor-branch">{f.branch}</span>
+          </button>
+          <button
+            className="dw-floor-run"
+            title="Run this project's `run` hook in the floor"
+            disabled={running === f.id}
+            onClick={() => runHook(f)}
+          >
+            {running === f.id ? '…' : '▶'}
           </button>
           <button
             className="dw-floor-land"
@@ -68,12 +86,33 @@ export function FloorBar({ workspaceId, floors, activeFloor, onSwitch, onChanged
         <FloorCreate
           workspaceId={workspaceId}
           onClose={() => setCreating(false)}
-          onCreated={(id) => {
+          onCreated={(id, setup) => {
             setCreating(false);
             onChanged();
             onSwitch(id);
+            if (setup && setup.ran) setHookOut({ title: 'Setup hook', result: setup });
           }}
         />
+      )}
+      {hookOut && (
+        <div className="dw-floor-dialog-scrim" onClick={() => setHookOut(null)}>
+          <div className="dw-floor-dialog" onClick={(e) => e.stopPropagation()}>
+            <h3>
+              {hookOut.title}{' '}
+              <span className={hookOut.result.ok ? 'dw-hook-ok' : 'dw-hook-err'}>
+                {hookOut.result.ok ? '✓' : '✗'}
+              </span>
+            </h3>
+            <pre className="dw-land-diffstat">
+              {hookOut.result.output || '(no output)'}
+            </pre>
+            <div className="dw-floor-actions">
+              <button className="dw-btn-small" onClick={() => setHookOut(null)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {landing && (
         <LandDialog
@@ -209,7 +248,7 @@ function FloorCreate({
 }: {
   workspaceId: string;
   onClose: () => void;
-  onCreated: (floorId: string) => void;
+  onCreated: (floorId: string, setup?: HookResult) => void;
 }) {
   const [name, setName] = useState('');
   const [branches, setBranches] = useState<string[]>([]);
@@ -240,7 +279,7 @@ function FloorCreate({
     });
     setBusy(false);
     if (!res.ok || !res.floor) return setError(res.error || 'Could not create the floor.');
-    onCreated(res.floor.id);
+    onCreated(res.floor.id, res.setup);
   };
 
   return (

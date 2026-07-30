@@ -21,8 +21,9 @@ import { FsService } from './main/fsService';
 import { runFsTest } from './main/fsTest';
 import { GitService } from './main/gitService';
 import { runGitTest } from './main/gitTest';
-import { runFloorTest, runLandTest } from './main/floorTest';
+import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
+import { HookService } from './main/hookService';
 import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
 import type { AppSettings } from './shared/ipc';
 import type {
@@ -295,6 +296,11 @@ const createWindow = () => {
   ipcMain.handle('git:push', (_e, cwd: string) => git.push(cwd));
 
   // Floors: git-worktree layers of a workspace (PRODUCT.md §10).
+  const hooks = new HookService();
+  const hookCtx = (
+    rootPath: string,
+    f: { name: string; branch: string; path: string },
+  ) => ({ floorName: f.name, branch: f.branch, floorPath: f.path, rootPath });
   ipcMain.handle('floor:list', (_e, workspaceId: string) =>
     workspaces.listFloors(workspaceId),
   );
@@ -329,10 +335,22 @@ const createWindow = () => {
         layout: opts.cloneGround ? cloneLayout(ws.layout) : { nodes: [], edges: [] },
       };
       workspaces.addFloor(workspaceId, record);
+      // Auto-run the setup hook (deps, .env) in the fresh worktree.
+      const setup = await hooks.runHook('setup', hookCtx(ws.cwd, record));
       return {
         ok: true,
         floor: { id: record.id, name: record.name, branch: record.branch, path: record.path },
+        setup,
       };
+    },
+  );
+  ipcMain.handle(
+    'floor:hookRun',
+    async (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) => {
+      const ws = workspaces.load(workspaceId);
+      const floor = workspaces.listFloors(workspaceId).floors.find((f) => f.id === floorId);
+      if (!floor) return { ran: false, ok: false, output: 'floor not found' };
+      return hooks.runHook('run', hookCtx(ws.cwd, floor));
     },
   );
   ipcMain.handle(
@@ -348,7 +366,8 @@ const createWindow = () => {
       const ws = workspaces.load(workspaceId);
       const floor = workspaces.removeFloorRecord(workspaceId, floorId);
       if (!floor) return { ok: true };
-      // Release the layer's terminals before dropping the worktree.
+      // Teardown hook, then release the layer's terminals and drop the worktree.
+      await hooks.runHook('teardown', hookCtx(ws.cwd, floor));
       ptys?.killWorkspace(floorId);
       const rm = await git.worktreeRemove(ws.cwd, floor.path, true);
       if (deleteBranch) await git.deleteBranch(ws.cwd, floor.branch, true);
@@ -415,7 +434,8 @@ const createWindow = () => {
         await git.mergeAbort(cwd);
         return { ok: false, stage: 'conflict', error: merge.output };
       }
-      // Merged — tear the floor down.
+      // Merged — tear the floor down (teardown hook first).
+      await hooks.runHook('teardown', hookCtx(cwd, floor));
       ptys?.killWorkspace(floorId);
       workspaces.removeFloorRecord(workspaceId, floorId);
       await git.worktreeRemove(cwd, floor.path, true);
@@ -521,6 +541,10 @@ const createWindow = () => {
 
   if (process.env.DW_LANDTEST) {
     void runLandTest(git);
+  }
+
+  if (process.env.DW_HOOKTEST) {
+    void runHookTest(hooks, git);
   }
 
   if (process.env.DW_BROKERTEST) {

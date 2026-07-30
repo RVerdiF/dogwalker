@@ -63,6 +63,8 @@ const api: DwApi = {
     ipcRenderer.invoke('floor:create', { workspaceId, opts }),
   removeFloor: (workspaceId, floorId, deleteBranch) =>
     ipcRenderer.invoke('floor:remove', { workspaceId, floorId, deleteBranch }),
+  runFloorHook: (workspaceId, floorId) =>
+    ipcRenderer.invoke('floor:hookRun', { workspaceId, floorId }),
   setActiveFloor: (workspaceId, floorId) =>
     ipcRenderer.invoke('floor:setActive', { workspaceId, floorId }),
   repoBranches: (workspaceId) => ipcRenderer.invoke('floor:repoBranches', workspaceId),

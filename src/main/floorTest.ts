@@ -4,6 +4,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import type { WorkspaceStore } from './workspaceStore';
 import type { GitService } from './gitService';
+import type { HookService } from './hookService';
 import type { NodeSpec } from '../shared/ipc';
 
 /**
@@ -155,6 +156,70 @@ export async function runLandTest(git: GitService): Promise<void> {
     results.threw = (e as Error).message;
   }
   console.log('LANDTEST RESULT ' + JSON.stringify(results));
+  rmrf(repo);
+  rmrf(wtRoot);
+}
+
+/**
+ * Hook validation (DW_HOOKTEST=1): a project's `.dogwalker/hooks.json` runs in
+ * the floor dir with the DOGWALKER_* env — setup writes a marker, run prints,
+ * teardown writes to the root; and a repo without hooks reports "not run".
+ */
+export async function runHookTest(hooks: HookService, git: GitService): Promise<void> {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-hooktest-'));
+  const wtRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-hooktest-wt-'));
+  const floorA = path.join(wtRoot, 'featA');
+  const results: Record<string, unknown> = {};
+  const sh = (...args: string[]) =>
+    execFileSync('git', args, { cwd: repo, stdio: 'pipe' }).toString();
+  try {
+    sh('init', '-b', 'main');
+    sh('config', 'user.email', 'test@dogwalker.dev');
+    sh('config', 'user.name', 'Dogwalker Test');
+    sh('config', 'commit.gpgsign', 'false');
+    fs.mkdirSync(path.join(repo, '.dogwalker'), { recursive: true });
+    const hookConfig = {
+      setup:
+        "node -e \"require('fs').writeFileSync('setup-marker.txt',[process.env.DOGWALKER_FLOOR_NAME,process.env.DOGWALKER_BRANCH_NAME,process.env.DOGWALKER_FLOOR_PATH,process.env.DOGWALKER_ROOT_PATH,process.env.DOGWALKER_PROJECT_NAME].join('|'))\"",
+      run: "node -e \"console.log('RUN_HOOK_OK ' + process.env.DOGWALKER_FLOOR_NAME)\"",
+      teardown:
+        "node -e \"require('fs').writeFileSync(require('path').join(process.env.DOGWALKER_ROOT_PATH,'teardown-marker.txt'),process.env.DOGWALKER_FLOOR_NAME)\"",
+    };
+    fs.writeFileSync(path.join(repo, '.dogwalker', 'hooks.json'), JSON.stringify(hookConfig));
+    fs.writeFileSync(path.join(repo, 'README.md'), 'base\n');
+    sh('add', '-A');
+    sh('commit', '-m', 'init');
+
+    await git.worktreeAdd(repo, floorA, 'feat', true);
+    const ctx = { floorName: 'featA', branch: 'feat', floorPath: floorA, rootPath: repo };
+
+    const setup = await hooks.runHook('setup', ctx);
+    const marker = fs.readFileSync(path.join(floorA, 'setup-marker.txt'), 'utf8').split('|');
+    results.setupRan = setup.ran && setup.ok;
+    results.setupEnv =
+      marker[0] === 'featA' &&
+      marker[1] === 'feat' &&
+      marker[2] === floorA &&
+      marker[3] === repo &&
+      marker[4] === path.basename(repo);
+
+    const runHook = await hooks.runHook('run', ctx);
+    results.runHook = runHook.ran && runHook.ok && runHook.output.includes('RUN_HOOK_OK featA');
+
+    const teardown = await hooks.runHook('teardown', ctx);
+    results.teardown =
+      teardown.ran &&
+      fs.readFileSync(path.join(repo, 'teardown-marker.txt'), 'utf8') === 'featA';
+
+    // A project without hooks reports "not run".
+    const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-hooktest-bare-'));
+    const none = await hooks.runHook('run', { ...ctx, rootPath: bare });
+    results.noHookNotRun = none.ran === false;
+    rmrf(bare);
+  } catch (e) {
+    results.threw = (e as Error).message;
+  }
+  console.log('HOOKTEST RESULT ' + JSON.stringify(results));
   rmrf(repo);
   rmrf(wtRoot);
 }

@@ -164,6 +164,15 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
   and surfaces git's message** — the tree is never left half-merged and the
   worktree stays put for the user to resolve.
 
+**Built — floor hooks (v0.5 block 3)**
+- Hooks live in the project's `.dogwalker/hooks.json` at the ground root
+  (versionable): `{ setup, run, teardown }` shell strings. `HookService` runs a
+  hook in the floor's worktree with the `DOGWALKER_*` env
+  (`FLOOR_NAME`/`BRANCH_NAME`/`FLOOR_PATH`/`ROOT_PATH`/`PROJECT_NAME`), so setup
+  can install deps or copy an `.env` that worktrees don't inherit. `setup`
+  auto-runs on create, `run` on demand (a chip button, output shown), `teardown`
+  before the worktree is removed on delete or land. A missing hook is a no-op.
+
 ## 9. Portals
 
 - One `WebContentsView` per portal with an isolated `session` partition; linked portals share a partition (multi-account testing).
