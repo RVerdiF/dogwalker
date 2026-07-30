@@ -22,6 +22,7 @@ import { runFsTest } from './main/fsTest';
 import { GitService } from './main/gitService';
 import { runGitTest } from './main/gitTest';
 import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
+import { runCrossFloorTest } from './main/crossFloorTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
@@ -545,6 +546,10 @@ const createWindow = () => {
 
   if (process.env.DW_HOOKTEST) {
     void runHookTest(hooks, git);
+  }
+
+  if (process.env.DW_CROSSFLOORTEST) {
+    void runCrossFloorTest(ptys, graph, git, socketPath);
   }
 
   if (process.env.DW_BROKERTEST) {

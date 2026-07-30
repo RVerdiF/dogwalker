@@ -335,6 +335,11 @@ function FloorCreate({
           Clone the ground layout (arrangement only)
         </label>
         {error && <div className="dw-floor-error">{error}</div>}
+        <p className="dw-floor-hint">
+          A branch can be checked out on only one floor at a time. Untracked files
+          (deps, <code>.env</code>, build output) don't come along — use a{' '}
+          <code>setup</code> hook.
+        </p>
         <div className="dw-floor-actions">
           <button className="dw-btn-primary" disabled={busy} onClick={() => void submit()}>
             {busy ? 'Creating…' : 'Create floor'}

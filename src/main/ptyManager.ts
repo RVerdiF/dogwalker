@@ -21,6 +21,8 @@ interface Entry {
   name: string;
   /** Ownership, so terminals survive a workspace switch and can be re-adopted. */
   workspaceId: string;
+  /** Human floor label ('ground' or a floor name) for `list` context (§10). */
+  floorName: string;
   stableId: string;
   preset: PresetId;
   // Attention state (ARCHITECTURE.md §6).
@@ -124,6 +126,7 @@ export class PtyManager {
       serializer,
       name: opts.name,
       workspaceId: opts.workspaceId,
+      floorName: opts.floorName ?? 'ground',
       stableId: opts.stableId,
       preset: opts.preset,
       attention: false,
@@ -312,6 +315,11 @@ export class PtyManager {
       this.pending.set(id, (this.pending.get(id) ?? '') + msg);
       this.scheduleFlush();
     }
+  }
+
+  /** The floor a terminal lives on (for `list` context); '' if unknown. */
+  floorOf(id: string): string {
+    return this.entries.get(id)?.floorName ?? '';
   }
 
   /** Terminals still alive for a workspace, so a returning canvas adopts them. */

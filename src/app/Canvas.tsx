@@ -115,6 +115,8 @@ interface Props {
   workspaceCwd: string;
   /** Which layer is shown: 'ground' or a floor id (PRODUCT.md §10). */
   floorId: string;
+  /** Human floor label ('ground' or the floor name), shown in `list`. */
+  floorLabel: string;
   isDev: boolean;
   notifyOnAttention: boolean;
 }
@@ -123,6 +125,7 @@ export function Canvas({
   workspaceId,
   workspaceCwd,
   floorId,
+  floorLabel,
   isDev,
   notifyOnAttention,
 }: Props) {
@@ -218,6 +221,7 @@ export function Canvas({
             cols: 80,
             rows: 24,
             workspaceId: layerId,
+            floorName: floorLabel,
             stableId: spec.stableId,
             cwd: workspaceCwd,
             memoryLimitMB: spec.memoryLimitMB ?? 0,
@@ -244,7 +248,7 @@ export function Canvas({
       setNodes((ns) => [...ns, node]);
       return id;
     },
-    [setNodes, layerId, workspaceCwd],
+    [setNodes, layerId, workspaceCwd, floorLabel],
   );
 
   const addNoteNode = useCallback(

@@ -252,6 +252,19 @@ body,
   white-space: pre-wrap;
 }
 
+.dw-floor-hint {
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #7c8598;
+}
+
+.dw-floor-hint code {
+  background: #0f1114;
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
 .dw-floor-actions {
   display: flex;
   gap: 8px;

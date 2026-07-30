@@ -190,9 +190,12 @@ export class Broker {
   }
 
   private handleList(socket: net.Socket, from: string): void {
+    // Annotate each peer with its floor (§10) so an agent knows where a
+    // connected teammate is working — ground or a specific floor.
     const peers = [...this.graph.neighbors(from)].map((id) => ({
       id,
       name: this.graph.name(id),
+      floor: this.graph.kindOf(id) === 'terminal' ? this.ptys.floorOf(id) : '',
     }));
     this.respond(socket, { ok: true, data: { peers } });
   }

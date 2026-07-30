@@ -455,6 +455,11 @@ export function App() {
                       : floors.find((f) => f.id === floorId)?.path ?? ''
                   }
                   floorId={floorId}
+                  floorLabel={
+                    floorId === 'ground'
+                      ? 'ground'
+                      : floors.find((f) => f.id === floorId)?.name ?? floorId
+                  }
                   isDev={IS_DEV}
                   notifyOnAttention={settings.notifyOnAttention}
                 />

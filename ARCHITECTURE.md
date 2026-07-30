@@ -173,6 +173,16 @@ A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills
   auto-runs on create, `run` on demand (a chip button, output shown), `teardown`
   before the worktree is removed on delete or land. A missing hook is a no-op.
 
+**Built — floor-aware broker/CLI + constraints (v0.5 block 4)**
+- Every terminal carries its floor label (`floorName` on the PTY entry). The
+  broker's `list` annotates each peer with `[floor]`, so an agent sees which
+  layer a teammate works on. Because the graph is global and terminals outlive
+  layer switches, `ask`/`check` reach a **cross-floor** target the moment it's
+  wired (e.g. via `dogwalker connect <name>`) — no floor-specific routing.
+- Worktree constraints are surfaced, not worked around: the create dialog spells
+  out one-checkout-per-branch and untracked-files-need-setup, and git's own
+  "branch already checked out" error is shown when it happens.
+
 ## 9. Portals
 
 - One `WebContentsView` per portal with an isolated `session` partition; linked portals share a partition (multi-account testing).

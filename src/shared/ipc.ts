@@ -22,6 +22,8 @@ export interface SpawnOptions {
   rows: number;
   /** Owning workspace — terminals outlive a workspace switch (background). */
   workspaceId: string;
+  /** Human floor label ('ground' or a floor name) — shown in `list` (§10). */
+  floorName?: string;
   /** Persistent node id, so a returning canvas can re-adopt this terminal. */
   stableId: string;
   cwd: string;
