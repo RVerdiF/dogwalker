@@ -25,11 +25,14 @@ import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
 import { runCrossFloorTest } from './main/crossFloorTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
+import { RoutineService } from './main/routineService';
+import { runRoutineTest } from './main/routineTest';
 import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
 import type { AppSettings } from './shared/ipc';
 import type {
   FloorRecord,
   ProcessMetric,
+  Routine,
   SidebarEntry,
   SpawnOptions,
   WorkspaceLayout,
@@ -146,6 +149,37 @@ const createWindow = () => {
     (_e, { id, name, bytes }: { id: string; name: string; bytes: Uint8Array }) =>
       notes.saveImage(id, name, bytes),
   );
+
+  // Routines: scheduled prompts to agents (PRODUCT.md §11).
+  const routines = new RoutineService(app.getPath('userData'), ptys, (r) => {
+    if (!wc.isDestroyed()) wc.send('routine:update', r);
+  });
+  ipcMain.handle('routine:list', (_e, workspaceId: string) => routines.list(workspaceId));
+  ipcMain.handle(
+    'routine:create',
+    (
+      _e,
+      {
+        workspaceId,
+        opts,
+      }: {
+        workspaceId: string;
+        opts: { name: string; targetStableId: string; prompt: string; intervalMs: number };
+      },
+    ) => routines.create(workspaceId, opts),
+  );
+  ipcMain.handle(
+    'routine:update',
+    (_e, { id, partial }: { id: string; partial: Partial<Routine> }) =>
+      routines.update(id, partial),
+  );
+  ipcMain.handle(
+    'routine:setEnabled',
+    (_e, { id, enabled }: { id: string; enabled: boolean }) =>
+      routines.setEnabled(id, enabled),
+  );
+  ipcMain.handle('routine:runNow', (_e, id: string) => routines.runNow(id));
+  ipcMain.handle('routine:delete', (_e, id: string) => routines.remove(id));
 
   ipcMain.on('notify', (_e, { title, body }: { title: string; body: string }) => {
     if (Notification.isSupported()) new Notification({ title, body }).show();
@@ -485,6 +519,7 @@ const createWindow = () => {
     ptys?.killAll();
     broker?.close();
     portals.destroyAll();
+    routines.disposeAll();
     ptys = null;
     broker = null;
   });
@@ -550,6 +585,10 @@ const createWindow = () => {
 
   if (process.env.DW_CROSSFLOORTEST) {
     void runCrossFloorTest(ptys, graph, git, socketPath);
+  }
+
+  if (process.env.DW_ROUTINETEST) {
+    void runRoutineTest(ptys, routines);
   }
 
   if (process.env.DW_BROKERTEST) {

@@ -4,6 +4,7 @@ import type {
   DwApi,
   GraphSnapshot,
   PortalState,
+  Routine,
   SpawnOptions,
 } from './shared/ipc';
 
@@ -159,6 +160,20 @@ const api: DwApi = {
     ipcRenderer.send('compose:setDraft', { stableId, text }),
   saveDropImage: (name, bytes) =>
     ipcRenderer.invoke('compose:saveImage', { name, bytes }),
+
+  listRoutines: (workspaceId) => ipcRenderer.invoke('routine:list', workspaceId),
+  createRoutine: (workspaceId, opts) =>
+    ipcRenderer.invoke('routine:create', { workspaceId, opts }),
+  updateRoutine: (id, partial) => ipcRenderer.invoke('routine:update', { id, partial }),
+  setRoutineEnabled: (id, enabled) =>
+    ipcRenderer.invoke('routine:setEnabled', { id, enabled }),
+  runRoutineNow: (id) => ipcRenderer.invoke('routine:runNow', id),
+  deleteRoutine: (id) => ipcRenderer.invoke('routine:delete', id),
+  onRoutineUpdate: (cb) => {
+    const listener = (_e: IpcRendererEvent, r: Routine) => cb(r);
+    ipcRenderer.on('routine:update', listener);
+    return () => ipcRenderer.removeListener('routine:update', listener);
+  },
 
   getSettings: () => ipcRenderer.invoke('settings:get'),
   setSettings: (partial) => ipcRenderer.invoke('settings:set', partial),

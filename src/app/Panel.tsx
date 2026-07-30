@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { AppSettings, WorkspaceMeta } from '../shared/ipc';
+import type { AppSettings, LiveTerminal, Routine, WorkspaceMeta } from '../shared/ipc';
 import type { ThemeSpec } from '../shared/themes';
 
 interface Props {
@@ -18,10 +18,11 @@ interface Props {
   onUpdateSettings: (partial: Partial<AppSettings>) => void;
 }
 
-type SectionId = 'workspaces' | 'agents' | 'presets' | 'roles' | 'settings';
+type SectionId = 'workspaces' | 'routines' | 'agents' | 'presets' | 'roles' | 'settings';
 
 const SECTIONS: Array<{ id: SectionId; label: string; icon: string; ready: boolean }> = [
   { id: 'workspaces', label: 'Workspaces', icon: '🗂️', ready: true },
+  { id: 'routines', label: 'Routines', icon: '⏱️', ready: true },
   { id: 'agents', label: 'Agents', icon: '🤖', ready: false },
   { id: 'presets', label: 'Presets', icon: '⚡', ready: false },
   { id: 'roles', label: 'Roles', icon: '🎭', ready: false },
@@ -68,6 +69,8 @@ export function Panel(props: Props) {
         <div className="dw-panel-body">
           {section === 'workspaces' ? (
             <WorkspacesSection {...props} />
+          ) : section === 'routines' ? (
+            <RoutinesSection activeId={props.activeId} />
           ) : section === 'settings' ? (
             <SettingsSection {...props} />
           ) : (
@@ -113,6 +116,137 @@ function WorkspacesSection({
             onDelete={() => onDelete(w.id)}
             onHibernate={() => onHibernate(w.id)}
           />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RoutinesSection({ activeId }: { activeId: string }) {
+  const [routines, setRoutines] = useState<Routine[]>([]);
+  const [terminals, setTerminals] = useState<LiveTerminal[]>([]);
+  const [name, setName] = useState('');
+  const [target, setTarget] = useState('');
+  const [prompt, setPrompt] = useState('');
+  const [everySec, setEverySec] = useState(300);
+
+  const refresh = () => {
+    void window.dw.listRoutines(activeId).then(setRoutines);
+    void window.dw.listTerminals(activeId).then((t) => {
+      setTerminals(t);
+      setTarget((cur) => cur || t[0]?.stableId || '');
+    });
+  };
+
+  useEffect(() => {
+    refresh();
+    return window.dw.onRoutineUpdate((r) =>
+      setRoutines((rs) => rs.map((x) => (x.id === r.id ? r : x))),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+
+  const create = async () => {
+    if (!prompt.trim() || !target) return;
+    await window.dw.createRoutine(activeId, {
+      name: name.trim() || 'routine',
+      targetStableId: target,
+      prompt: prompt.trim(),
+      intervalMs: Math.max(5, everySec) * 1000,
+    });
+    setName('');
+    setPrompt('');
+    refresh();
+  };
+
+  const nameOf = (stableId: string) =>
+    terminals.find((t) => t.stableId === stableId)?.name ?? '(offline)';
+
+  return (
+    <div className="dw-section">
+      <div className="dw-section-head">
+        <h2>Routines</h2>
+      </div>
+      <p className="dw-settings-hint">
+        A scheduled prompt for an agent. Chain steps with <code>&&</code> (or new
+        lines) — each waits for the agent's turn to finish before the next.
+      </p>
+
+      <div className="dw-routine-form">
+        <div className="dw-routine-row">
+          <input
+            className="dw-routine-name"
+            placeholder="Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <select value={target} onChange={(e) => setTarget(e.target.value)}>
+            {terminals.length === 0 && <option value="">no live terminals</option>}
+            {terminals.map((t) => (
+              <option key={t.stableId} value={t.stableId}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+          <label className="dw-routine-every">
+            every
+            <input
+              type="number"
+              min={5}
+              value={everySec}
+              onChange={(e) => setEverySec(Number(e.target.value))}
+            />
+            s
+          </label>
+        </div>
+        <textarea
+          className="dw-routine-prompt"
+          placeholder="run the tests && summarize failures into the notes"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          rows={2}
+        />
+        <button className="dw-btn-primary" onClick={() => void create()} disabled={!target}>
+          + Add routine
+        </button>
+      </div>
+
+      <div className="dw-routine-list">
+        {routines.length === 0 && <div className="dw-routine-empty">No routines yet.</div>}
+        {routines.map((r) => (
+          <div key={r.id} className="dw-routine-card">
+            <span className={`dw-routine-dot ${r.status}`} title={r.status} />
+            <div className="dw-routine-info">
+              <div className="dw-routine-title">
+                {r.name}
+                <span className="dw-routine-meta">
+                  → {nameOf(r.targetStableId)} · every {Math.round(r.intervalMs / 1000)}s ·{' '}
+                  {r.status}
+                </span>
+              </div>
+              <div className="dw-routine-prompt-preview">{r.prompt}</div>
+              {r.lastError && <div className="dw-routine-err">⚠ {r.lastError}</div>}
+            </div>
+            <div className="dw-routine-actions">
+              <button className="dw-btn-small" onClick={() => void window.dw.runRoutineNow(r.id)}>
+                Run
+              </button>
+              <button
+                className="dw-btn-small"
+                onClick={() =>
+                  void window.dw.setRoutineEnabled(r.id, !r.enabled).then(refresh)
+                }
+              >
+                {r.enabled ? 'Pause' : 'Resume'}
+              </button>
+              <button
+                className="dw-btn-small dw-btn-danger"
+                onClick={() => void window.dw.deleteRoutine(r.id).then(refresh)}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         ))}
       </div>
     </div>

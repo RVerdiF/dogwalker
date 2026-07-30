@@ -475,3 +475,15 @@ dot; a keystroke clears both.
 **v0.1 status: feature-complete on branch `v0.1-core-loop`.** Remaining before
 tagging v0.1 proper: exit-criteria dogfooding (the app used to build itself) and
 a pass over the README quick start — tracked in [ROADMAP.md](ROADMAP.md).
+
+**Built — routines (v0.6 block 1)**
+- **RoutineService** (`src/main/routineService.ts`, PRODUCT.md §11) — a routine
+  is a scheduled prompt aimed at an agent (by `targetStableId`). Its `&&`/newline
+  steps run one at a time, each injected then awaited to quiescence (the same
+  `ptyManager.awaitQuiet` signal `ask` uses) before the next — so multi-step
+  chains respect agent turns. A tick landing while a run is in flight is dropped
+  (a `running` guard), so a slow agent never overlaps or leaves zombie state; a
+  routine whose target isn't live skips quietly. Persisted to `routines.json`
+  (never resurrecting a `running` status); status changes emit `routine:update`.
+  The renderer's Panel → Routines section creates/pauses/runs/deletes them with a
+  live status dot.

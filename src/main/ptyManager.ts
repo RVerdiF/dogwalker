@@ -270,6 +270,14 @@ export class PtyManager {
     return this.entries.has(id);
   }
 
+  /** Live PTY id for a persistent stableId, if that terminal is running. */
+  findByStable(stableId: string): string | null {
+    for (const [id, e] of this.entries) {
+      if (e.stableId === stableId) return id;
+    }
+    return null;
+  }
+
   /** OS pid of a terminal's shell (root of its process tree). */
   pidOf(id: string): number | undefined {
     return this.entries.get(id)?.proc.pid;

@@ -255,6 +255,22 @@ export interface FloorMeta {
   path: string;
 }
 
+/** A scheduled prompt aimed at an agent terminal (PRODUCT.md §11). */
+export interface Routine {
+  id: string;
+  workspaceId: string;
+  name: string;
+  /** The agent terminal this drives, by persistent stableId. */
+  targetStableId: string;
+  /** Prompt text; `&&`/newlines chain steps that wait on turn completion. */
+  prompt: string;
+  intervalMs: number;
+  enabled: boolean;
+  status: 'idle' | 'running' | 'paused';
+  lastRun?: number;
+  lastError?: string;
+}
+
 /** The outcome of running a floor lifecycle hook (PRODUCT.md §10). */
 export interface HookResult {
   /** False when no such hook is configured. */
@@ -474,6 +490,19 @@ export interface DwApi {
   setDraft(stableId: string, text: string): void;
   /** Write a pasted image to a temp file; returns the absolute path to embed. */
   saveDropImage(name: string, bytes: Uint8Array): Promise<string>;
+
+  // Routines (scheduled prompts to agents, PRODUCT.md §11).
+  listRoutines(workspaceId: string): Promise<Routine[]>;
+  createRoutine(
+    workspaceId: string,
+    opts: { name: string; targetStableId: string; prompt: string; intervalMs: number },
+  ): Promise<Routine>;
+  updateRoutine(id: string, partial: Partial<Routine>): Promise<Routine | null>;
+  setRoutineEnabled(id: string, enabled: boolean): Promise<Routine | null>;
+  runRoutineNow(id: string): Promise<void>;
+  deleteRoutine(id: string): Promise<void>;
+  /** Fires when a routine's status changes (renderer updates the indicator). */
+  onRoutineUpdate(cb: (r: Routine) => void): () => void;
 
   // Settings & themes.
   getSettings(): Promise<AppSettings>;
