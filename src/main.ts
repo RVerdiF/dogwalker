@@ -27,6 +27,7 @@ import { runWalkerTest } from './main/walkerTest';
 import { runV06Bdd } from './main/v06BddTest';
 import { runRecoveryTest } from './main/recoveryTest';
 import { runDocSyncTest } from './main/docSyncTest';
+import { runSkillVerTest } from './main/skillVerTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { AgentDocsSync } from './main/agentDocsSync';
@@ -633,6 +634,10 @@ const createWindow = () => {
 
   if (process.env.DW_DOCSYNCTEST) {
     void runDocSyncTest();
+  }
+
+  if (process.env.DW_SKILLVERTEST) {
+    runSkillVerTest();
   }
 
   if (process.env.DW_BROKERTEST) {

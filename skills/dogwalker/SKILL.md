@@ -1,5 +1,6 @@
 ---
 name: dogwalker
+version: 1
 description: Talk to other agents and read their terminals from inside a Dogwalker canvas. Use whenever you need to ask a connected teammate to do something, check what another terminal is doing, read or write a shared note, drive a connected browser portal, or list who you are connected to.
 ---
 

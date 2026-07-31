@@ -535,6 +535,15 @@ teammate answers its Walker's `ask` across the floor boundary.
   no watch loop. Toggle lives on each workspace card. `DW_DOCSYNCTEST` covers
   seed / mirror-both-ways / newer-wins / live-watch.
 
+**Built — versioned skill (v0.8 block 2)**
+- The agent skill carries a `version:` in its frontmatter. `installSkill` (main,
+  on startup) compares the shipped version against the already-installed copy
+  before overwriting; a change logs a mismatch warning (`skill contract changed
+  v<old> → v<new>`) so an agent that learned the CLI before an upgrade is flagged
+  to re-read it. Logic is a pure `parseSkillVersion` + `installSkillTo(src, dest)`
+  returning `{version, previousVersion, upgraded}`; `DW_SKILLVERTEST` covers
+  parse / fresh / upgrade / same-version.
+
 **v0.7 hardening — status (2026-07-30, Windows)**
 - **Invariant audit**: all ten AGENTS.md invariants audited against the code and
   holding (see AGENTS.md → "Invariant audit — v0.7").
