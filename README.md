@@ -50,25 +50,41 @@ Dogwalker gives you one infinite canvas per project where every terminal is a li
 
 ## Install
 
-> Dogwalker is in the design/spike phase — there are no releases yet. The instructions below describe the intended flow.
+> **Release candidate (v0.8).** Feature-complete; cross-OS QA verified on Windows, macOS/Linux pending (see [Compatibility](#compatibility)).
 
-**Requirements:** Node.js 20+, git (for Floors and git views).
+### From a packaged build (recommended)
+
+Grab the installer for your OS from the [latest release](https://github.com/caribeedu/dogwalker/releases/latest):
+
+| OS | Artifact |
+|---|---|
+| Windows 10/11 | `Dogwalker-<version>.Setup.exe` |
+| macOS 13+ | `Dogwalker-<version>.dmg` |
+| Linux | `Dogwalker-<version>.AppImage`, or the `.deb` / `.rpm` |
+
+Unsigned for now: Windows SmartScreen ("More info → Run anyway") and macOS Gatekeeper (right-click → Open, or `xattr -dr com.apple.quarantine Dogwalker.app`) will warn on first launch. Code signing + notarization are tracked for a later release.
+
+**Requirement:** `git` on your PATH (for Floors and the git views).
+
+### From source
+
+**Requirements:** Node.js 20+, git.
 
 ```bash
-git clone https://github.com/<you>/dogwalker
+git clone https://github.com/caribeedu/dogwalker
 cd dogwalker
 npm install
 npm start
 ```
 
-Packaged builds (dmg / exe / AppImage) will ship once the core stabilizes.
+Build your own installers with `npm run make` (produces your current OS's artifact under `out/make/`).
 
 ## Quick start
 
 1. **Create a workspace** — point it at a project directory.
 2. **Draw a terminal** — pick the Terminal tool, drag a rectangle, choose an agent preset (or a plain shell).
 3. **Draw a second terminal**, then **connect them** — select one, press the connection shortcut, click the other.
-4. **Ask across the wire** — in terminal A's agent, type: *"use dogwalker to ask Reviewer to look at auth.ts"*. The agent runs `dogwalker ask reviewer "…"` and blocks until the reviewer replies with `dogwalker reply <id> --stdin`.
+4. **Ask across the wire** — in terminal A's agent, type: *"use dogwalker to ask Reviewer to look at auth.ts"*. The agent runs `dogwalker ask reviewer "…"`; Dogwalker delivers the message, waits for the reviewer to finish, and hands its output straight back to A — the reviewer just responds normally, no reply command needed.
 5. **Watch** — zoom out; attention dots light up when an agent finishes and waits for you.
 
 ## Compatibility

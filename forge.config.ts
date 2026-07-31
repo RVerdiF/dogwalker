@@ -3,6 +3,8 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
+import { MakerDMG } from '@electron-forge/maker-dmg';
+import MakerAppImage from '@reforged/maker-appimage';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
@@ -15,11 +17,17 @@ const config: ForgeConfig = {
   // so no electron-rebuild pass is needed — and requiring one would demand
   // native build tools on every dev machine.
   rebuildConfig: { onlyModules: [] },
+  // Per-OS installers (PRODUCT.md §13, ROADMAP v0.8). Forge only runs makers
+  // whose platform matches the host, so a given OS's CI job produces its own
+  // artifact: Windows → Squirrel .exe, macOS → .dmg (+ .zip), Linux → .deb /
+  // .rpm / AppImage.
   makers: [
     new MakerSquirrel({}),
+    new MakerDMG({}, ['darwin']),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
     new MakerDeb({}),
+    new MakerAppImage({ options: { bin: 'dogwalker' } }),
   ],
   plugins: [
     new VitePlugin({
