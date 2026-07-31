@@ -535,6 +535,27 @@ teammate answers its Walker's `ask` across the floor boundary.
   no watch loop. Toggle lives on each workspace card. `DW_DOCSYNCTEST` covers
   seed / mirror-both-ways / newer-wins / live-watch.
 
+**Built — release engineering (v0.8)**
+- Installers via electron-forge makers per OS (Squirrel `.exe`, DMG, ZIP,
+  Deb/Rpm, AppImage); `npm run make` builds the host OS's artifact. MIT LICENSE;
+  README install instructions; version 0.8.0 (RC line).
+- CI (`.github/workflows/build.yml`): a `check` job (typecheck + lint) on every
+  PR, and a tag-triggered `make` matrix (macOS/Windows/Linux) that builds +
+  uploads each OS's installer. Dogfooding note: the first CI run on the v0.8 PR
+  **caught a real gap** — the `lint` script called eslint, which had never been a
+  dependency; it now has a lean flat `eslint.config.mjs` (typecheck stays the
+  correctness gate) and runs clean. Signing/notarization + `.msi` and off-Windows
+  fresh-install QA are deferred (no certs/machines here), documented in README.
+
+**Built — versioned skill (v0.8 block 2)**
+- The agent skill carries a `version:` in its frontmatter. `installSkill` (main,
+  on startup) compares the shipped version against the already-installed copy
+  before overwriting; a change logs a mismatch warning (`skill contract changed
+  v<old> → v<new>`) so an agent that learned the CLI before an upgrade is flagged
+  to re-read it. Logic is a pure `parseSkillVersion` + `installSkillTo(src, dest)`
+  returning `{version, previousVersion, upgraded}`; `DW_SKILLVERTEST` covers
+  parse / fresh / upgrade / same-version.
+
 **v0.7 hardening — status (2026-07-30, Windows)**
 - **Invariant audit**: all ten AGENTS.md invariants audited against the code and
   holding (see AGENTS.md → "Invariant audit — v0.7").

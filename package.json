@@ -1,7 +1,7 @@
 {
   "name": "dogwalker",
   "productName": "Dogwalker",
-  "version": "0.0.1",
+  "version": "0.8.0",
   "description": "Walk all your agents at once — an infinite canvas for AI coding agents.",
   "main": ".vite/build/main.js",
   "private": true,
@@ -11,7 +11,7 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint --ext .ts,.tsx ."
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": {
@@ -22,6 +22,7 @@
   "devDependencies": {
     "@electron-forge/cli": "^7.11.2",
     "@electron-forge/maker-deb": "^7.11.2",
+    "@electron-forge/maker-dmg": "^7.11.2",
     "@electron-forge/maker-rpm": "^7.11.2",
     "@electron-forge/maker-squirrel": "^7.11.2",
     "@electron-forge/maker-zip": "^7.11.2",
@@ -29,12 +30,17 @@
     "@electron-forge/plugin-fuses": "^7.11.2",
     "@electron-forge/plugin-vite": "^7.11.2",
     "@electron/fuses": "^1.8.0",
+    "@eslint/js": "^10.0.1",
+    "@reforged/maker-appimage": "^5.2.0",
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "43.1.1",
+    "eslint": "^10.8.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.65.0",
     "vite": "^5.4.21"
   },
   "dependencies": {
