@@ -534,3 +534,20 @@ teammate answers its Walker's `ask` across the floor boundary.
   content-equality guard makes the mirror write a no-op on the echo, so there's
   no watch loop. Toggle lives on each workspace card. `DW_DOCSYNCTEST` covers
   seed / mirror-both-ways / newer-wins / live-watch.
+
+**v0.7 hardening — status (2026-07-30, Windows)**
+- **Invariant audit**: all ten AGENTS.md invariants audited against the code and
+  holding (see AGENTS.md → "Invariant audit — v0.7").
+- **Failure recovery** (§ above) + **doc-sync** shipped and tested.
+- **Scale**: the `DW_SMOKE`/`DW_SOAK` harness (from the spike) remains the scale
+  probe; the spike met its fps/context-budget criteria at 15 terminals and
+  **tier-4 snapshot rendering was intentionally not built** because profiling did
+  not demand it — that decision stands for v0.7. `DW_SMOKE` on Windows
+  (15 terminals): 60 fps near / 60 fps panning / 47 fps at static overview,
+  ≤8 live WebGL contexts, 0 context losses — within the spike budget.
+- **Cross-OS QA matrix**: exercised on **Windows** only in this environment;
+  macOS + Linux (X11/Wayland) execution is **deferred and documented as pending**
+  — it needs those machines. No OS-specific hacks are in the code (worktrees,
+  paths, and shells are handled portably), so the matrix is expected to pass, but
+  it is not yet *verified* off-Windows. This is the one v0.7 exit criterion that
+  remains open by environment, not by code.
