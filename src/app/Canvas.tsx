@@ -2155,7 +2155,7 @@ export function Canvas({
             maskColor="rgba(10, 10, 14, 0.7)"
             nodeColor={(n) => (n.type === 'note' ? '#3a3726' : '#2e2e3a')}
             nodeStrokeColor={(n) =>
-              n.type === 'note' ? '#e0cf7a' : n.data?.attention ? '#ff5555' : '#8ab4ff'
+              n.type === 'note' ? '#e0cf7a' : n.data?.attention ? '#e6533c' : '#e8b565'
             }
             nodeStrokeWidth={3}
           />
