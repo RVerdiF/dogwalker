@@ -1,0 +1,83 @@
+<svg width="1200" height="360" viewBox="0 0 1200 360" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dogwalker — walk all your agents at once">
+  <defs>
+    <linearGradient id="fur" x1="0" y1="360" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C87F3C"/>
+      <stop offset="1" stop-color="#EEC079"/>
+    </linearGradient>
+    <linearGradient id="furV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F0CB86"/>
+      <stop offset="1" stop-color="#E0A455"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#E8B565" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#E8B565" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1.5" fill="#20232C"/>
+    </pattern>
+  </defs>
+
+  <!-- canvas backdrop -->
+  <rect width="1200" height="360" rx="16" fill="#0E0F13"/>
+  <rect width="1200" height="360" rx="16" fill="url(#dots)"/>
+  <circle cx="880" cy="150" r="320" fill="url(#glow)"/>
+  <rect x="0.5" y="0.5" width="1199" height="359" rx="16" stroke="#262A33"/>
+
+  <!-- ==== left: wordmark + tagline ==== -->
+  <g transform="translate(72,92)">
+    <rect x="0" y="26" width="56" height="56" rx="17" fill="url(#fur)"/>
+    <path d="M15 43l9 8-9 8" stroke="#20140A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M32 59h13" stroke="#20140A" stroke-width="5" stroke-linecap="round"/>
+    <path d="M54 30C72 6 78 3 88 0" stroke="#E6533C" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="90" cy="-4" r="16" fill="#E6533C"/>
+  </g>
+
+  <text x="184" y="150" font-family="Segoe UI, system-ui, -apple-system, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="-1.5" fill="#EEF0F5">Dogwalker</text>
+  <text x="186" y="198" font-family="Segoe UI, system-ui, -apple-system, Arial, sans-serif" font-size="26" font-weight="600" fill="url(#furV)">Walk all your agents at once.</text>
+  <text x="186" y="236" font-family="Segoe UI, system-ui, -apple-system, Arial, sans-serif" font-size="18" font-weight="400" fill="#8B90A0">An infinite canvas for AI coding agents · local · free</text>
+
+  <!-- badges -->
+  <g font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600">
+    <rect x="186" y="266" width="132" height="30" rx="15" fill="#16181F" stroke="#3A342A"/>
+    <text x="252" y="286" text-anchor="middle" fill="#EFC98A">macOS</text>
+    <rect x="326" y="266" width="132" height="30" rx="15" fill="#16181F" stroke="#3A342A"/>
+    <text x="392" y="286" text-anchor="middle" fill="#EFC98A">Windows</text>
+    <rect x="466" y="266" width="110" height="30" rx="15" fill="#16181F" stroke="#3A342A"/>
+    <text x="521" y="286" text-anchor="middle" fill="#EFC98A">Linux</text>
+  </g>
+
+  <!-- ==== right: mini node-graph (the leash metaphor) ==== -->
+  <g transform="translate(720,64)">
+    <!-- leashes -->
+    <path d="M150 70C210 40 214 44 250 40" stroke="#E8B565" stroke-width="3" fill="none" opacity="0.9"/>
+    <path d="M150 96C206 128 214 150 250 156" stroke="#E6533C" stroke-width="3" fill="none" opacity="0.9"/>
+    <path d="M250 60v78" stroke="#3A3F4B" stroke-width="2.5" fill="none" stroke-dasharray="1 7" stroke-linecap="round"/>
+
+    <!-- lead terminal -->
+    <g>
+      <rect x="30" y="52" width="120" height="62" rx="12" fill="#16181F" stroke="url(#fur)" stroke-width="1.5"/>
+      <rect x="30" y="52" width="120" height="18" rx="12" fill="#1B1E26"/>
+      <circle cx="42" cy="61" r="3" fill="#E6533C"/>
+      <text x="54" y="65" font-family="Segoe UI, system-ui, sans-serif" font-size="10" font-weight="600" fill="#CFD3DC">lead</text>
+      <path d="M42 84l7 6-7 6" stroke="#EEC079" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M56 96h20" stroke="#565D6B" stroke-width="2.4" stroke-linecap="round"/>
+    </g>
+
+    <!-- reviewer terminal -->
+    <g>
+      <rect x="250" y="14" width="118" height="56" rx="12" fill="#16181F" stroke="#2A2E37"/>
+      <rect x="250" y="14" width="118" height="16" rx="12" fill="#1B1E26"/>
+      <text x="262" y="26" font-family="Segoe UI, system-ui, sans-serif" font-size="10" font-weight="600" fill="#CFD3DC">reviewer</text>
+      <path d="M262 44h30" stroke="#565D6B" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M262 54h44" stroke="#565D6B" stroke-width="2.2" stroke-linecap="round"/>
+    </g>
+
+    <!-- note -->
+    <g>
+      <rect x="250" y="126" width="118" height="56" rx="12" fill="#201F17" stroke="#3A3726"/>
+      <text x="262" y="147" font-family="Segoe UI, system-ui, sans-serif" font-size="10" font-weight="700" fill="#E0CF7A">SPEC.md</text>
+      <path d="M262 160h44" stroke="#7c6f3f" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M262 170h30" stroke="#7c6f3f" stroke-width="2.2" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

@@ -1,14 +1,14 @@
 <div align="center">
 
-# Dogwalker
+<img src="docs/assets/hero.svg" alt="Dogwalker — walk all your agents at once" width="860">
 
-**Walk all your agents at once.**
+# Dogwalker
 
 An infinite canvas for AI coding agents: real terminals as nodes on a zoomable 2D surface. Put them on a leash — wire terminals together and your agents talk to each other through a structured protocol. Cross-platform. Local. Free.
 
 *macOS · Windows · Linux — **v1.0** (Windows-verified; macOS/Linux QA pending)*
 
-[Product](PRODUCT.md) · [Architecture](ARCHITECTURE.md) · [Agent guide](AGENTS.md)
+[Product](PRODUCT.md) · [Architecture](ARCHITECTURE.md) · [Agent guide](AGENTS.md) · [Design](DESIGN.md)
 
 </div>
 

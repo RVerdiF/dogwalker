@@ -1,3 +1,40 @@
+/* ===== Design system tokens (see DESIGN.md) ============================= */
+:root {
+  /* surfaces */
+  --dw-bg: #0e0f13;
+  --dw-surface-1: #131319;
+  --dw-surface-2: #16181f;
+  --dw-surface-3: #1b1e26;
+  --dw-border: #262a33;
+  --dw-border-strong: #333a47;
+  /* text */
+  --dw-text: #e6e8ee;
+  --dw-text-dim: #cfd3dc;
+  --dw-text-muted: #8b90a0;
+  --dw-text-faint: #6f7686;
+  /* brand + interaction — golden-retriever coat + red leash */
+  --dw-accent: #e8b565;
+  --dw-brand-1: #eec079;
+  --dw-brand-2: #c87f3c;
+  --dw-brand-grad: linear-gradient(135deg, #eec079, #c87f3c);
+  --dw-leash: #e6533c;
+  /* status */
+  --dw-success: #7ee0a8;
+  --dw-warn: #e0a35a;
+  --dw-danger: #f0a0a0;
+  --dw-note: #e0cf7a;
+  /* shape + depth */
+  --dw-r-sm: 6px;
+  --dw-r-md: 8px;
+  --dw-r-lg: 12px;
+  --dw-r-pill: 999px;
+  --dw-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --dw-ring: 0 0 0 2px rgba(232, 181, 101, 0.28);
+  /* type */
+  --dw-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --dw-mono: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -8,9 +45,9 @@ body,
   margin: 0;
   height: 100%;
   overflow: hidden;
-  background: #101014;
-  color: #d6d6dd;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--dw-bg);
+  color: var(--dw-text-dim);
+  font-family: var(--dw-sans);
   font-size: 13px;
 }
 
@@ -83,8 +120,8 @@ body,
 }
 
 .dw-floor-chip.active {
-  border-color: #8ab4ff;
-  box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.18);
+  border-color: var(--dw-accent);
+  box-shadow: 0 0 0 2px rgba(232, 181, 101, 0.18);
 }
 
 .dw-floor-branch {
@@ -98,7 +135,7 @@ body,
 .dw-floor-run {
   border: none;
   background: transparent;
-  color: #7ee0a8;
+  color: var(--dw-success);
   font-size: 11px;
   cursor: pointer;
   padding: 0 2px;
@@ -116,7 +153,7 @@ body,
 .dw-floor-land {
   border: none;
   background: transparent;
-  color: #7ea8ff;
+  color: #e8b565;
   font-size: 14px;
   cursor: pointer;
   padding: 0 2px;
@@ -200,17 +237,17 @@ body,
 }
 
 .dw-routine-dot.idle {
-  background: #7ee0a8;
+  background: var(--dw-success);
 }
 
 .dw-routine-dot.running {
-  background: #8ab4ff;
-  box-shadow: 0 0 0 3px rgba(138, 180, 255, 0.25);
+  background: var(--dw-accent);
+  box-shadow: 0 0 0 3px rgba(232, 181, 101, 0.25);
   animation: dw-routine-pulse 1.1s ease-in-out infinite;
 }
 
 .dw-routine-dot.paused {
-  background: #e0a35a;
+  background: var(--dw-warn);
 }
 
 @keyframes dw-routine-pulse {
@@ -247,7 +284,7 @@ body,
 }
 
 .dw-routine-err {
-  color: #f0a0a0;
+  color: var(--dw-danger);
   font-size: 11px;
   margin-top: 3px;
 }
@@ -277,7 +314,7 @@ body,
 .dw-node-restart {
   border: none;
   background: transparent;
-  color: #7ee0a8;
+  color: var(--dw-success);
   font-size: 13px;
   cursor: pointer;
   padding: 0 4px;
@@ -307,15 +344,15 @@ body,
 }
 
 .dw-hook-ok {
-  color: #7ee0a8;
+  color: var(--dw-success);
 }
 
 .dw-hook-err {
-  color: #f0a0a0;
+  color: var(--dw-danger);
 }
 
 .dw-floor-land:hover {
-  color: #a9c6ff;
+  color: #f2d69a;
 }
 
 .dw-floor-x {
@@ -430,7 +467,7 @@ body,
 }
 
 .dw-floor-error {
-  color: #f0a0a0;
+  color: var(--dw-danger);
   font-size: 12px;
   margin-bottom: 10px;
   white-space: pre-wrap;
@@ -547,8 +584,8 @@ body,
 }
 
 .dw-rail-ws.active {
-  border-color: #8ab4ff;
-  box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.2);
+  border-color: var(--dw-accent);
+  box-shadow: 0 0 0 2px rgba(232, 181, 101, 0.2);
 }
 
 .dw-rail-ws.dragging,
@@ -684,8 +721,8 @@ body,
 }
 
 .dw-palette-chip:hover {
-  background: rgba(138, 180, 255, 0.16);
-  border-color: rgba(138, 180, 255, 0.5);
+  background: rgba(232, 181, 101, 0.16);
+  border-color: rgba(232, 181, 101, 0.5);
   transform: translateY(-1px);
 }
 
@@ -753,7 +790,7 @@ body,
 }
 
 .dw-node-selected {
-  border-color: #8ab4ff;
+  border-color: var(--dw-accent);
 }
 
 .dw-node-header {
@@ -875,7 +912,7 @@ body,
 .dw-handle {
   width: 12px;
   height: 12px;
-  background: #8ab4ff;
+  background: var(--dw-accent);
   border: 2px solid #16161c;
   opacity: 0.35;
   transition: opacity 0.12s, transform 0.12s;
@@ -906,12 +943,12 @@ body,
 }
 
 .react-flow__edge .dw-leash-path {
-  stroke: #8ab4ff;
+  stroke: var(--dw-leash);
   stroke-width: 2.5;
 }
 
 .react-flow__edge .dw-leash-path.selected {
-  stroke: #b98aff;
+  stroke: #f26b52;
   stroke-width: 3.5;
 }
 
@@ -967,7 +1004,7 @@ body,
 }
 
 .dw-msg-ask {
-  border-left-color: #8ab4ff;
+  border-left-color: var(--dw-accent);
 }
 
 .dw-msg-reply {
@@ -1066,7 +1103,7 @@ body,
 }
 
 .dw-panel-navitem.active {
-  background: rgba(138, 180, 255, 0.16);
+  background: rgba(232, 181, 101, 0.16);
   color: #fff;
 }
 
@@ -1148,8 +1185,8 @@ body,
 }
 
 .dw-ws-card.active {
-  border-color: rgba(138, 180, 255, 0.6);
-  background: rgba(138, 180, 255, 0.08);
+  border-color: rgba(232, 181, 101, 0.6);
+  background: rgba(232, 181, 101, 0.08);
 }
 
 .dw-ws-open {
@@ -1216,14 +1253,25 @@ body,
 }
 
 .dw-btn-primary {
-  background: #8ab4ff;
+  background: var(--dw-brand-grad);
   color: #0f0f16;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--dw-r-md);
   padding: 7px 14px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: filter 0.12s, box-shadow 0.12s;
+}
+
+.dw-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: var(--dw-ring);
+}
+
+.dw-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .dw-btn-primary:hover {
@@ -1276,8 +1324,8 @@ body,
 }
 
 .dw-ft.dw-node-selected {
-  border-color: #8ab4ff;
-  box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.2);
+  border-color: var(--dw-accent);
+  box-shadow: 0 0 0 2px rgba(232, 181, 101, 0.2);
 }
 
 .dw-ft-header {
@@ -1384,7 +1432,7 @@ body,
 }
 
 .dw-ft-error {
-  color: #e0a35a;
+  color: var(--dw-warn);
   white-space: normal;
 }
 
@@ -1486,9 +1534,9 @@ body,
   display: flex;
   align-items: center;
   gap: 5px;
-  border: 1px solid #33465f;
-  background: #17202c;
-  color: #9dc0f0;
+  border: 1px solid #4a3c26;
+  background: #20190f;
+  color: #eac98a;
   font-size: 12px;
   padding: 2px 8px;
   border-radius: 10px;
@@ -1500,7 +1548,7 @@ body,
 }
 
 .dw-git-chip:hover {
-  background: #1c2836;
+  background: #251c10;
 }
 
 .dw-git-chip-icon::before {
@@ -1512,7 +1560,7 @@ body,
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #e0a35a;
+  background: var(--dw-warn);
 }
 
 /* ---- Branch menu -------------------------------------------------------- */
@@ -1556,7 +1604,7 @@ body,
 }
 
 .dw-git-hint {
-  color: #e0a35a;
+  color: var(--dw-warn);
   font-size: 11px;
   margin-bottom: 4px;
 }
@@ -1577,7 +1625,7 @@ body,
 }
 
 .dw-git-branch.current {
-  color: #7ee0a8;
+  color: var(--dw-success);
 }
 
 .dw-git-branch:disabled {
@@ -1591,8 +1639,8 @@ body,
 }
 
 .dw-git-actions .dw-btn-small.active {
-  border-color: #8ab4ff;
-  color: #cfe0ff;
+  border-color: var(--dw-accent);
+  color: #f2d69a;
 }
 
 .dw-git-prompt {
@@ -1618,7 +1666,7 @@ body,
 
 .dw-git-result.err {
   background: #2a1618;
-  color: #f0a0a0;
+  color: var(--dw-danger);
 }
 
 .dw-git-menu-close {
@@ -1662,7 +1710,7 @@ body,
 }
 
 .dw-diff-hunk {
-  color: #7c93c0;
+  color: #a08a63;
   background: #12151b;
   padding: 1px 8px;
   white-space: pre;
@@ -1721,8 +1769,8 @@ body,
 }
 
 .dw-git-ref {
-  background: #23324a;
-  color: #9dc0f0;
+  background: #33291a;
+  color: #eac98a;
   border-radius: 8px;
   padding: 0 6px;
   font-size: 10px;
@@ -1779,12 +1827,12 @@ body,
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #e0a35a;
+  background: var(--dw-warn);
   flex-shrink: 0;
 }
 
 .dw-editor-saved {
-  color: #7ee0a8;
+  color: var(--dw-success);
   font-size: 11px;
 }
 
@@ -1847,7 +1895,7 @@ body,
 }
 
 .dw-ft-hit-loc {
-  color: #9dc0f0;
+  color: #eac98a;
 }
 
 .dw-ft-hit-text {
@@ -1872,8 +1920,8 @@ body,
 }
 
 .dw-preview.dw-node-selected {
-  border-color: #8ab4ff;
-  box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.2);
+  border-color: var(--dw-accent);
+  box-shadow: 0 0 0 2px rgba(232, 181, 101, 0.2);
 }
 
 .dw-preview-header {
@@ -1923,7 +1971,7 @@ body,
 
 .dw-preview-error {
   padding: 10px;
-  color: #e0a35a;
+  color: var(--dw-warn);
 }
 
 /* ---- Portal node (embedded browser) ------------------------------------ */
@@ -1939,8 +1987,8 @@ body,
 }
 
 .dw-portal.dw-node-selected {
-  border-color: #8ab4ff;
-  box-shadow: 0 0 0 2px rgba(138, 180, 255, 0.2);
+  border-color: var(--dw-accent);
+  box-shadow: 0 0 0 2px rgba(232, 181, 101, 0.2);
 }
 
 .dw-portal-bar {
@@ -2005,7 +2053,7 @@ body,
 
 /* A terminal highlights when a file is dragged over it (drag-to-agent). */
 .dw-node.dw-drop-over {
-  outline: 2px dashed #8ab4ff;
+  outline: 2px dashed var(--dw-accent);
   outline-offset: -2px;
 }
 
@@ -2122,7 +2170,7 @@ body,
 }
 
 .dw-note-md a {
-  color: #8ab4ff;
+  color: var(--dw-accent);
 }
 
 .dw-note-md table {
@@ -2184,7 +2232,7 @@ body,
 
 .dw-composer-target {
   align-self: center;
-  color: #8ab4ff;
+  color: var(--dw-accent);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
@@ -2222,7 +2270,7 @@ body,
   height: 38px;
   border: none;
   border-radius: 11px;
-  background: #8ab4ff;
+  background: var(--dw-accent);
   color: #0f0f16;
   font-size: 16px;
   cursor: pointer;
@@ -2266,7 +2314,7 @@ body,
 
 .dw-mention-item:hover,
 .dw-mention-item.active {
-  background: rgba(138, 180, 255, 0.18);
+  background: rgba(232, 181, 101, 0.18);
 }
 
 .dw-mention-item.new {
@@ -2309,8 +2357,8 @@ body,
 }
 
 .dw-theme-card.active {
-  border-color: rgba(138, 180, 255, 0.7);
-  background: rgba(138, 180, 255, 0.1);
+  border-color: rgba(232, 181, 101, 0.7);
+  background: rgba(232, 181, 101, 0.1);
 }
 
 .dw-swatch {
@@ -2451,7 +2499,7 @@ body,
 }
 
 .dw-ctxmenu-item:hover:not(:disabled) {
-  background: rgba(138, 180, 255, 0.18);
+  background: rgba(232, 181, 101, 0.18);
 }
 
 .dw-ctxmenu-item:disabled {
@@ -2510,8 +2558,8 @@ body,
 
 .dw-devbar button.dw-devbar-on {
   background: #3a4a6a;
-  border-color: #8ab4ff;
-  color: #cfe0ff;
+  border-color: var(--dw-accent);
+  color: #f2d69a;
 }
 
 /* ---- Empty state -------------------------------------------------------- */
@@ -2570,12 +2618,12 @@ body,
 }
 
 .dw-limit-chip:hover {
-  background: rgba(138, 180, 255, 0.18);
+  background: rgba(232, 181, 101, 0.18);
 }
 
 .dw-limit-chip.active {
-  background: rgba(138, 180, 255, 0.28);
-  border-color: #8ab4ff;
+  background: rgba(232, 181, 101, 0.28);
+  border-color: var(--dw-accent);
   color: #fff;
 }
 
@@ -2585,14 +2633,14 @@ body,
   height: 100%;
   border: 1px dashed #4a4a60;
   border-radius: 12px;
-  background: rgba(138, 180, 255, 0.05);
+  background: rgba(232, 181, 101, 0.05);
   /* Click-through so members stay interactive; only the header grabs. */
   pointer-events: none;
 }
 
 .dw-group-selected {
-  border-color: #8ab4ff;
-  background: rgba(138, 180, 255, 0.1);
+  border-color: var(--dw-accent);
+  background: rgba(232, 181, 101, 0.1);
 }
 
 .dw-group-header {
@@ -2635,11 +2683,11 @@ body,
 }
 
 .dw-group-ungroup:hover {
-  color: #8ab4ff;
+  color: var(--dw-accent);
 }
 
 .dw-guide {
-  background: #ff5aa0;
+  background: var(--dw-leash);
   pointer-events: none;
   z-index: 9;
 }
