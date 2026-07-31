@@ -210,7 +210,7 @@ Parallel, isolated working copies of the project — context-switching without s
 - Fast switching: prev/next shortcuts, per-workspace number shortcuts.
 - Workspaces keep running in the background; right-click → hibernate releases all resources (terminals, agents, portals) and resumes on demand. On startup only the active workspace loads.
 - One-click "open in editor" for the workspace directory (VS Code, etc.).
-- A `CLAUDE.md` / `AGENTS.md` sync helper (per-workspace toggle) for mixed-agent projects.
+- A `CLAUDE.md` / `AGENTS.md` sync helper (per-workspace toggle) for mixed-agent projects. *(Built v0.7: mirrors edits both ways in the workspace directory; the newer file wins on enable.)*
 
 ---
 

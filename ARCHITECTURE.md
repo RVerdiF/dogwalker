@@ -524,3 +524,13 @@ teammate answers its Walker's `ask` across the floor boundary.
   fresh PTY, same stableId + geometry (leashes re-form from the saved layout).
 - **Portal renderer crash**: a `render-process-gone` reloads the portal in place.
 - Validated by `DW_RECOVERYTEST` (orphan reconcile + fast-fail to dead targets).
+
+**Built — CLAUDE.md ↔ AGENTS.md sync (v0.7 block 2, the last deferred feature)**
+- **AgentDocsSync** (`src/main/agentDocsSync.ts`, PRODUCT.md §12) — a per-workspace
+  toggle (`syncAgentDocs`, persisted; armed on startup for enabled workspaces).
+  When on, it watches the workspace cwd and mirrors edits between `CLAUDE.md` and
+  `AGENTS.md` so mixed-agent projects share one set of instructions. Enabling
+  reconciles first (the newer file wins; a missing counterpart is seeded); a
+  content-equality guard makes the mirror write a no-op on the echo, so there's
+  no watch loop. Toggle lives on each workspace card. `DW_DOCSYNCTEST` covers
+  seed / mirror-both-ways / newer-wins / live-watch.
