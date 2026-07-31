@@ -12,6 +12,10 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
+    // Force a stable lowercase executable name on every OS so the AppImage
+    // maker's `bin` matches the packaged binary (it defaults to the capitalized
+    // product name otherwise → "Could not find executable 'dogwalker'").
+    executableName: 'dogwalker',
   },
   // node-pty is N-API with bundled prebuilds (prebuilds/<platform>-<arch>),
   // so no electron-rebuild pass is needed — and requiring one would demand
