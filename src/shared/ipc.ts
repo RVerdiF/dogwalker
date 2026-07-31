@@ -236,6 +236,8 @@ export interface WorkspaceMeta {
   icon: string;
   /** Working directory terminals start in (PRODUCT.md §12). */
   cwd: string;
+  /** Keep CLAUDE.md ↔ AGENTS.md in sync in the cwd (PRODUCT.md §12). */
+  syncAgentDocs?: boolean;
 }
 
 /**
@@ -380,6 +382,8 @@ export interface DwApi {
     deleteBranch: boolean,
   ): Promise<{ ok: boolean; error?: string }>;
   setActiveFloor(workspaceId: string, floorId: string): Promise<void>;
+  /** Drop floor records whose worktree is gone + `git worktree prune` (recovery). */
+  reconcileFloors(workspaceId: string): Promise<{ floors: FloorMeta[]; active: string }>;
   /** Local branches of the workspace repo (for the create dialog). */
   repoBranches(workspaceId: string): Promise<string[]>;
   /** Pre-land state for the Land dialog (branches, diff stat, clean checks). */
@@ -412,6 +416,8 @@ export interface DwApi {
   ): Promise<void>;
   deleteWorkspace(id: string): Promise<void>;
   setActiveWorkspace(id: string): Promise<void>;
+  /** Toggle CLAUDE.md ↔ AGENTS.md sync for a workspace (PRODUCT.md §12). */
+  setSyncAgentDocs(id: string, enabled: boolean): Promise<void>;
   /** Terminals still running for a workspace (adopted instead of respawned). */
   listTerminals(workspaceId: string): Promise<LiveTerminal[]>;
   /** Release a workspace's terminals and notes; its layout is untouched. */

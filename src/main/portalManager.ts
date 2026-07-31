@@ -76,6 +76,11 @@ export class PortalManager {
     wc.on('did-navigate-in-page', nav);
     wc.on('page-title-updated', nav);
     wc.on('did-finish-load', nav);
+    // Recovery (v0.7): a crashed portal renderer reloads itself in place, so an
+    // agent-driven page failure doesn't leave a dead grey rectangle.
+    wc.on('render-process-gone', () => {
+      if (this.views.has(id)) wc.reload();
+    });
 
     if (url && url !== 'about:blank') {
       wc.loadURL(url).catch(() => this.sendNav(id));

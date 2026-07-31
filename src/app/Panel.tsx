@@ -364,6 +364,7 @@ function WorkspaceCard({
   const [name, setName] = useState(ws.name);
   const [icon, setIcon] = useState(ws.icon);
   const [cwd, setCwd] = useState(ws.cwd);
+  const [sync, setSync] = useState(!!ws.syncAgentDocs);
 
   const save = () => {
     onRename(name.trim() || ws.name, icon || ws.icon, cwd.trim() || ws.cwd);
@@ -450,6 +451,17 @@ function WorkspaceCard({
               </button>
             )}
           </div>
+          <label className="dw-ws-sync" title="Mirror CLAUDE.md and AGENTS.md in this workspace's directory">
+            <input
+              type="checkbox"
+              checked={sync}
+              onChange={(e) => {
+                setSync(e.target.checked);
+                void window.dw.setSyncAgentDocs(ws.id, e.target.checked);
+              }}
+            />
+            Sync CLAUDE.md ↔ AGENTS.md
+          </label>
         </>
       )}
     </div>

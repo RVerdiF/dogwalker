@@ -264,6 +264,29 @@ body,
   margin-right: 3px;
 }
 
+.dw-ws-sync {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: #8b90a0;
+  cursor: pointer;
+}
+
+.dw-node-restart {
+  border: none;
+  background: transparent;
+  color: #7ee0a8;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.dw-node-restart:hover {
+  color: #a6f0c4;
+}
+
 .dw-walker-toggle {
   border: none;
   background: transparent;

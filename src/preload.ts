@@ -95,6 +95,7 @@ const api: DwApi = {
     ipcRenderer.invoke('floor:hookRun', { workspaceId, floorId }),
   setActiveFloor: (workspaceId, floorId) =>
     ipcRenderer.invoke('floor:setActive', { workspaceId, floorId }),
+  reconcileFloors: (workspaceId) => ipcRenderer.invoke('floor:reconcile', workspaceId),
   repoBranches: (workspaceId) => ipcRenderer.invoke('floor:repoBranches', workspaceId),
   landInfo: (workspaceId, floorId) =>
     ipcRenderer.invoke('floor:landInfo', { workspaceId, floorId }),
@@ -104,6 +105,8 @@ const api: DwApi = {
     ipcRenderer.invoke('ws:rename', { id, name, icon, cwd }),
   deleteWorkspace: (id) => ipcRenderer.invoke('ws:delete', id),
   setActiveWorkspace: (id) => ipcRenderer.invoke('ws:setActive', id),
+  setSyncAgentDocs: (id, enabled) =>
+    ipcRenderer.invoke('ws:setSyncAgentDocs', { id, enabled }),
   listTerminals: (workspaceId) => ipcRenderer.invoke('ws:listTerminals', workspaceId),
   hibernateWorkspace: (workspaceId) => ipcRenderer.invoke('ws:hibernate', workspaceId),
   addDivider: (label) => ipcRenderer.invoke('ws:addDivider', label),

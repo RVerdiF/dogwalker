@@ -96,6 +96,9 @@ Agents learn the CLI through a skill installed in your agent-skills folder — n
 | Shells | zsh, bash, fish | PowerShell, WSL | bash, zsh, fish |
 | GPU terminal rendering | ✅ | ✅ | ✅ |
 | Floors (git worktree) | ✅ | ✅ | ✅ |
+| QA verified (through v0.7) | pending | ✅ | pending |
+
+> **Known limitation (v0.7 beta):** the full feature matrix has been exercised on **Windows** so far. macOS and Linux (X11/Wayland) are supported by design — no OS-specific hacks — but their QA passes are still pending; see [ARCHITECTURE.md §8/§14](ARCHITECTURE.md). The cross-OS matrix is the one v0.7 exit criterion open by environment.
 
 ## Architecture at a glance
 

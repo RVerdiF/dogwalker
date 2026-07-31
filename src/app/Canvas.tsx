@@ -1388,6 +1388,33 @@ export function Canvas({
     };
   }, [layerId, addTerminal, setNodes]);
 
+  // Recovery (v0.7): restart a terminal whose process exited, in place — fresh
+  // PTY, same stableId + geometry (leashes re-form from the saved layout).
+  useEffect(() => {
+    const onRestart = (e: Event) => {
+      const id = (e as CustomEvent<{ id: string }>).detail.id;
+      const n = nodesRef.current.find((x) => x.type === 'terminal' && x.id === id);
+      if (!n || n.type !== 'terminal') return;
+      const d = n.data;
+      terminals.dispose(id);
+      setNodes((ns) => ns.filter((x) => x.id !== id));
+      void addTerminal({
+        kind: 'terminal',
+        stableId: d.stableId,
+        name: d.name,
+        preset: d.preset,
+        x: n.position.x,
+        y: n.position.y,
+        w: n.measured?.width ?? NODE_W,
+        h: n.measured?.height ?? NODE_H,
+        memoryLimitMB: d.memoryLimitMB,
+        walker: d.walker,
+      });
+    };
+    window.addEventListener('dw:terminal-restart', onRestart);
+    return () => window.removeEventListener('dw:terminal-restart', onRestart);
+  }, [addTerminal, setNodes]);
+
   /** The single selected terminal, when there is exactly one (for its limit). */
   const soleTerminal = useMemo(() => {
     const sel = nodes.filter((n) => n.selected);

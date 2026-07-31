@@ -25,8 +25,11 @@ import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
 import { runCrossFloorTest } from './main/crossFloorTest';
 import { runWalkerTest } from './main/walkerTest';
 import { runV06Bdd } from './main/v06BddTest';
+import { runRecoveryTest } from './main/recoveryTest';
+import { runDocSyncTest } from './main/docSyncTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
+import { AgentDocsSync } from './main/agentDocsSync';
 import { RoutineService } from './main/routineService';
 import { runRoutineTest } from './main/routineTest';
 import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
@@ -255,6 +258,17 @@ const createWindow = () => {
   );
   ipcMain.handle('ws:delete', (_e, id: string) => workspaces.remove(id));
   ipcMain.handle('ws:setActive', (_e, id: string) => workspaces.setActive(id));
+  const docsSync = new AgentDocsSync();
+  for (const w of workspaces.syncEnabled()) docsSync.enable(w.cwd);
+  ipcMain.handle(
+    'ws:setSyncAgentDocs',
+    (_e, { id, enabled }: { id: string; enabled: boolean }) => {
+      workspaces.setSyncAgentDocs(id, enabled);
+      const cwd = workspaces.load(id).cwd;
+      if (enabled) docsSync.enable(cwd);
+      else docsSync.disable(cwd);
+    },
+  );
   ipcMain.handle('ws:listTerminals', (_e, workspaceId: string) =>
     ptys?.listForWorkspace(workspaceId) ?? [],
   );
@@ -416,6 +430,17 @@ const createWindow = () => {
     (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) =>
       workspaces.setActiveFloor(workspaceId, floorId),
   );
+  // Recovery (v0.7): drop floor records whose worktree vanished, and let git
+  // prune its own stale worktree metadata. Safe — it never deletes a worktree
+  // that still exists on disk.
+  ipcMain.handle('floor:reconcile', async (_e, workspaceId: string) => {
+    const ws = workspaces.load(workspaceId);
+    for (const f of workspaces.listFloors(workspaceId).floors) {
+      if (!fs.existsSync(f.path)) workspaces.removeFloorRecord(workspaceId, f.id);
+    }
+    await git.worktreePrune(ws.cwd);
+    return workspaces.listFloors(workspaceId);
+  });
   ipcMain.handle(
     'floor:landInfo',
     async (_e, { workspaceId, floorId }: { workspaceId: string; floorId: string }) => {
@@ -522,6 +547,7 @@ const createWindow = () => {
     broker?.close();
     portals.destroyAll();
     routines.disposeAll();
+    docsSync.disposeAll();
     ptys = null;
     broker = null;
   });
@@ -599,6 +625,14 @@ const createWindow = () => {
 
   if (process.env.DW_V06BDD) {
     void runV06Bdd(ptys, graph, notes, routines, workspaces, git, socketPath);
+  }
+
+  if (process.env.DW_RECOVERYTEST) {
+    void runRecoveryTest(ptys, graph, workspaces, git, socketPath);
+  }
+
+  if (process.env.DW_DOCSYNCTEST) {
+    void runDocSyncTest();
   }
 
   if (process.env.DW_BROKERTEST) {

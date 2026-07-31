@@ -215,6 +215,11 @@ export class GitService {
     return this.op(cwd, args);
   }
 
+  /** Clean git's records of worktrees whose directories are gone (recovery). */
+  worktreePrune(cwd: string): Promise<GitResult> {
+    return this.op(cwd, ['worktree', 'prune']);
+  }
+
   deleteBranch(cwd: string, branch: string, force: boolean): Promise<GitResult> {
     return this.op(cwd, ['branch', force ? '-D' : '-d', branch]);
   }

@@ -510,3 +510,44 @@ tester team all wired to it and reading a shared SPEC note; a routine chain
 result to a note and returns to idle (no zombie); dismissing the reviewer
 removes its terminal, graph node and every edge; and a `recruit --floor feat`
 teammate answers its Walker's `ask` across the floor boundary.
+
+**Built — failure recovery (v0.7 block 1)**
+- **Orphaned worktrees**: on opening a workspace the renderer runs
+  `floor:reconcile` — floor records whose worktree directory was deleted outside
+  Dogwalker are dropped and `git worktree prune` clears git's stale metadata. It
+  never touches a worktree that still exists.
+- **Dead targets**: a terminal that exits removes its own graph node
+  (`graph.removeNode` on PTY exit), so an `ask`/`check`/`portal`/Walker verb to it
+  resolves to "not connected" **instantly** rather than blocking on the `ask`
+  timeout — no hangs.
+- **Terminal restart**: an exited terminal shows a ↻ that respawns it in place —
+  fresh PTY, same stableId + geometry (leashes re-form from the saved layout).
+- **Portal renderer crash**: a `render-process-gone` reloads the portal in place.
+- Validated by `DW_RECOVERYTEST` (orphan reconcile + fast-fail to dead targets).
+
+**Built — CLAUDE.md ↔ AGENTS.md sync (v0.7 block 2, the last deferred feature)**
+- **AgentDocsSync** (`src/main/agentDocsSync.ts`, PRODUCT.md §12) — a per-workspace
+  toggle (`syncAgentDocs`, persisted; armed on startup for enabled workspaces).
+  When on, it watches the workspace cwd and mirrors edits between `CLAUDE.md` and
+  `AGENTS.md` so mixed-agent projects share one set of instructions. Enabling
+  reconciles first (the newer file wins; a missing counterpart is seeded); a
+  content-equality guard makes the mirror write a no-op on the echo, so there's
+  no watch loop. Toggle lives on each workspace card. `DW_DOCSYNCTEST` covers
+  seed / mirror-both-ways / newer-wins / live-watch.
+
+**v0.7 hardening — status (2026-07-30, Windows)**
+- **Invariant audit**: all ten AGENTS.md invariants audited against the code and
+  holding (see AGENTS.md → "Invariant audit — v0.7").
+- **Failure recovery** (§ above) + **doc-sync** shipped and tested.
+- **Scale**: the `DW_SMOKE`/`DW_SOAK` harness (from the spike) remains the scale
+  probe; the spike met its fps/context-budget criteria at 15 terminals and
+  **tier-4 snapshot rendering was intentionally not built** because profiling did
+  not demand it — that decision stands for v0.7. `DW_SMOKE` on Windows
+  (15 terminals): 60 fps near / 60 fps panning / 47 fps at static overview,
+  ≤8 live WebGL contexts, 0 context losses — within the spike budget.
+- **Cross-OS QA matrix**: exercised on **Windows** only in this environment;
+  macOS + Linux (X11/Wayland) execution is **deferred and documented as pending**
+  — it needs those machines. No OS-specific hacks are in the code (worktrees,
+  paths, and shells are handled portably), so the matrix is expected to pass, but
+  it is not yet *verified* off-Windows. This is the one v0.7 exit criterion that
+  remains open by environment, not by code.

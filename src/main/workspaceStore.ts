@@ -106,8 +106,8 @@ export class WorkspaceStore {
         e.kind === 'workspace',
       )
       .map((e) => {
-        const { name, icon, cwd } = this.read(e.id);
-        return { id: e.id, name, icon, cwd: cwd || os.homedir() };
+        const { name, icon, cwd, syncAgentDocs } = this.read(e.id);
+        return { id: e.id, name, icon, cwd: cwd || os.homedir(), syncAgentDocs };
       });
     return { workspaces, active: index.active, sidebar };
   }
@@ -214,6 +214,25 @@ export class WorkspaceStore {
     const index = this.readIndex();
     index.active = id;
     this.writeIndex(index);
+  }
+
+  setSyncAgentDocs(id: string, enabled: boolean): void {
+    if (!fs.existsSync(this.filePath(id))) return;
+    const ws = this.read(id);
+    ws.syncAgentDocs = enabled;
+    this.writeWorkspace(ws);
+  }
+
+  /** Workspaces that have doc-sync enabled — armed on startup. */
+  syncEnabled(): Array<{ id: string; cwd: string }> {
+    const index = this.readIndex();
+    const out: Array<{ id: string; cwd: string }> = [];
+    for (const wsId of this.wsIds(index)) {
+      if (!fs.existsSync(this.filePath(wsId))) continue;
+      const ws = this.read(wsId);
+      if (ws.syncAgentDocs) out.push({ id: wsId, cwd: ws.cwd });
+    }
+    return out;
   }
 
   // ---- Floors (git-worktree layers, PRODUCT.md §10) -----------------------
