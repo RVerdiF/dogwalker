@@ -84,7 +84,7 @@ Terminals on the canvas are never replaced by static screenshots at normal worki
 - Number badges (hold modifier) for quick jump to terminals 1–9.
 
 ### 4.2 Agents = launch configs
-Creating a terminal offers **agent presets**: a preset is a display name, an icon, and a command line to auto-execute on spawn. Dogwalker ships presets for Claude Code, Codex, Gemini CLI, OpenCode, and aider — and users define arbitrary ones. There is no deeper vendor coupling: from spawn onward, everything Dogwalker sends to the agent is indistinguishable from user keystrokes.
+Creating a terminal offers **agent presets**: a preset is a display name, an icon, and a command line to auto-execute on spawn. The creation palette can pair its selected preset with an optional role. Dogwalker ships presets for Claude Code, Codex, Gemini CLI, OpenCode, and aider — and users define arbitrary ones. There is no deeper vendor coupling: from spawn onward, everything Dogwalker sends to the agent is indistinguishable from user keystrokes.
 
 ### 4.3 Roles
 - Preset and role libraries are persisted locally. The terminal header stores a
