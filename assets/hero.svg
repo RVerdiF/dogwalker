@@ -1,0 +1,122 @@
+<svg width="1200" height="360" viewBox="0 0 1200 360" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dogwalker — walk all your agents at once">
+  <defs>
+    <linearGradient id="fur" x1="0" y1="360" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C87F3C"/>
+      <stop offset="1" stop-color="#EEC079"/>
+    </linearGradient>
+    <linearGradient id="furV" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F0CB86"/>
+      <stop offset="1" stop-color="#E0A455"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#E8B565" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#E8B565" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="1.5" cy="1.5" r="1.5" fill="#20232C"/>
+    </pattern>
+    <linearGradient id="terminalBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1B1E26"/>
+      <stop offset="1" stop-color="#12141A"/>
+    </linearGradient>
+    <linearGradient id="noteBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#252518"/>
+      <stop offset="1" stop-color="#1B1B13"/>
+    </linearGradient>
+    <filter id="nodeShadow" x="-30%" y="-35%" width="160%" height="180%">
+      <feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#000000" flood-opacity=".34"/>
+    </filter>
+    <!-- The header is clipped by the terminal itself, so it can never escape
+         the rounded border at any raster scale. -->
+    <clipPath id="leadTerminalClip">
+      <rect x="31" y="53" width="118" height="68" rx="13"/>
+    </clipPath>
+  </defs>
+
+  <!-- canvas backdrop -->
+  <rect width="1200" height="360" rx="16" fill="#0E0F13"/>
+  <rect width="1200" height="360" rx="16" fill="url(#dots)"/>
+  <circle cx="880" cy="150" r="320" fill="url(#glow)"/>
+  <rect x="0.5" y="0.5" width="1199" height="359" rx="16" stroke="#262A33"/>
+  <rect x="1.25" y="1.25" width="1197.5" height="357.5" rx="15.25" stroke="#FFF0D1" stroke-opacity=".055" stroke-width="1.5"/>
+
+  <!-- ==== left: wordmark + tagline ==== -->
+  <g transform="translate(72,92)">
+    <rect x="0" y="26" width="56" height="56" rx="17" fill="url(#fur)"/>
+    <rect x="1" y="27" width="54" height="54" rx="16" stroke="#FFF0D1" stroke-opacity=".2" stroke-width="2"/>
+    <path d="M15 43l9 8-9 8" stroke="#20140A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M32 59h13" stroke="#20140A" stroke-width="5" stroke-linecap="round"/>
+    <path d="M54 30C72 6 78 3 88 0" stroke="#8A261D" stroke-opacity=".35" stroke-width="9" stroke-linecap="round"/>
+    <path d="M54 30C72 6 78 3 88 0" stroke="#E6533C" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="90" cy="-4" r="16" fill="#E6533C"/>
+    <circle cx="90" cy="-4" r="13.4" stroke="#FFB3A5" stroke-width="2.6" opacity=".4"/>
+    <circle cx="90" cy="-4" r="16" stroke="#20140A" stroke-width="2.5" opacity=".22"/>
+  </g>
+
+  <text x="184" y="150" font-family="Segoe UI, system-ui, -apple-system, Arial, sans-serif" font-size="72" font-weight="800" letter-spacing="-1.5" fill="#EEF0F5">Dogwalker</text>
+  <text x="186" y="198" font-family="Segoe UI, system-ui, -apple-system, Arial, sans-serif" font-size="26" font-weight="600" fill="url(#furV)">Walk all your agents at once.</text>
+  <text x="186" y="236" font-family="Segoe UI, system-ui, -apple-system, Arial, sans-serif" font-size="18" font-weight="400" fill="#8B90A0">An infinite canvas for AI coding agents · local · free</text>
+
+  <!-- badges -->
+  <g font-family="Segoe UI, system-ui, sans-serif" font-size="14" font-weight="600">
+    <rect x="186" y="266" width="132" height="30" rx="15" fill="#16181F" stroke="#3A342A"/>
+    <text x="252" y="286" text-anchor="middle" fill="#EFC98A">macOS</text>
+    <rect x="326" y="266" width="132" height="30" rx="15" fill="#16181F" stroke="#3A342A"/>
+    <text x="392" y="286" text-anchor="middle" fill="#EFC98A">Windows</text>
+    <rect x="466" y="266" width="110" height="30" rx="15" fill="#16181F" stroke="#3A342A"/>
+    <text x="521" y="286" text-anchor="middle" fill="#EFC98A">Linux</text>
+  </g>
+
+  <!-- ==== right: mini node-graph (the leash metaphor) ==== -->
+  <g transform="translate(720,64)">
+    <!-- Every leash shares one dotted, low-noise visual language. -->
+    <path d="M150 70C210 40 214 44 250 40" stroke="#625D3B" stroke-opacity=".42" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M150 70C210 40 214 44 250 40" stroke="#9A8C4D" stroke-width="2.5" fill="none" stroke-dasharray="1 7" stroke-linecap="round"/>
+    <path d="M150 96C206 128 214 150 250 156" stroke="#625D3B" stroke-opacity=".42" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M150 96C206 128 214 150 250 156" stroke="#9A8C4D" stroke-width="2.5" fill="none" stroke-dasharray="1 7" stroke-linecap="round"/>
+    <!-- Reviewer is explicitly linked to the shared note. -->
+    <path d="M314 82C314 99 314 115 314 132" stroke="#625D3B" stroke-opacity=".42" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <path d="M314 82C314 99 314 115 314 132" stroke="#9A8C4D" stroke-width="2.5" fill="none" stroke-dasharray="1 7" stroke-linecap="round"/>
+
+    <!-- lead terminal: selected Walker -->
+    <g filter="url(#nodeShadow)">
+      <rect x="30" y="52" width="120" height="70" rx="13" fill="url(#terminalBody)" stroke="url(#fur)" stroke-width="2"/>
+      <path d="M30 52h120v20H30z" fill="#20232D" clip-path="url(#leadTerminalClip)"/>
+      <circle cx="43" cy="62" r="3.5" fill="#E6533C"/>
+      <circle cx="43" cy="62" r="6" stroke="#E6533C" stroke-opacity=".2"/>
+      <text x="54" y="65" font-family="Segoe UI, system-ui, sans-serif" font-size="10" font-weight="700" fill="#E9ECF2">lead</text>
+      <rect x="111" y="58" width="29" height="9" rx="4.5" fill="#3A2D19"/>
+      <text x="125.5" y="64.5" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="5.8" font-weight="700" fill="#EFC98A">WALKER</text>
+      <path d="M43 85l7 6-7 6" stroke="#F0C46E" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M57 91h24" stroke="#697181" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M57 102h48" stroke="#343A47" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="116" cy="103" r="3" fill="#7EE0A8"/>
+    </g>
+
+    <!-- reviewer terminal: active peer -->
+    <g filter="url(#nodeShadow)">
+      <rect x="250" y="14" width="128" height="68" rx="13" fill="url(#terminalBody)" stroke="#303645" stroke-width="1.5"/>
+      <path d="M263 14h102a13 13 0 0 1 13 13v7H250v-7a13 13 0 0 1 13-13z" fill="#20232D"/>
+      <circle cx="263" cy="23" r="3" fill="#7EE0A8"/>
+      <text x="273" y="26" font-family="Segoe UI, system-ui, sans-serif" font-size="10" font-weight="700" fill="#E9ECF2">reviewer</text>
+      <circle cx="357" cy="23" r="2" fill="#4E5665"/>
+      <circle cx="365" cy="23" r="2" fill="#4E5665"/>
+      <path d="M263 45h44" stroke="#7B8495" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M263 55h73" stroke="#414957" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M263 65h31" stroke="#E8B565" stroke-opacity=".72" stroke-width="2.5" stroke-linecap="round"/>
+    </g>
+
+    <!-- note: persistent shared context -->
+    <g filter="url(#nodeShadow)">
+      <rect x="250" y="132" width="128" height="68" rx="13" fill="url(#noteBody)" stroke="#4A4326" stroke-width="1.5"/>
+      <!-- Folded paper corner, deliberately decorative (not a close control). -->
+      <path d="M365 132l13 13h-13z" fill="#3A341E"/>
+      <path d="M365 132v13h13" stroke="#776B3A" stroke-width="1.2" fill="none"/>
+      <rect x="262" y="143" width="23" height="10" rx="5" fill="#453C1D"/>
+      <text x="273.5" y="150.2" text-anchor="middle" font-family="Segoe UI, system-ui, sans-serif" font-size="5.6" font-weight="700" fill="#E0CF7A">NOTE</text>
+      <text x="262" y="168" font-family="Segoe UI, system-ui, sans-serif" font-size="11" font-weight="750" fill="#F1E7A4">SPEC.md</text>
+      <path d="M262 180h69" stroke="#887A41" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M262 189h43" stroke="#5E5734" stroke-width="2.5" stroke-linecap="round"/>
+    </g>
+  </g>
+</svg>

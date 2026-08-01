@@ -14,6 +14,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v0.7](#v07--hardening-beta) | Hardening (beta, feature freeze) | Stable at 2× target scale on all three OSes |
 | [v0.8](#v08--release-engineering) | Release engineering (RC) | A stranger can install from an artifact, not from source |
 | [v1.0](#v10--launch) | Launch | PRODUCT.md is true, installers public, release tagged |
+| [v1.1.0](#v110--roles-presets--brand-polish) | Roles, Presets & brand polish | An agent can be launched or reassigned from reusable, persisted team configuration |
 
 ---
 
@@ -219,6 +220,72 @@ accepted deviation (memory measured in dev mode) in
 
 ---
 
+## v1.1.0 — Roles, Presets & brand polish
+
+**Status: planned.** The first post-launch feature release completes the
+configuration layer that the v1.0 canvas already exposes: reusable agent launch
+presets and reusable role instructions. It does not add a provider integration:
+agents remain vendor-agnostic commands driven only through the PTY and the
+Dogwalker CLI.
+
+**Expectation:** setting up a repeatable team becomes configuration rather than
+retyping commands and instructions per terminal. A user can define a role once,
+pair it with a preset when recruiting, and see exactly who each terminal is
+meant to be.
+
+**Outputs**
+1. **Preset library:** ship the existing built-in shell/agent presets as
+   read-only defaults; add persisted custom presets with display name, icon and
+   command. The Presets panel supports create, edit, duplicate and delete for
+   custom entries, validates required fields, and never hardcodes behavior for
+   a particular agent vendor.
+2. **Role library:** persisted, reusable roles with a name and Markdown
+   instruction body. The Roles panel supports create, edit, duplicate, delete
+   and a readable empty state. Role files are stored locally in an open format,
+   as with notes and layouts.
+3. **Terminal assignment:** creation and duplicate flows can select a preset and
+   a role. The terminal header/context controls show the current role and allow
+   reassignment without respawning the PTY or dropping its graph connections.
+4. **Agent context delivery:** assigning a role materializes its instruction
+   file in the terminal's working context and gives the running agent a stable,
+   vendor-neutral reference to it. Reassignment refreshes that reference; it
+   must not depend on parsing a vendor TUI or calling a provider API.
+5. **Walker integration:** recruit with an agent preset and role resolves names
+   from the same preset/role libraries as the UI. Invalid or deleted
+   configuration returns a clear broker error; recruits preserve their chosen
+   role in the persisted layout and across floor boundaries.
+6. **Persistence and migration:** terminal specs persist preset and role ids
+   rather than display labels. Existing workspaces migrate safely to built-in
+   presets with no role, and a missing custom preset/role remains visible as a
+   recoverable configuration warning instead of preventing a workspace from
+   opening.
+7. **Brand polish:** move the public logo and README banner into assets,
+   refresh the README reference, and refine both SVGs. The hero mirrors the
+   final logo and presents the terminal, note and connection vocabulary with
+   consistent, scale-independent vector artwork.
+8. **Validation:** add focused in-app harness coverage for preset/role CRUD,
+   persistence/migration, terminal reassignment, role-context delivery and
+   Walker recruitment; retain typecheck and lint as release gates. Update
+   PRODUCT.md, ARCHITECTURE.md and README.md whenever the shipped role delivery
+   or preset surface differs from the current documentation.
+
+**Exit criteria**
+- A custom preset and a custom role survive app restart and are selectable when
+  creating a terminal.
+- A role assigned to a live terminal changes its available instruction context
+  without terminating the process or changing any leashes.
+- A Walker recruits a terminal by named custom preset and role on both ground
+  and a floor; the CLI list and the canvas show the expected labels.
+- Deleting a role or preset that is still referenced never corrupts a workspace
+  and leaves the user a direct repair path.
+- The README banner and logo render crisply at their documented sizes in the
+  repository, release page and packaged-app surfaces.
+
+---
+
 ## After v1 (parked, unscheduled)
 
-Recurring ideas deliberately not on the path: broadcast `ask`, `--json` on every verb, community preset/skill sharing, tier-4 rendering if v0.7 didn't need it. New scope enters [PRODUCT.md](PRODUCT.md) first, then lands here — never the other way around.
+**Scheduling note:** Presets and roles are no longer parked; they are the
+v1.1.0 scope above. The remaining ideas follow.
+
+Recurring ideas deliberately not on the path: presets, roles, broadcast `ask`, `--json` on every verb, community preset/skill sharing, tier-4 rendering if v0.7 didn't need it. New scope enters [PRODUCT.md](PRODUCT.md) first, then lands here — never the other way around.

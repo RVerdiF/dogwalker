@@ -17,7 +17,7 @@ of [`src/index.css`](src/index.css) (`:root`). This doc explains the intent.
 - **Personality:** technical but friendly; precise, not sterile; playful accent,
   serious surface.
 
-Assets in [`docs/assets/`](docs/assets): `logo.svg` (mark / favicon),
+Assets in [`assets/`](assets): `logo.svg` (mark / favicon),
 `hero.svg` (README banner).
 
 ## Color
