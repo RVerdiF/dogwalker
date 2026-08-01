@@ -8,6 +8,7 @@ import type { PortalManager } from './portalManager';
 import type { WorkspaceStore } from './workspaceStore';
 import type { PresetStore } from './presetStore';
 import type { RoleStore } from './roleStore';
+import type { ContractStore } from './contractStore';
 import {
   encode,
   type BrokerRequest,
@@ -38,6 +39,7 @@ export class Broker {
     private workspaces: WorkspaceStore,
     private presets: PresetStore,
     private roles: RoleStore,
+    private contracts: ContractStore,
   ) {
     this.server = net.createServer((socket) => this.onConnection(socket));
   }
@@ -129,7 +131,11 @@ export class Broker {
     }
     const broadcast = req.all || requested.length > 1;
     const broadcastId = broadcast ? crypto.randomBytes(5).toString('hex') : undefined;
-    const results = await Promise.all(requested.map((target) => this.askOne(req.from, target, req.body, req.timeoutMs, broadcastId)));
+    const contract = req.contract ? this.contracts.list().find((c) => c.id === req.contract || c.name === req.contract) : null;
+    if (req.contract && !contract) return this.respond(socket, { ok: false, error: `no response contract named "${req.contract}"` });
+    const guidedBody = contract ? `${req.body}\n\nResponse contract (${contract.name}): ${contract.instructions}\nReturn exactly one JSON object with required fields: ${contract.schema.required.join(', ')}.` : req.body;
+    const results = await Promise.all(requested.map((target) => this.askOne(req.from, target, guidedBody, req.timeoutMs, broadcastId, contract)));
+    if (req.strict && results.some((result) => result.ok && result.valid === false)) return this.respond(socket, { ok: false, error: 'response contract validation failed', data: { broadcastId, results } });
     if (!broadcast) {
       const result = results[0];
       return result.ok
@@ -145,7 +151,8 @@ export class Broker {
     body: string,
     timeoutMs?: number,
     broadcastId?: string,
-  ): Promise<{ id?: string; name: string; ok: boolean; body?: string; error?: string }> {
+    contract?: { schema: { required: string[]; fields: Record<string, string> } } | null,
+  ): Promise<{ id?: string; name: string; ok: boolean; body?: string; error?: string; valid?: boolean; value?: unknown; errors?: string[] }> {
     const to = this.graph.resolvePeer(from, target);
     if (!to) {
       return { name: target, ok: false, error: `no connected terminal named "${target}"` };
@@ -175,7 +182,18 @@ export class Broker {
       body: response,
       broadcastId,
     });
-    return { id: to, name: this.graph.name(to), ok: true, body: response };
+    if (!contract) return { id: to, name: this.graph.name(to), ok: true, body: response };
+    const match = response.match(/\{[\s\S]*\}/);
+    if (!match) return { id: to, name: this.graph.name(to), ok: true, body: response, valid: false, errors: ['no JSON object found'] };
+    try {
+      const value = JSON.parse(match[0]) as Record<string, unknown>;
+      const errors = contract.schema.required.flatMap((key) => {
+        const expected = contract.schema.fields[key];
+        const actual = Array.isArray(value[key]) ? 'array' : typeof value[key];
+        return value[key] === undefined ? [`missing required field "${key}"`] : expected && actual !== expected ? [`field "${key}" must be ${expected}`] : [];
+      });
+      return { id: to, name: this.graph.name(to), ok: true, body: response, valid: errors.length === 0, value, errors };
+    } catch { return { id: to, name: this.graph.name(to), ok: true, body: response, valid: false, errors: ['invalid JSON'] }; }
   }
 
   private handleCheck(socket: net.Socket, from: string, target: string): void {

@@ -38,9 +38,13 @@ async function buildRequest() {
       const rest = argv.slice(1);
       const all = rest.includes('--all');
       const json = rest.includes('--json');
+      const strict = rest.includes('--strict');
+      const ci = rest.indexOf('--contract');
+      const contract = ci >= 0 ? rest[ci + 1] : undefined;
       const exclude = [];
       for (let i = rest.length - 1; i >= 0; i--) {
-        if (rest[i] === '--all' || rest[i] === '--json') rest.splice(i, 1);
+        if (rest[i] === '--all' || rest[i] === '--json' || rest[i] === '--strict') rest.splice(i, 1);
+        if (rest[i] === '--contract') rest.splice(i, 2);
         if (rest[i] === '--exclude') { exclude.push(...(rest[i + 1] || '').split(',').filter(Boolean)); rest.splice(i, 2); }
       }
       const target = all ? undefined : rest.shift();
@@ -59,7 +63,7 @@ async function buildRequest() {
         die('usage: dogwalker ask <terminal[,terminal]> <message> [--all] [--exclude <terminal>] [--json] [--timeout <seconds>]');
       }
       const targets = target?.split(',').filter(Boolean);
-      const req = { cmd: 'ask', from, target: targets?.[0], targets, all, exclude, body, json };
+      const req = { cmd: 'ask', from, target: targets?.[0], targets, all, exclude, body, json, strict, contract };
       if (timeoutMs !== undefined) req.timeoutMs = timeoutMs;
       return req;
     }

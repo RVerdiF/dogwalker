@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { AppSettings, LiveTerminal, Routine, WorkspaceMeta } from '../shared/ipc';
+import type { AppSettings, ContractScalar, LiveTerminal, ResponseContract, Routine, WorkspaceMeta } from '../shared/ipc';
 import type { ThemeSpec } from '../shared/themes';
 
 interface Props {
@@ -18,7 +18,7 @@ interface Props {
   onUpdateSettings: (partial: Partial<AppSettings>) => void;
 }
 
-type SectionId = 'workspaces' | 'routines' | 'agents' | 'presets' | 'roles' | 'settings';
+type SectionId = 'workspaces' | 'routines' | 'agents' | 'presets' | 'roles' | 'contracts' | 'settings';
 
 const SECTIONS: Array<{ id: SectionId; label: string; icon: string; ready: boolean }> = [
   { id: 'workspaces', label: 'Workspaces', icon: '🗂️', ready: true },
@@ -26,6 +26,7 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string; ready: boole
   { id: 'agents', label: 'Agents', icon: '🤖', ready: false },
   { id: 'presets', label: 'Presets', icon: '⚡', ready: true },
   { id: 'roles', label: 'Roles', icon: '🎭', ready: true },
+  { id: 'contracts', label: 'Contracts', icon: '☑', ready: true },
   { id: 'settings', label: 'Settings', icon: '⚙️', ready: true },
 ];
 
@@ -77,6 +78,8 @@ export function Panel(props: Props) {
             <PresetsSection />
           ) : section === 'roles' ? (
             <RolesSection />
+          ) : section === 'contracts' ? (
+            <ContractsSection />
           ) : (
             <div className="dw-panel-placeholder">
               This section arrives in a later version.
@@ -114,6 +117,23 @@ function RolesSection() {
     <p className="dw-settings-hint">Reusable Markdown instructions. Assign one in a terminal header.</p>
     <div className="dw-routine-form"><input placeholder="Role name" value={name} onChange={(e) => setName(e.target.value)} /><textarea rows={4} placeholder="Instructions for this role…" value={instructions} onChange={(e) => setInstructions(e.target.value)} /><button className="dw-btn-primary" onClick={() => void add()}>+ Add role</button></div>
     <div className="dw-routine-list">{items.map((r) => <div className="dw-routine-card" key={r.id}><div className="dw-routine-info"><div className="dw-routine-title">{r.name}</div><div className="dw-routine-prompt-preview">{r.instructions || 'No instructions yet.'}</div></div><div className="dw-routine-actions"><button className="dw-btn-small" onClick={() => { const name = window.prompt('Role name', r.name); const instructions = window.prompt('Instructions', r.instructions); if (name !== null && instructions !== null) void window.dw.updateRole(r.id, { name, instructions }).then(refresh); }}>Edit</button><button className="dw-btn-small" onClick={() => void window.dw.createRole({ name: r.name + ' copy', instructions: r.instructions }).then(refresh)}>Duplicate</button><button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deleteRole(r.id).then(refresh)}>Delete</button></div></div>)}</div>
+  </div>;
+}
+
+function ContractsSection() {
+  const [items, setItems] = useState<ResponseContract[]>([]);
+  const [name, setName] = useState(''); const [instructions, setInstructions] = useState('Return a concise decision.'); const [required, setRequired] = useState('decision');
+  const refresh = () => void window.dw.listContracts().then(setItems);
+  useEffect(() => { refresh(); }, []);
+  const schema = () => {
+    const keys = required.split(',').map((x) => x.trim()).filter(Boolean);
+    return { required: keys, fields: Object.fromEntries(keys.map((key) => [key, 'string' as ContractScalar])) };
+  };
+  const add = async () => { if (!name.trim()) return; await window.dw.createContract({ name: name.trim(), instructions, schema: schema() }); setName(''); refresh(); };
+  return <div className="dw-section"><div className="dw-section-head"><h2>Response contracts</h2></div>
+    <p className="dw-settings-hint">Expected JSON output for a team ask. Required fields are comma-separated strings.</p>
+    <div className="dw-routine-form"><input placeholder="Contract name" value={name} onChange={(e) => setName(e.target.value)} /><textarea rows={2} value={instructions} onChange={(e) => setInstructions(e.target.value)} /><input placeholder="Required fields, e.g. decision,risks" value={required} onChange={(e) => setRequired(e.target.value)} /><button className="dw-btn-primary" onClick={() => void add()}>+ Add contract</button></div>
+    <div className="dw-routine-list">{items.length === 0 && <div className="dw-routine-empty">No response contracts yet.</div>}{items.map((c) => <div className="dw-routine-card" key={c.id}><div className="dw-routine-info"><div className="dw-routine-title">{c.name}</div><div className="dw-routine-prompt-preview">required: {c.schema.required.join(', ') || 'none'} · {c.instructions}</div></div><div className="dw-routine-actions"><button className="dw-btn-small" onClick={() => { const next = window.prompt('Required fields', c.schema.required.join(',')); if (next !== null) { const keys = next.split(',').map((x) => x.trim()).filter(Boolean); void window.dw.updateContract(c.id, { ...c, schema: { required: keys, fields: Object.fromEntries(keys.map((key) => [key, c.schema.fields[key] ?? 'string'])) } }).then(refresh); } }}>Edit fields</button><button className="dw-btn-small" onClick={() => void window.dw.createContract({ ...c, name: c.name + ' copy' }).then(refresh)}>Duplicate</button><button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deleteContract(c.id).then(refresh)}>Delete</button></div></div>)}</div>
   </div>;
 }
 

@@ -6,6 +6,8 @@ import type { ThemeSpec } from './themes';
 export type PresetId = string;
 export interface AgentPreset { id: PresetId; name: string; icon: string; command: string; builtin?: boolean; }
 export interface Role { id: string; name: string; instructions: string; }
+export type ContractScalar = 'string' | 'number' | 'boolean' | 'array';
+export interface ResponseContract { id: string; name: string; instructions: string; schema: { required: string[]; fields: Record<string, ContractScalar>; }; }
 
 /** Persisted app settings (terminal theming + notifications). */
 export interface AppSettings {
@@ -332,6 +334,10 @@ export interface DwApi {
   createRole(input: Pick<Role, 'name' | 'instructions'>): Promise<Role>;
   updateRole(id: string, input: Pick<Role, 'name' | 'instructions'>): Promise<Role | null>;
   deleteRole(id: string): Promise<boolean>;
+  listContracts(): Promise<ResponseContract[]>;
+  createContract(input: Omit<ResponseContract, 'id'>): Promise<ResponseContract>;
+  updateContract(id: string, input: Omit<ResponseContract, 'id'>): Promise<ResponseContract | null>;
+  deleteContract(id: string): Promise<boolean>;
   assignTerminalRole(id: string, roleId?: string): Promise<string>;
   /** A Walker recruited a teammate — the canvas adopts it near the Walker. */
   onRecruited(
