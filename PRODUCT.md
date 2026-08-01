@@ -44,6 +44,7 @@ Existing tools in the "agent orchestration canvas" category are single-platform 
 | **Agent** | A terminal launch configuration: a command that is auto-executed when the terminal spawns (e.g. `claude`, `codex`, `aider`, or any script). Dogwalker interacts with it exclusively as simulated user input — no vendor-specific integration. |
 | **Connection** | An animated leash between two nodes. Defines who can talk to whom via the CLI. |
 | **Role** | A named instruction set (e.g. Lead, Coder, Reviewer, Tester) attachable to a terminal, delivered to the agent as context. |
+| **Response contract** | A named, local expected-output definition for an agent turn. It asks for one JSON value matching a small schema and lets the broker validate and return that value without model-vendor coupling. |
 | **Floor** | An isolated working copy of the repository (git worktree) with its own canvas layer, for parallel branches of work. |
 | **Portal** | An embedded, automatable browser window on the canvas. |
 | **Routine** | A prompt (or chain of prompts) scheduled to run on an agent at an interval. |
@@ -133,6 +134,8 @@ Core verbs:
 
 ```
 dogwalker ask <node> "message"          # inject a message and return captured target output
+dogwalker ask --all "message"            # ask every directly connected terminal
+dogwalker ask <node> "message" --contract <name> --json
 dogwalker check <node>                  # read-only snapshot of a connected terminal's screen
 dogwalker note read|append|write <note> # operate on a connected note
 dogwalker portal <verb> ...             # drive a connected portal (navigate/click/type/screenshot/js/dom/console)
@@ -148,7 +151,35 @@ Design points:
 - **Every message is logged.** Click a connection cable to see the structured message history between those two nodes (who, what, when, reply status). This is only possible because messages flow through the host, and it is a capability screen-scraping designs cannot offer.
 - **Why no MCP:** the CLI already covers every capability, works with *any* agent or script (or a human typing), needs zero per-vendor configuration, composes in pipelines (`dogwalker check builder | grep -i error`), and is trivially debuggable by hand. An MCP server would duplicate the whole surface for a subset of clients.
 
-### 5.4 Walker mode (manager agents)
+### 5.4 Team operations and response contracts
+
+An agent can ask one directly connected terminal, an explicit comma-separated
+set, or every directly connected terminal (`ask --all`). Every target is still
+authorized separately by the connection graph. A broadcast is a collection of
+ordinary asks: one timeout or malformed response never discards the useful
+responses from the others, and each connection retains its own history entry.
+
+A **response contract** is a persisted local record with a name, a short
+instruction, and a deliberately small JSON-schema subset: object properties,
+required fields, scalar types, enums and homogeneous arrays. Contracts make an
+agent turn predictable without adding a model-provider API. When used with
+`ask --contract`, Dogwalker injects the expected shape alongside the work,
+captures the result normally, extracts one JSON value and validates it in the
+broker. The original captured text remains in history for inspection.
+
+`--json` returns a stable envelope for automation. Contract results contain
+`valid`, `value` when parsing succeeds, `errors` when it does not, and `raw` on
+request. A strict caller receives a non-zero result for an invalid contract;
+otherwise partial broadcast results are returned together so a Walker can make
+the next decision with less transcript noise. Dogwalker never silently retries
+or asks an agent to repair its own answer in v1.2: that is a visible decision
+for the caller, not background activity.
+
+Contracts are created, edited, duplicated and deleted locally from the Panel.
+Deleting one never breaks history or a running terminal; a later command simply
+reports that the requested contract no longer exists.
+
+### 5.5 Walker mode (manager agents)
 A terminal flagged as **Walker** gains extra CLI verbs to manage a team:
 
 ```
