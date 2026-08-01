@@ -110,11 +110,15 @@ const createWindow = () => {
   const history = new History(path.join(app.getPath('userData'), 'history'));
   const notes = new NoteStore(app.getPath('userData'), graph);
   const workspaces = new WorkspaceStore(app.getPath('userData'));
+  const presets = new PresetStore(app.getPath('userData'));
+  const roles = new RoleStore(app.getPath('userData'));
   const shimDir = createShimDir();
   installSkill();
   const socketPath = brokerPipePath();
 
-  ptys = new PtyManager(mainWindow.webContents, graph, { socketPath, shimDir });
+  ptys = new PtyManager(mainWindow.webContents, graph, { socketPath, shimDir }, (id) =>
+    presets.get(id)?.command || null,
+  );
   const portals = new PortalManager(mainWindow, mainWindow.webContents);
   broker = new Broker(socketPath, graph, ptys, history, notes, portals, workspaces);
   broker.listen();
@@ -195,8 +199,6 @@ const createWindow = () => {
   });
 
   const settings = new SettingsStore(app.getPath('userData'));
-  const presets = new PresetStore(app.getPath('userData'));
-  const roles = new RoleStore(app.getPath('userData'));
   ipcMain.handle('preset:list', () => presets.list());
   ipcMain.handle('preset:create', (_e, input) => presets.create(input));
   ipcMain.handle('preset:update', (_e, { id, input }) => presets.update(id, input));
