@@ -1,5 +1,6 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
+import * as fs from 'node:fs';
 import * as pty from 'node-pty';
 import type { WebContents } from 'electron';
 import { Terminal as HeadlessTerminal } from '@xterm/headless';
@@ -157,6 +158,18 @@ export class PtyManager {
     }
 
     return { id };
+  }
+
+  /** Materialize a reusable role beside the project and notify the live agent. */
+  assignRole(id: string, role: { id: string; name: string; instructions: string } | null): string {
+    const entry = this.entries.get(id);
+    if (!entry || !role) return '';
+    const dir = path.join(entry.cwd || os.homedir(), '.dogwalker', 'roles');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, entry.stableId + '.md');
+    fs.writeFileSync(file, '# ' + role.name + '\n\n' + role.instructions);
+    this.inject(id, 'Your Dogwalker role was updated. Read ' + file + ' before continuing.');
+    return file;
   }
 
   // ---- attention (ARCHITECTURE.md §6) --------------------------------------

@@ -330,6 +330,7 @@ export interface DwApi {
   createRole(input: Pick<Role, 'name' | 'instructions'>): Promise<Role>;
   updateRole(id: string, input: Pick<Role, 'name' | 'instructions'>): Promise<Role | null>;
   deleteRole(id: string): Promise<boolean>;
+  assignTerminalRole(id: string, roleId?: string): Promise<string>;
   /** A Walker recruited a teammate — the canvas adopts it near the Walker. */
   onRecruited(
     cb: (e: {

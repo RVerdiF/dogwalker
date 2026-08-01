@@ -43,6 +43,7 @@ const api: DwApi = {
   createRole: (input) => ipcRenderer.invoke('role:create', input),
   updateRole: (id, input) => ipcRenderer.invoke('role:update', { id, input }),
   deleteRole: (id) => ipcRenderer.invoke('role:delete', id),
+  assignTerminalRole: (id, roleId) => ipcRenderer.invoke('role:assignTerminal', { id, roleId }),
   onRecruited: (cb) => {
     const listener = (
       _e: IpcRendererEvent,

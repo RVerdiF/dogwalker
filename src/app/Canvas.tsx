@@ -210,6 +210,7 @@ export function Canvas({
       let id = adoptId ?? '';
       if (id) {
         terminals.create(id);
+        if (spec.roleId) void window.dw.assignTerminalRole(id, spec.roleId);
         const snapshot = await window.dw.serialize(id);
         if (snapshot) terminals.write(id, snapshot);
         window.dw.setMemoryLimit(id, spec.memoryLimitMB ?? 0);
@@ -245,6 +246,7 @@ export function Canvas({
           stableId: spec.stableId,
           memoryLimitMB: spec.memoryLimitMB ?? 0,
           walker: spec.walker ?? false,
+          roleId: spec.roleId,
         },
       };
       setNodes((ns) => [...ns, node]);
@@ -626,6 +628,7 @@ export function Canvas({
         ...base,
         kind: 'terminal' as const,
         preset: n.data.preset,
+        roleId: n.data.roleId,
         walker: n.data.walker ?? false,
         memoryLimitMB: n.data.memoryLimitMB ?? 0,
       };

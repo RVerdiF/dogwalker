@@ -24,6 +24,7 @@ export interface TerminalNodeData extends Record<string, unknown> {
   memoryLimitMB?: number;
   /** Manager agent (PRODUCT.md §5.4): gets recruit/dismiss/assign verbs. */
   walker?: boolean;
+  roleId?: string;
 }
 
 export type TerminalFlowNode = Node<TerminalNodeData, 'terminal'>;
@@ -117,6 +118,7 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
           {data.name}
           {data.exited ? ' · exited' : ''}
         </span>
+        <RoleSelect id={id} roleId={data.roleId} onChange={(roleId) => updateNodeData(id, { roleId })} />
         {data.exited && (
           <button
             className="dw-node-restart nodrag"
@@ -147,6 +149,14 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
       <div ref={bodyRef} className="dw-term-body nowheel nodrag" />
     </div>
   );
+}
+
+function RoleSelect({ id, roleId, onChange }: { id: string; roleId?: string; onChange: (roleId?: string) => void }) {
+  const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => { void window.dw.listRoles().then(setRoles); }, []);
+  return <select className="dw-role-select nodrag" value={roleId ?? ''} title="Assign role" onChange={(e) => {
+    const next = e.target.value || undefined; onChange(next); void window.dw.assignTerminalRole(id, next);
+  }}><option value="">role</option>{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>;
 }
 
 export const TerminalNode = memo(TerminalNodeInner);

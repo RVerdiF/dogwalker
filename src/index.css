@@ -812,6 +812,16 @@ body,
   text-overflow: ellipsis;
 }
 
+.dw-role-select {
+  max-width: 92px;
+  border: 1px solid var(--dw-border-strong);
+  border-radius: 5px;
+  background: var(--dw-surface-1);
+  color: var(--dw-text-dim);
+  font-size: 11px;
+  padding: 2px 4px;
+}
+
 .dw-attention {
   width: 9px;
   height: 9px;

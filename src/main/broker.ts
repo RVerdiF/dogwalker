@@ -6,6 +6,8 @@ import type { History } from './history';
 import type { NoteStore } from './noteStore';
 import type { PortalManager } from './portalManager';
 import type { WorkspaceStore } from './workspaceStore';
+import type { PresetStore } from './presetStore';
+import type { RoleStore } from './roleStore';
 import {
   encode,
   type BrokerRequest,
@@ -34,6 +36,8 @@ export class Broker {
     private notes: NoteStore,
     private portals: PortalManager,
     private workspaces: WorkspaceStore,
+    private presets: PresetStore,
+    private roles: RoleStore,
   ) {
     this.server = net.createServer((socket) => this.onConnection(socket));
   }
@@ -384,7 +388,10 @@ export class Broker {
     }
     if (req.cmd === 'recruit') {
       const preset = (req.agent || 'shell') as PresetId;
-      const role = (req.role || preset).trim();
+      if (!this.presets.get(preset)) return this.respond(socket, { ok: false, error: `no preset named "${preset}"` });
+      const roleRecord = req.role ? this.roles.list().find((r) => r.name === req.role || r.id === req.role) : null;
+      if (req.role && !roleRecord) return this.respond(socket, { ok: false, error: `no role named "${req.role}"` });
+      const role = roleRecord?.name || preset;
       const stableId = crypto.randomBytes(6).toString('hex');
       // Default to the Walker's own layer; `--floor` places the recruit on a
       // sibling floor of the same workspace (its worktree cwd + layer).
@@ -412,6 +419,7 @@ export class Broker {
         walker: false,
       });
       this.graph.connect(req.from, id);
+      if (roleRecord) this.ptys.assignRole(id, roleRecord);
       this.ptys.announceRecruit({
         id,
         stableId,
