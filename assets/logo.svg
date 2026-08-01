@@ -1,0 +1,21 @@
+<!-- High-density master mark: scalable vector plus a 1024px intrinsic canvas for rasterizing previewers. -->
+<svg width="1024" height="1024" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dogwalker logo" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
+  <defs>
+    <linearGradient id="dwFur" x1="8" y1="56" x2="34" y2="28" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C87F3C"/>
+      <stop offset="1" stop-color="#EEC079"/>
+    </linearGradient>
+  </defs>
+  <!-- terminal node — golden-retriever coat -->
+  <rect x="8" y="30" width="26" height="26" rx="8" fill="url(#dwFur)"/>
+  <rect x="8.75" y="30.75" width="24.5" height="24.5" rx="7.25" stroke="#FFF0D1" stroke-opacity=".18" stroke-width="1.5"/>
+  <path d="M15 38l4 3.5-4 3.5" stroke="#20140A" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M23 45.5h6" stroke="#20140A" stroke-width="2.8" stroke-linecap="round"/>
+  <!-- leash -->
+  <path d="M33 33C41 22 44 20 49 18" stroke="#8A261D" stroke-opacity=".35" stroke-width="5" stroke-linecap="round"/>
+  <path d="M33 33C41 22 44 20 49 18" stroke="#E6533C" stroke-width="3.2" stroke-linecap="round"/>
+  <!-- connection handle / agent -->
+  <circle cx="49" cy="16" r="8" fill="#E6533C"/>
+  <circle cx="49" cy="16" r="6.7" stroke="#FFB3A5" stroke-width="1.3" opacity=".4"/>
+  <circle cx="49" cy="16" r="8" stroke="#20140A" stroke-width="2" opacity="0.22"/>
+</svg>

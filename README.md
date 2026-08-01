@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/hero.svg" alt="Dogwalker — walk all your agents at once" width="860">
+<img src="assets/hero.svg" alt="Dogwalker — walk all your agents at once" width="860">
 
 An infinite canvas for AI coding agents: real terminals as nodes on a zoomable 2D surface. Put them on a leash — wire terminals together and your agents talk to each other through a structured protocol. Cross-platform. Local. Free.
 

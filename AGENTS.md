@@ -13,7 +13,7 @@ You are working on **Dogwalker**: a free, cross-platform (macOS/Windows/Linux) E
 
 ## Project status
 
-v0.0.1 spike **PASSED** (2026-07-19; findings in [ARCHITECTURE.md §13](ARCHITECTURE.md#13-spike-findings-v001--passed-2026-07-19-windows-11)). The spike app lives in `src/` (Electron Forge + Vite; main: `src/main.ts` + `src/main/`, renderer: `src/renderer.tsx` + `src/app/`); automated self-check via `DW_SMOKE=1 npm start` (`DW_SOAK`, `DW_QUIET`, `DW_SOAK_MIN` refine it). Current milestone: **v0.1 — the core loop** ([ROADMAP.md](ROADMAP.md#v01--the-core-loop)); anything not listed there is deferred by default.
+v1.0.0 just released.
 
 ## Invariants — do not violate without explicit human sign-off
 
@@ -29,21 +29,6 @@ These were deliberate decisions with reasoning behind them (see ARCHITECTURE.md 
 8. **Attention detection uses OSC 133** (fallback: output quiescence), running on the headless mirror. UI focus suppresses the *notification only*, never the detection.
 9. **Everything local, zero telemetry, open file formats** (markdown notes, JSON layouts, JSONL message history). The product is 100% free: no license checks, no tiers, no payment code.
 10. **Out of scope — do not add:** command palette / full-text search, built-in local LLM assistant, remote execution environments (SSH/Docker provisioning), MCP server, i18n. Rationale in [PRODUCT.md §1 non-goals](PRODUCT.md#non-goals-explicitly-out-of-scope) and [§5.3](PRODUCT.md#53-the-cli-is-the-entire-api).
-
-### Invariant audit — v0.7 (2026-07-30)
-
-All ten audited against the code and **holding**:
-
-1. Degradation ladder + per-terminal hot-swap live in `terminalService.ts` (unchanged since the spike). ✓
-2. `ask` captures output; broker `handleAsk` injects → `awaitQuiet` → captures the delta; there is **no `reply` command** (the `reply` token is only a *history record kind* for a captured response, not a CLI verb). ✓
-3. `ptyManager.inject` is a single `proc.write` of bracketed-paste open+body+close+CR, gated on the mirror's DEC 2004 mode — never split. ✓
-4. The shim only parses argv and sends one JSON request; every verb added since (portal/recruit/dismiss/assign) keeps auth+routing in the broker. ✓
-5. Every broker verb is gated by `graph.resolvePeer` (connection graph); Walker verbs additionally require `ptys.isWalker`. No ambient authority. ✓
-6. Agents remain vendor-agnostic launch configs driven only by PTY writes + the CLI; no per-vendor code, no provider API calls. ✓
-7. Floors are git worktrees; constraints are surfaced (create-dialog note, branch-in-use error), never worked around; no CoW/APFS dependency. ✓
-8. Attention runs OSC 133 + quiescence on the headless mirror; focus suppresses only the notification. ✓
-9. Local-only, zero telemetry, open formats (md notes, JSON layouts/workspaces/routines, JSONL history). No license/payment code. ✓
-10. None of the out-of-scope items were added. Note: the File Tree's per-node fuzzy/content search (PRODUCT §8) is scoped to a File Tree node and is **not** the app-wide command palette / full-text search this bars. ✓
 
 ## Conventions
 
