@@ -44,8 +44,10 @@ export async function runBrokerTest(
   const base = { preset: 'shell' as const, cols: 80, rows: 24, workspaceId: 'test', cwd: '' };
   const a = ptys.spawn({ ...base, name: 'lead', stableId: 'lead' }).id;
   const b = ptys.spawn({ ...base, name: 'reviewer', stableId: 'reviewer' }).id;
+  const d = ptys.spawn({ ...base, name: 'tester', stableId: 'tester' }).id;
   const c = ptys.spawn({ ...base, name: 'stranger', stableId: 'stranger' }).id;
   graph.connect(a, b);
+  graph.connect(a, d);
 
   const result: Record<string, unknown> = {};
 
@@ -73,6 +75,11 @@ export async function runBrokerTest(
   const listRes = await rpc(sock, { cmd: 'list', from: a });
   result.listPeers = (listRes.data as { peers?: Array<{ name: string }> })?.peers?.map((p) => p.name);
 
+  const team = await rpc(sock, { cmd: 'ask', from: a, all: true, body: 'echo TEAM_ASK_OK' });
+  const teamResults = (team.data as { results?: Array<{ name: string; ok: boolean; body?: string }> })?.results ?? [];
+  result.teamAsk = team.ok && teamResults.length === 2 && teamResults.every((x) => x.ok && x.body?.includes('TEAM_ASK_OK'));
+  result.teamAskOrder = teamResults.map((x) => x.name).join(',');
+
   // 6. authorization — stranger (unwired) may not ask reviewer.
   const denied = await rpc(sock, { cmd: 'ask', from: c, target: 'reviewer', body: 'hi' });
   result.strangerDenied = !denied.ok;
@@ -88,9 +95,14 @@ export async function runBrokerTest(
   await wait(6000);
   result.shimAskTimeout = ptys.serialize(a).includes('TIMEOUT_OK');
 
+  ptys.write(a, 'dogwalker ask --all "echo SHIM_TEAM_OK" --json\r');
+  await wait(6000);
+  result.shimTeamJson = ptys.serialize(a).includes('SHIM_TEAM_OK') && ptys.serialize(a).includes('broadcastId');
+
   console.log('BROKERTEST RESULT ' + JSON.stringify(result));
 
   ptys.kill(a);
   ptys.kill(b);
+  ptys.kill(d);
   ptys.kill(c);
 }

@@ -86,6 +86,8 @@ export interface HistoryEntry {
   from: string;
   to: string;
   msgId?: string;
+  /** Groups the individual leash entries created by one team ask. */
+  broadcastId?: string;
   body: string;
 }
 
