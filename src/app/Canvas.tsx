@@ -230,6 +230,7 @@ export function Canvas({
           })
         ).id;
         terminals.create(id);
+        if (spec.roleId) void window.dw.assignTerminalRole(id, spec.roleId);
       }
       stableToLive.current.set(spec.stableId, id); // terminal graph id = live id
       const node: TerminalFlowNode = {
@@ -475,13 +476,14 @@ export function Canvas({
   }, []);
 
   const spawnNew = useCallback(
-    (preset: PresetId) => {
+    (preset: PresetId, roleId?: string) => {
       const n = spawnCount.current++;
       return addTerminal({
         kind: 'terminal',
         stableId: crypto.randomUUID(),
         name: `${preset}-${n + 1}`,
         preset,
+        roleId,
         x: (n % GRID_COLS) * GRID_GAP_X,
         y: Math.floor(n / GRID_COLS) * GRID_GAP_Y,
         w: NODE_W,
@@ -2071,7 +2073,7 @@ export function Canvas({
   return (
     <div className="dw-canvas-host">
       <TerminalPalette
-        onSpawn={(p) => void spawnNew(p)}
+        onSpawn={(preset, roleId) => void spawnNew(preset, roleId)}
         onAddNote={() => void addNote()}
         onAddFileTree={() => addFileTree()}
         onAddPortal={() => void addPortal()}

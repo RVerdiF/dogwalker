@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import type { AgentPreset, PresetId } from '../shared/ipc';
+import type { AgentPreset, PresetId, Role } from '../shared/ipc';
 
 interface Props {
-  onSpawn: (preset: PresetId) => void;
+  onSpawn: (preset: PresetId, roleId?: string) => void;
   onAddNote: () => void;
   onAddFileTree: () => void;
   onAddPortal: () => void;
@@ -28,18 +28,39 @@ export function TerminalPalette({
   onAddPortal,
 }: Props) {
   const [presets, setPresets] = useState<AgentPreset[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [roleId, setRoleId] = useState('');
   useEffect(() => {
-    void window.dw.listPresets().then(setPresets);
+    const refresh = () => {
+      void window.dw.listPresets().then(setPresets);
+      void window.dw.listRoles().then(setRoles);
+    };
+    refresh();
+    window.addEventListener('dw:presets-changed', refresh);
+    window.addEventListener('dw:roles-changed', refresh);
+    return () => {
+      window.removeEventListener('dw:presets-changed', refresh);
+      window.removeEventListener('dw:roles-changed', refresh);
+    };
   }, []);
   return (
     <div className="dw-palette">
       <span className="dw-palette-plus">＋</span>
+      <select
+        className="dw-palette-role nodrag"
+        value={roleId}
+        title="Role for the next terminal"
+        onChange={(event) => setRoleId(event.target.value)}
+      >
+        <option value="">no role</option>
+        {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
+      </select>
       {presets.map((p) => (
         <button
           key={p.id}
           className="dw-palette-chip"
-          title={`New ${p.name} terminal`}
-          onClick={() => onSpawn(p.id)}
+          title={`New ${p.name} terminal${roleId ? ' with selected role' : ''}`}
+          onClick={() => onSpawn(p.id, roleId || undefined)}
         >
           <span className="dw-palette-chip-icon">{p.icon}</span>
           {p.name}

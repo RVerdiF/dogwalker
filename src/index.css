@@ -706,6 +706,17 @@ body,
   margin-right: 2px;
 }
 
+.dw-palette-role {
+  max-width: 106px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+  background: rgba(8, 10, 16, 0.72);
+  color: #c9cad3;
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 6px;
+}
+
 .dw-palette-chip {
   display: flex;
   align-items: center;
