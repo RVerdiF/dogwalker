@@ -90,6 +90,9 @@ Creating a terminal offers **agent presets**: a preset is a display name, an ico
 - A role is a reusable instruction file assigned at terminal creation or later.
 - Delivered to the agent as readable context (installed into the working directory and referenced by the skill).
 - Reassignable at runtime without moving the node or dropping connections.
+- Presets and roles are managed locally from the Panel; custom entries can be
+  created, edited, duplicated and removed. A deleted role stays visibly
+  recoverable on a referencing terminal until a replacement is selected.
 
 ### 4.4 Attention system
 - When an agent finishes its current command / goes idle waiting for input, the terminal shows an attention dot and fires a system notification (a user-toggleable setting).

@@ -154,9 +154,10 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
 function RoleSelect({ id, roleId, onChange }: { id: string; roleId?: string; onChange: (roleId?: string) => void }) {
   const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([]);
   useEffect(() => { void window.dw.listRoles().then(setRoles); }, []);
-  return <select className="dw-role-select nodrag" value={roleId ?? ''} title="Assign role" onChange={(e) => {
+  const missing = !!roleId && !roles.some((r) => r.id === roleId);
+  return <select className={`dw-role-select nodrag ${missing ? 'missing' : ''}`} value={roleId ?? ''} title={missing ? 'Missing role — select a replacement' : 'Assign role'} onChange={(e) => {
     const next = e.target.value || undefined; onChange(next); void window.dw.assignTerminalRole(id, next);
-  }}><option value="">role</option>{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>;
+  }}><option value="">{missing ? 'missing role' : 'role'}</option>{missing && <option value={roleId}>missing role</option>}{roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>;
 }
 
 export const TerminalNode = memo(TerminalNodeInner);

@@ -48,6 +48,9 @@ One host daemon per app instance. The renderer is presentation; every capability
   - `PATH` prepended with a shim dir containing the `dogwalker` binary.
   This is why the CLI "only exists inside the canvas": outside Dogwalker terminals the shim isn't on PATH and the socket env var is absent.
 - Agent presets: after shell init, the configured command is written to the PTY (auto-executed). From then on Dogwalker interacts with the process exclusively via PTY writes — indistinguishable from user input.
+- Custom presets and reusable roles live in local JSON stores. Applying a role
+  writes a role Markdown file in the terminal cwd, then uses the same atomic
+  PTY injection path to tell the live agent to read it.
 - Per-terminal memory limit: main process polls the PTY's process tree; on breach, kill the offending child, keep the shell.
 - The **screen buffer lives in the renderer** (xterm.js). The main process keeps a headless mirror terminal (xterm-headless) per PTY fed with the same byte stream, so `check`, attention detection, and hibernated/offscreen parsing never depend on the UI.
 

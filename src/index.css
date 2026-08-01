@@ -821,6 +821,7 @@ body,
   font-size: 11px;
   padding: 2px 4px;
 }
+.dw-role-select.missing { border-color: var(--dw-warn); color: var(--dw-warn); }
 
 .dw-attention {
   width: 9px;
