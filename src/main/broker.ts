@@ -77,7 +77,7 @@ export class Broker {
     }
     switch (req.cmd) {
       case 'ask':
-        void this.handleAsk(socket, req.from, req.target, req.body, req.timeoutMs);
+        void this.handleAsk(socket, req);
         return;
       case 'check':
         return this.handleCheck(socket, req.from, req.target);
@@ -117,24 +117,45 @@ export class Broker {
    */
   private async handleAsk(
     socket: net.Socket,
+    req: Extract<BrokerRequest, { cmd: 'ask' }>,
+  ): Promise<void> {
+    const requested = req.all
+      ? [...this.graph.neighbors(req.from)]
+          .filter((id) => this.graph.kindOf(id) === 'terminal')
+          .filter((id) => !(req.exclude ?? []).includes(id) && !(req.exclude ?? []).includes(this.graph.name(id)))
+      : req.targets ?? (req.target ? [req.target] : []);
+    if (requested.length === 0) {
+      return this.respond(socket, { ok: false, error: req.all ? 'no connected terminals to ask' : 'ask needs a terminal target' });
+    }
+    const broadcast = req.all || requested.length > 1;
+    const broadcastId = broadcast ? crypto.randomBytes(5).toString('hex') : undefined;
+    const results = await Promise.all(requested.map((target) => this.askOne(req.from, target, req.body, req.timeoutMs, broadcastId)));
+    if (!broadcast) {
+      const result = results[0];
+      return result.ok
+        ? this.respond(socket, { ok: true, data: { body: result.body } })
+        : this.respond(socket, { ok: false, error: result.error });
+    }
+    this.respond(socket, { ok: true, data: { broadcastId, results } });
+  }
+
+  private async askOne(
     from: string,
     target: string,
     body: string,
     timeoutMs?: number,
-  ): Promise<void> {
+    broadcastId?: string,
+  ): Promise<{ id?: string; name: string; ok: boolean; body?: string; error?: string }> {
     const to = this.graph.resolvePeer(from, target);
     if (!to) {
-      return this.respond(socket, {
-        ok: false,
-        error: `no connected terminal named "${target}"`,
-      });
+      return { name: target, ok: false, error: `no connected terminal named "${target}"` };
     }
     const timeout = Math.min(
       ASK_TIMEOUT_MAX_MS,
       Math.max(ASK_TIMEOUT_MIN_MS, timeoutMs ?? ASK_TIMEOUT_DEFAULT_MS),
     );
     const msgId = crypto.randomBytes(3).toString('hex');
-    this.history.append({ ts: Date.now(), kind: 'ask', from, to, msgId, body });
+    this.history.append({ ts: Date.now(), kind: 'ask', from, to, msgId, body, broadcastId });
 
     const before = this.ptys.plainText(to);
     this.ptys.inject(to, body);
@@ -152,8 +173,9 @@ export class Broker {
       to: from,
       msgId,
       body: response,
+      broadcastId,
     });
-    this.respond(socket, { ok: true, data: { body: response } });
+    return { id: to, name: this.graph.name(to), ok: true, body: response };
   }
 
   private handleCheck(socket: net.Socket, from: string, target: string): void {

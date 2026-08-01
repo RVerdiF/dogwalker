@@ -6,7 +6,14 @@
 export interface AskReq {
   cmd: 'ask';
   from: string;
-  target: string;
+  target?: string;
+  /** Explicit connected terminals; a single target remains backward compatible. */
+  targets?: string[];
+  /** Every directly connected terminal (never notes or portals). */
+  all?: boolean;
+  exclude?: string[];
+  /** Request a stable JSON envelope from the CLI shim. */
+  json?: boolean;
   body: string;
   /** How long to wait for the target's answer, in ms (clamped by the broker). */
   timeoutMs?: number;

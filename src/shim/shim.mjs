@@ -35,8 +35,15 @@ function readStdin() {
 async function buildRequest() {
   switch (cmd) {
     case 'ask': {
-      const target = argv[1];
-      const rest = argv.slice(2);
+      const rest = argv.slice(1);
+      const all = rest.includes('--all');
+      const json = rest.includes('--json');
+      const exclude = [];
+      for (let i = rest.length - 1; i >= 0; i--) {
+        if (rest[i] === '--all' || rest[i] === '--json') rest.splice(i, 1);
+        if (rest[i] === '--exclude') { exclude.push(...(rest[i + 1] || '').split(',').filter(Boolean)); rest.splice(i, 2); }
+      }
+      const target = all ? undefined : rest.shift();
       let timeoutMs;
       const ti = rest.indexOf('--timeout');
       if (ti >= 0) {
@@ -48,10 +55,11 @@ async function buildRequest() {
         rest.splice(ti, 2);
       }
       const body = rest.join(' ');
-      if (!target || !body) {
-        die('usage: dogwalker ask <terminal> <message> [--timeout <seconds>]');
+      if ((!target && !all) || !body) {
+        die('usage: dogwalker ask <terminal[,terminal]> <message> [--all] [--exclude <terminal>] [--json] [--timeout <seconds>]');
       }
-      const req = { cmd: 'ask', from, target, body };
+      const targets = target?.split(',').filter(Boolean);
+      const req = { cmd: 'ask', from, target: targets?.[0], targets, all, exclude, body, json };
       if (timeoutMs !== undefined) req.timeoutMs = timeoutMs;
       return req;
     }
@@ -143,7 +151,8 @@ async function buildRequest() {
   }
 }
 
-function render(cmd, data) {
+function render(cmd, data, json = false) {
+  if (json) return process.stdout.write(JSON.stringify({ ok: true, data }) + '\n');
   if (cmd === 'check' && data && typeof data.screen === 'string') {
     process.stdout.write(data.screen.replace(/\s+$/, '') + '\n');
   } else if (cmd === 'list' && data && Array.isArray(data.peers)) {
@@ -195,7 +204,7 @@ socket.on('data', (chunk) => {
   }
   socket.end();
   if (!res.ok) die(res.error || 'request failed');
-  render(request.cmd, res.data);
+  render(request.cmd, res.data, request.json);
   process.exit(0);
 });
 socket.on('error', (err) => die(`cannot reach broker: ${err.message}`));
