@@ -3,7 +3,9 @@
 
 import type { ThemeSpec } from './themes';
 
-export type PresetId = 'shell' | 'claude' | 'codex' | 'gemini' | 'stress';
+export type PresetId = string;
+export interface AgentPreset { id: PresetId; name: string; icon: string; command: string; builtin?: boolean; }
+export interface Role { id: string; name: string; instructions: string; }
 
 /** Persisted app settings (terminal theming + notifications). */
 export interface AppSettings {
@@ -103,6 +105,7 @@ interface BaseSpec {
 export interface TerminalSpec extends BaseSpec {
   kind: 'terminal';
   preset: PresetId;
+  roleId?: string;
   /** Runaway guard in MB; 0/absent = off. */
   memoryLimitMB?: number;
   /** Manager agent (PRODUCT.md §5.4): may recruit/dismiss/assign teammates. */
@@ -319,6 +322,14 @@ export interface DwApi {
   setMemoryLimit(id: string, mb: number): void;
   /** Flag/unflag a live terminal as a Walker (manager agent, §5.4). */
   setWalker(id: string, walker: boolean): void;
+  listPresets(): Promise<AgentPreset[]>;
+  createPreset(input: Pick<AgentPreset, 'name' | 'icon' | 'command'>): Promise<AgentPreset>;
+  updatePreset(id: string, input: Pick<AgentPreset, 'name' | 'icon' | 'command'>): Promise<AgentPreset | null>;
+  deletePreset(id: string): Promise<boolean>;
+  listRoles(): Promise<Role[]>;
+  createRole(input: Pick<Role, 'name' | 'instructions'>): Promise<Role>;
+  updateRole(id: string, input: Pick<Role, 'name' | 'instructions'>): Promise<Role | null>;
+  deleteRole(id: string): Promise<boolean>;
   /** A Walker recruited a teammate — the canvas adopts it near the Walker. */
   onRecruited(
     cb: (e: {
