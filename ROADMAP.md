@@ -283,9 +283,63 @@ meant to be.
 
 ---
 
+## v1.2.0 — Team Operations & response contracts
+
+**Status: planned.** This version makes the existing connection graph useful
+for deliberate multi-agent loops: fan a task out to authorized teammates, get
+machine-readable outcomes back, and let a Walker choose the next action without
+repeating or screen-scraping noisy transcripts. It remains entirely local and
+vendor-neutral: Dogwalker only injects PTY text and validates captured output.
+
+**Expectation:** a team lead can ask several reviewers for the same decision,
+receive compact validated results, and continue the loop using the existing
+CLI, roles, floors and message history.
+
+**Outputs**
+1. **Targeted team asks:** `dogwalker ask --all`, explicit comma-separated
+   terminal targets, and exclusions for directly connected terminals. Each
+   recipient is independently authorized; partial timeout/failure returns the
+   successful peers instead of failing the whole round.
+2. **Stable automation envelopes:** `--json` on `ask`, `check` and `list`, with
+   documented `ok`, `data` and `error` fields. Broadcast output is deterministic
+   and contains a result per target (name, stable id, status, output/error).
+3. **Response-contract library:** persisted local named contracts containing a
+   description and a constrained JSON-schema subset (objects, required fields,
+   scalar types, enums and arrays). Panel CRUD includes duplicate and a readable
+   empty state; deleted contracts fail clearly but never corrupt history.
+4. **Broker validation:** `ask --contract <name>` injects exact output guidance,
+   extracts one JSON value from the captured response, validates it in the host,
+   and exposes `valid`, parsed value and validation errors. `--strict` gives a
+   non-zero result for an invalid answer; raw output remains inspectable.
+5. **History and Walker loop:** a broadcast id groups its per-leash history
+   entries in the UI. Walkers can broadcast review/research requests on ground
+   or floors and consume contract results in a follow-up command.
+6. **Validation and truth pass:** focused harnesses cover graph authorization,
+   partial failure, output ordering, JSON envelopes, contract CRUD/persistence,
+   JSON extraction/validation and cross-floor Walker broadcasts. PRODUCT.md,
+   ARCHITECTURE.md and README.md describe the shipped behavior exactly.
+
+**Exit criteria**
+- A terminal can broadcast only to its directly connected peers; an unconnected
+  target is denied even when another target in the same round succeeds.
+- A timed-out or malformed response leaves the valid results of other peers
+  available in a deterministic JSON envelope.
+- A custom response contract survives restart, validates a live agent answer,
+  and returns actionable errors for a malformed answer without hiding raw
+  history.
+- A Walker uses a contract-backed broadcast across a floor boundary and makes a
+  follow-up decision from the JSON result without parsing terminal decorations.
+- No vendor-specific adapter, provider call, ambient authority, silent retry or
+  renderer snapshot is introduced.
+
+---
+
 ## After v1 (parked, unscheduled)
 
 **Scheduling note:** Presets and roles are no longer parked; they are the
 v1.1.0 scope above. The remaining ideas follow.
 
-Recurring ideas deliberately not on the path: presets, roles, broadcast `ask`, `--json` on every verb, community preset/skill sharing, tier-4 rendering if v0.7 didn't need it. New scope enters [PRODUCT.md](PRODUCT.md) first, then lands here — never the other way around.
+Recurring ideas deliberately not on the path: community preset/skill sharing,
+`--json` on every remaining verb, automatic contract-repair retries, and tier-4
+rendering if profiling demands it. New scope enters [PRODUCT.md](PRODUCT.md)
+first, then lands here — never the other way around.
