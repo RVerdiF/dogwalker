@@ -52,6 +52,7 @@ const api: DwApi = {
         stableId: string;
         name: string;
         preset: PresetId;
+        roleId?: string;
         walkerId: string;
         workspaceId: string;
       },

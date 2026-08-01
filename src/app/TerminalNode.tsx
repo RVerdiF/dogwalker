@@ -7,7 +7,7 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
-import type { PresetId } from '../shared/ipc';
+import type { AgentPreset, PresetId, Role } from '../shared/ipc';
 import { terminals, type Tier } from './terminalService';
 import { getFileDrag } from './dnd';
 
@@ -34,6 +34,7 @@ const TIER_LABELS: Record<Tier, string> = { 1: 'GL', 2: 'DOM', 3: 'ZZZ' };
 function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [dropOver, setDropOver] = useState(false);
+  const [presets, setPresets] = useState<AgentPreset[]>([]);
   const { deleteElements, updateNodeData } = useReactFlow();
 
   const toggleWalker = () => {
@@ -41,6 +42,12 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
     updateNodeData(id, { walker: next });
     window.dw.setWalker(id, next);
   };
+  useEffect(() => {
+    const refresh = () => void window.dw.listPresets().then(setPresets);
+    refresh();
+    window.addEventListener('dw:presets-changed', refresh);
+    return () => window.removeEventListener('dw:presets-changed', refresh);
+  }, []);
 
   // A file dragged from a File Tree node lands here as its path, typed into the
   // terminal (not submitted) so the agent — or the user — can act on it.
@@ -118,6 +125,7 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
           {data.name}
           {data.exited ? ' · exited' : ''}
         </span>
+        <PresetSelect presetId={data.preset} presets={presets} onChange={(preset) => updateNodeData(id, { preset })} />
         <RoleSelect id={id} roleId={data.roleId} onChange={(roleId) => updateNodeData(id, { roleId })} />
         {data.exited && (
           <button
@@ -151,9 +159,22 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
   );
 }
 
+function PresetSelect({ presetId, presets, onChange }: { presetId: PresetId; presets: AgentPreset[]; onChange: (preset: PresetId) => void }) {
+  const missing = !presets.some((preset) => preset.id === presetId);
+  return <select className={`dw-role-select nodrag ${missing ? 'missing' : ''}`} value={presetId} title={missing ? 'Missing preset — choose a replacement; it is used on restart' : 'Terminal preset — changes apply on restart'} onChange={(e) => onChange(e.target.value)}>
+    {missing && <option value={presetId}>missing preset</option>}
+    {presets.map((preset) => <option key={preset.id} value={preset.id}>{preset.name}</option>)}
+  </select>;
+}
+
 function RoleSelect({ id, roleId, onChange }: { id: string; roleId?: string; onChange: (roleId?: string) => void }) {
-  const [roles, setRoles] = useState<Array<{ id: string; name: string }>>([]);
-  useEffect(() => { void window.dw.listRoles().then(setRoles); }, []);
+  const [roles, setRoles] = useState<Role[]>([]);
+  useEffect(() => {
+    const refresh = () => void window.dw.listRoles().then(setRoles);
+    refresh();
+    window.addEventListener('dw:roles-changed', refresh);
+    return () => window.removeEventListener('dw:roles-changed', refresh);
+  }, []);
   const missing = !!roleId && !roles.some((r) => r.id === roleId);
   return <select className={`dw-role-select nodrag ${missing ? 'missing' : ''}`} value={roleId ?? ''} title={missing ? 'Missing role — select a replacement' : 'Assign role'} onChange={(e) => {
     const next = e.target.value || undefined; onChange(next); void window.dw.assignTerminalRole(id, next);

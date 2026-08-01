@@ -118,7 +118,18 @@ Broker serializes the target's headless-mirror screen (xterm serialize addon) an
 `note read|append|write`, `portal navigate|click|type|screenshot|js|dom|console`, `connect`/`disconnect`, `list`, and Walker's `recruit`/`dismiss`/`assign` are all broker methods gated by the connection graph and (for Walker verbs) the terminal's Walker flag. Recruiting = broker asks the workspace store to create a terminal node with the given preset/role, wires it, and auto-positions it near the recruiter.
 
 ### 5.5 The skill
+
 A skill file installed in the user's agent-skills folder (e.g. `~/.claude/skills/dogwalker/`) teaches agents: available verbs, that answering an `ask` is just responding normally in their terminal (no command to run), how to discover peers (`dogwalker list`), and role context location. Because we own both the skill and the broker, protocol evolution is a two-file change.
+
+### 5.6 Roles and presets
+
+`PresetStore` and `RoleStore` persist custom records as local JSON alongside the
+other app data; built-in presets remain read-only. The broker is the shared
+resolver for Walker and UI configuration. `PtyManager.assignRole()` writes
+`.dogwalker/roles/<stable-id>.md` in the terminal cwd and calls the normal atomic
+injection path to direct the live agent to it. The renderer persists ids, shows
+missing configurations without blocking workspace recovery, and lets users pick
+a replacement (preset changes apply on restart).
 
 ## 6. Attention detection
 
