@@ -1,6 +1,7 @@
 import * as net from 'node:net';
 import type { PtyManager } from './ptyManager';
 import type { GraphStore } from './graphStore';
+import type { ContractStore } from './contractStore';
 import type { BrokerRequest, BrokerResponse } from '../shared/protocol';
 
 /**
@@ -39,6 +40,7 @@ function rpc(
 export async function runBrokerTest(
   ptys: PtyManager,
   graph: GraphStore,
+  contracts: ContractStore,
   sock: string,
 ): Promise<void> {
   const base = { preset: 'shell' as const, cols: 80, rows: 24, workspaceId: 'test', cwd: '' };
@@ -48,6 +50,7 @@ export async function runBrokerTest(
   const c = ptys.spawn({ ...base, name: 'stranger', stableId: 'stranger' }).id;
   graph.connect(a, b);
   graph.connect(a, d);
+  const contract = contracts.create({ name: 'broker-test-contract', instructions: 'Return JSON only.', schema: { required: ['decision'], fields: { decision: 'string' } } });
 
   const result: Record<string, unknown> = {};
 
@@ -80,6 +83,10 @@ export async function runBrokerTest(
   result.teamAsk = team.ok && teamResults.length === 2 && teamResults.every((x) => x.ok && x.body?.includes('TEAM_ASK_OK'));
   result.teamAskOrder = teamResults.map((x) => x.name).join(',');
 
+  const contractAsk = await rpc(sock, { cmd: 'ask', from: a, target: 'reviewer', body: 'echo {"decision":"approve"}', contract: contract.id });
+  const contractResult = contractAsk.data as { valid?: boolean; value?: { decision?: string } };
+  result.contractValidated = contractAsk.ok && contractResult.valid === true && contractResult.value?.decision === 'approve';
+
   // 6. authorization — stranger (unwired) may not ask reviewer.
   const denied = await rpc(sock, { cmd: 'ask', from: c, target: 'reviewer', body: 'hi' });
   result.strangerDenied = !denied.ok;
@@ -105,4 +112,5 @@ export async function runBrokerTest(
   ptys.kill(b);
   ptys.kill(d);
   ptys.kill(c);
+  contracts.remove(contract.id);
 }

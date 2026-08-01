@@ -669,7 +669,7 @@ const createWindow = () => {
   }
 
   if (process.env.DW_BROKERTEST) {
-    void runBrokerTest(ptys, graph, socketPath);
+    void runBrokerTest(ptys, graph, contracts, socketPath);
   }
 
   if (process.env.DW_PORTALCLITEST) {

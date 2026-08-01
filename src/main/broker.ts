@@ -139,7 +139,7 @@ export class Broker {
     if (!broadcast) {
       const result = results[0];
       return result.ok
-        ? this.respond(socket, { ok: true, data: { body: result.body } })
+        ? this.respond(socket, { ok: true, data: result })
         : this.respond(socket, { ok: false, error: result.error });
     }
     this.respond(socket, { ok: true, data: { broadcastId, results } });

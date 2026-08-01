@@ -133,6 +133,18 @@ a replacement (preset changes apply on restart).
 
 ## 6. Attention detection
 
+### 5.8 Team asks and response contracts
+
+The broker expands `ask --all` only from the caller's direct terminal neighbors;
+each recipient still takes the normal `resolvePeer` authorization path. It runs
+the ordinary atomic injection/capture cycle per target and returns a deterministic
+result array with a shared broadcast id; history retains that id on each leash
+entry. `ContractStore` persists local response contracts. For a contract ask,
+the broker appends output guidance, extracts one JSON object from the captured
+text, validates required typed fields, and returns the parsed value or errors.
+The shim only forwards flags and formats the envelope; it has no validation or
+authorization logic.
+
 - Primary signal: **shell integration marks (OSC 133)** — command start/end sequences emitted by configured shells and understood by xterm.js. "Command ended + nothing new started" = agent idle / waiting for input → attention dot.
 - Fallback (no OSC 133): output quiescence heuristic (no PTY output for N seconds while a foreground child exists).
 - Detection runs on the headless mirror, so it works for offscreen and hibernation-adjacent states and is independent of UI focus.

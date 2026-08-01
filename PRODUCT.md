@@ -160,16 +160,16 @@ ordinary asks: one timeout or malformed response never discards the useful
 responses from the others, and each connection retains its own history entry.
 
 A **response contract** is a persisted local record with a name, a short
-instruction, and a deliberately small JSON-schema subset: object properties,
-required fields, scalar types, enums and homogeneous arrays. Contracts make an
+instruction, and a deliberately small schema: required object fields with
+string, number, boolean or array types. Contracts make an
 agent turn predictable without adding a model-provider API. When used with
 `ask --contract`, Dogwalker injects the expected shape alongside the work,
 captures the result normally, extracts one JSON value and validates it in the
 broker. The original captured text remains in history for inspection.
 
 `--json` returns a stable envelope for automation. Contract results contain
-`valid`, `value` when parsing succeeds, `errors` when it does not, and `raw` on
-request. A strict caller receives a non-zero result for an invalid contract;
+`valid`, `value` when parsing succeeds, `errors` when it does not, and the
+captured response in `body`. A strict caller receives a non-zero result for an invalid contract;
 otherwise partial broadcast results are returned together so a Walker can make
 the next decision with less transcript noise. Dogwalker never silently retries
 or asks an agent to repair its own answer in v1.2: that is a visible decision
