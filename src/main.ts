@@ -120,7 +120,7 @@ const createWindow = () => {
     presets.get(id)?.command || null,
   );
   const portals = new PortalManager(mainWindow, mainWindow.webContents);
-  broker = new Broker(socketPath, graph, ptys, history, notes, portals, workspaces);
+  broker = new Broker(socketPath, graph, ptys, history, notes, portals, workspaces, presets, roles);
   broker.listen();
 
   const wc = mainWindow.webContents;
@@ -207,6 +207,9 @@ const createWindow = () => {
   ipcMain.handle('role:create', (_e, input) => roles.create(input));
   ipcMain.handle('role:update', (_e, { id, input }) => roles.update(id, input));
   ipcMain.handle('role:delete', (_e, id: string) => roles.remove(id));
+  ipcMain.handle('role:assignTerminal', (_e, { id, roleId }: { id: string; roleId?: string }) =>
+    ptys?.assignRole(id, roleId ? roles.get(roleId) : null) ?? '',
+  );
   ipcMain.handle('settings:get', () => settings.get());
   ipcMain.handle('settings:set', (_e, partial: Partial<AppSettings>) =>
     settings.set(partial),

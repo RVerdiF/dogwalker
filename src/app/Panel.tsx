@@ -24,8 +24,8 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string; ready: boole
   { id: 'workspaces', label: 'Workspaces', icon: '🗂️', ready: true },
   { id: 'routines', label: 'Routines', icon: '⏱️', ready: true },
   { id: 'agents', label: 'Agents', icon: '🤖', ready: false },
-  { id: 'presets', label: 'Presets', icon: '⚡', ready: false },
-  { id: 'roles', label: 'Roles', icon: '🎭', ready: false },
+  { id: 'presets', label: 'Presets', icon: '⚡', ready: true },
+  { id: 'roles', label: 'Roles', icon: '🎭', ready: true },
   { id: 'settings', label: 'Settings', icon: '⚙️', ready: true },
 ];
 
@@ -73,6 +73,10 @@ export function Panel(props: Props) {
             <RoutinesSection activeId={props.activeId} />
           ) : section === 'settings' ? (
             <SettingsSection {...props} />
+          ) : section === 'presets' ? (
+            <PresetsSection />
+          ) : section === 'roles' ? (
+            <RolesSection />
           ) : (
             <div className="dw-panel-placeholder">
               This section arrives in a later version.
@@ -85,6 +89,32 @@ export function Panel(props: Props) {
       </div>
     </div>
   );
+}
+
+function PresetsSection() {
+  const [items, setItems] = useState<Array<{ id: string; name: string; icon: string; command: string; builtin?: boolean }>>([]);
+  const [name, setName] = useState(''); const [icon, setIcon] = useState('⚡'); const [command, setCommand] = useState('');
+  const refresh = () => void window.dw.listPresets().then(setItems);
+  useEffect(() => { refresh(); }, []);
+  const add = async () => { if (!command.trim()) return; await window.dw.createPreset({ name, icon, command }); setName(''); setCommand(''); refresh(); };
+  return <div className="dw-section"><div className="dw-section-head"><h2>Presets</h2></div>
+    <p className="dw-settings-hint">Reusable terminal launch commands. Built-ins are read-only.</p>
+    <div className="dw-routine-form"><div className="dw-routine-row"><input value={icon} onChange={(e) => setIcon(e.target.value)} maxLength={2} /><input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} /><input placeholder="Command" value={command} onChange={(e) => setCommand(e.target.value)} /></div><button className="dw-btn-primary" onClick={() => void add()}>+ Add preset</button></div>
+    <div className="dw-routine-list">{items.map((p) => <div className="dw-routine-card" key={p.id}><div className="dw-routine-info"><div className="dw-routine-title">{p.icon} {p.name} {p.builtin && <span className="dw-routine-meta">built-in</span>}</div><div className="dw-routine-prompt-preview">{p.command || 'plain shell'}</div></div>{!p.builtin && <button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deletePreset(p.id).then(refresh)}>Delete</button>}</div>)}</div>
+  </div>;
+}
+
+function RolesSection() {
+  const [items, setItems] = useState<Array<{ id: string; name: string; instructions: string }>>([]);
+  const [name, setName] = useState(''); const [instructions, setInstructions] = useState('');
+  const refresh = () => void window.dw.listRoles().then(setItems);
+  useEffect(() => { refresh(); }, []);
+  const add = async () => { if (!name.trim()) return; await window.dw.createRole({ name, instructions }); setName(''); setInstructions(''); refresh(); };
+  return <div className="dw-section"><div className="dw-section-head"><h2>Roles</h2></div>
+    <p className="dw-settings-hint">Reusable Markdown instructions. Assign one in a terminal header.</p>
+    <div className="dw-routine-form"><input placeholder="Role name" value={name} onChange={(e) => setName(e.target.value)} /><textarea rows={4} placeholder="Instructions for this role…" value={instructions} onChange={(e) => setInstructions(e.target.value)} /><button className="dw-btn-primary" onClick={() => void add()}>+ Add role</button></div>
+    <div className="dw-routine-list">{items.map((r) => <div className="dw-routine-card" key={r.id}><div className="dw-routine-info"><div className="dw-routine-title">{r.name}</div><div className="dw-routine-prompt-preview">{r.instructions || 'No instructions yet.'}</div></div><button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deleteRole(r.id).then(refresh)}>Delete</button></div>)}</div>
+  </div>;
 }
 
 function WorkspacesSection({
