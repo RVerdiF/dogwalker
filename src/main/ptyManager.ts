@@ -73,6 +73,7 @@ export class PtyManager {
     private target: WebContents,
     private graph: GraphStore,
     private env: PtyEnv,
+    private resolvePreset: (id: PresetId) => string | null = presetCommand,
   ) {}
 
   spawn(opts: SpawnOptions): { id: string } {
@@ -145,7 +146,7 @@ export class PtyManager {
     this.syncMemoryPoller();
     this.graph.addNode(id, opts.name, 'terminal', opts.preset);
 
-    const command = presetCommand(opts.preset);
+    const command = this.resolvePreset(opts.preset);
     if (command) {
       setTimeout(() => {
         if (this.entries.has(id)) {

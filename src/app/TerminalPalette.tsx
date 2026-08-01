@@ -1,4 +1,5 @@
-import type { PresetId } from '../shared/ipc';
+import { useEffect, useState } from 'react';
+import type { AgentPreset, PresetId } from '../shared/ipc';
 
 interface Props {
   onSpawn: (preset: PresetId) => void;
@@ -8,7 +9,7 @@ interface Props {
 }
 
 /** End-user presets (stress is dev-only and lives on the DevBar). */
-const PALETTE: Array<{ id: PresetId; label: string; icon: string }> = [
+const _PALETTE: Array<{ id: PresetId; label: string; icon: string }> = [
   { id: 'shell', label: 'Shell', icon: '🖥' },
   { id: 'claude', label: 'Claude', icon: '✳' },
   { id: 'codex', label: 'Codex', icon: '◆' },
@@ -26,18 +27,22 @@ export function TerminalPalette({
   onAddFileTree,
   onAddPortal,
 }: Props) {
+  const [presets, setPresets] = useState<AgentPreset[]>([]);
+  useEffect(() => {
+    void window.dw.listPresets().then(setPresets);
+  }, []);
   return (
     <div className="dw-palette">
       <span className="dw-palette-plus">＋</span>
-      {PALETTE.map((p) => (
+      {presets.map((p) => (
         <button
           key={p.id}
           className="dw-palette-chip"
-          title={`New ${p.label} terminal`}
+          title={`New ${p.name} terminal`}
           onClick={() => onSpawn(p.id)}
         >
           <span className="dw-palette-chip-icon">{p.icon}</span>
-          {p.label}
+          {p.name}
         </button>
       ))}
       <span className="dw-palette-sep" />
