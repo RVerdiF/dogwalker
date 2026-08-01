@@ -1363,6 +1363,7 @@ export function Canvas({
           stableId: e.stableId,
           name: e.name,
           preset: e.preset,
+          roleId: e.roleId,
           x: at.x,
           y: at.y,
           w: NODE_W,

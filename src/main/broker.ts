@@ -425,6 +425,7 @@ export class Broker {
         stableId,
         name: role,
         preset,
+        roleId: roleRecord?.id,
         walkerId: req.from,
         workspaceId: layer,
       });

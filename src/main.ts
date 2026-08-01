@@ -26,6 +26,7 @@ import { runGitTest } from './main/gitTest';
 import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
 import { runCrossFloorTest } from './main/crossFloorTest';
 import { runWalkerTest } from './main/walkerTest';
+import { runRolePresetTest } from './main/rolePresetTest';
 import { runV06Bdd } from './main/v06BddTest';
 import { runRecoveryTest } from './main/recoveryTest';
 import { runDocSyncTest } from './main/docSyncTest';
@@ -639,6 +640,10 @@ const createWindow = () => {
 
   if (process.env.DW_WALKERTEST) {
     void runWalkerTest(ptys, graph, socketPath);
+  }
+
+  if (process.env.DW_ROLEPRESETTEST) {
+    void runRolePresetTest(ptys, graph, presets, roles, socketPath).finally(() => app.quit());
   }
 
   if (process.env.DW_V06BDD) {

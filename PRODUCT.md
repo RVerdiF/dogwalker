@@ -87,6 +87,13 @@ Terminals on the canvas are never replaced by static screenshots at normal worki
 Creating a terminal offers **agent presets**: a preset is a display name, an icon, and a command line to auto-execute on spawn. Dogwalker ships presets for Claude Code, Codex, Gemini CLI, OpenCode, and aider — and users define arbitrary ones. There is no deeper vendor coupling: from spawn onward, everything Dogwalker sends to the agent is indistinguishable from user keystrokes.
 
 ### 4.3 Roles
+- Preset and role libraries are persisted locally. The terminal header stores a
+  preset for its next restart and applies a role immediately to its live PTY.
+- Role delivery writes `.dogwalker/roles/<terminal-stable-id>.md` in the
+  terminal working directory, then atomically injects a vendor-neutral prompt
+  asking the agent to read it.
+- A missing deleted preset or role is visibly recoverable in the terminal
+  header: select a replacement; a preset replacement is used on restart.
 - A role is a reusable instruction file assigned at terminal creation or later.
 - Delivered to the agent as readable context (installed into the working directory and referenced by the skill).
 - Reassignable at runtime without moving the node or dropping connections.
@@ -125,8 +132,7 @@ Inside every Dogwalker terminal (and only there), a `dogwalker` command is avail
 Core verbs:
 
 ```
-dogwalker ask <node> "message"          # send a message to a connected terminal, block until reply
-dogwalker reply <msg-id> --stdin        # answer an ask (heredoc is the canonical form)
+dogwalker ask <node> "message"          # inject a message and return captured target output
 dogwalker check <node>                  # read-only snapshot of a connected terminal's screen
 dogwalker note read|append|write <note> # operate on a connected note
 dogwalker portal <verb> ...             # drive a connected portal (navigate/click/type/screenshot/js/dom/console)
@@ -135,7 +141,9 @@ dogwalker list                          # nodes visible to this terminal: names,
 ```
 
 Design points:
-- **`ask` is request/reply, not screen scraping.** The reply travels back through the CLI (`dogwalker reply`), so it arrives byte-exact regardless of what the target's screen shows or whether the user has that terminal focused. Long/multi-line replies use `--stdin` with a heredoc.
+- **`ask` captures output without target cooperation.** The broker injects the
+  message, waits for target quiescence, and returns the output it produced; no
+  `reply` command or cooperative TUI is required.
 - **`check` works on non-agent terminals too.** An agent can watch a build, a dev server, a log tail — any process — because `check` just serializes the target's screen.
 - **Every message is logged.** Click a connection cable to see the structured message history between those two nodes (who, what, when, reply status). This is only possible because messages flow through the host, and it is a capability screen-scraping designs cannot offer.
 - **Why no MCP:** the CLI already covers every capability, works with *any* agent or script (or a human typing), needs zero per-vendor configuration, composes in pipelines (`dogwalker check builder | grep -i error`), and is trivially debuggable by hand. An MCP server would duplicate the whole surface for a subset of clients.
@@ -149,7 +157,12 @@ dogwalker dismiss <node>                                             # remove a 
 dogwalker assign <node> --role <role>                                # reassign role in place
 ```
 
-Recruits auto-position near their Walker. Mention the Walker in the Prompt Composer and instruct it in natural language: *"assemble a team: one coder on the API, one reviewer, one tester; share the SPEC note with all of them."*
+Recruits auto-position near their Walker. The broker resolves preset and role
+names (or ids) from the same persisted libraries as the Panel; an invalid or
+deleted entry returns a clear error. A recruited or reassigned role is
+materialized and delivered immediately, while the recruit keeps its role id in
+the persisted canvas layout, including on floors. Mention the Walker in the
+Prompt Composer and instruct it in natural language: *"assemble a team: one coder on the API, one reviewer, one tester; share the SPEC note with all of them."*
 
 ---
 

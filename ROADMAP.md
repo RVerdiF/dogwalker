@@ -222,7 +222,7 @@ accepted deviation (memory measured in dev mode) in
 
 ## v1.1.0 — Roles, Presets & brand polish
 
-**Status: planned.** The first post-launch feature release completes the
+**Status: complete (2026-08-01).** The first post-launch feature release completes the
 configuration layer that the v1.0 canvas already exposes: reusable agent launch
 presets and reusable role instructions. It does not add a provider integration:
 agents remain vendor-agnostic commands driven only through the PTY and the

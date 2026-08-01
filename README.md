@@ -32,6 +32,11 @@ Dogwalker gives you one infinite canvas per project where every terminal is a li
 
 ## Features
 
+- **Roles & presets** — persist reusable launch commands and Markdown role
+  instructions locally. A role on a live terminal gets a readable context file
+  without dropping its leashes; deleted configuration has a direct replacement
+  control.
+
 - **Infinite canvas** — Figma-style pan/zoom, groups, snapping, align/tidy, minimap.
 - **Real terminals** — actual PTYs with GPU-accelerated rendering, 1–9 quick-jump, themes, per-terminal memory limits. Terminals stay visibly alive at every zoom level.
 - **Agents as launch configs** — an agent is just a command auto-run in a terminal. Ships with presets for Claude Code, Codex, Gemini CLI, OpenCode and aider (plus a plain shell); add, edit and duplicate any local command you want.
@@ -134,6 +139,9 @@ Everything runs locally. No accounts, no telemetry, no cloud services. Notes are
 Free and open source. License file to be added (MIT intended).
 
 ## Status & roadmap
+
+- [x] **v1.1.0 — Roles, Presets & brand polish**: persistent configuration,
+  context delivery and Walker integration
 
 The full path — expectations, outputs, and exit criteria per version — is in [ROADMAP.md](ROADMAP.md):
 

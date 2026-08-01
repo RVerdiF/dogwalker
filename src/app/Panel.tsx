@@ -94,7 +94,7 @@ export function Panel(props: Props) {
 function PresetsSection() {
   const [items, setItems] = useState<Array<{ id: string; name: string; icon: string; command: string; builtin?: boolean }>>([]);
   const [name, setName] = useState(''); const [icon, setIcon] = useState('⚡'); const [command, setCommand] = useState('');
-  const refresh = () => void window.dw.listPresets().then(setItems);
+  const refresh = () => void window.dw.listPresets().then((presets) => { setItems(presets); window.dispatchEvent(new Event('dw:presets-changed')); });
   useEffect(() => { refresh(); }, []);
   const add = async () => { if (!command.trim()) return; await window.dw.createPreset({ name, icon, command }); setName(''); setCommand(''); refresh(); };
   return <div className="dw-section"><div className="dw-section-head"><h2>Presets</h2></div>
@@ -107,7 +107,7 @@ function PresetsSection() {
 function RolesSection() {
   const [items, setItems] = useState<Array<{ id: string; name: string; instructions: string }>>([]);
   const [name, setName] = useState(''); const [instructions, setInstructions] = useState('');
-  const refresh = () => void window.dw.listRoles().then(setItems);
+  const refresh = () => void window.dw.listRoles().then((roles) => { setItems(roles); window.dispatchEvent(new Event('dw:roles-changed')); });
   useEffect(() => { refresh(); }, []);
   const add = async () => { if (!name.trim()) return; await window.dw.createRole({ name, instructions }); setName(''); setInstructions(''); refresh(); };
   return <div className="dw-section"><div className="dw-section-head"><h2>Roles</h2></div>
