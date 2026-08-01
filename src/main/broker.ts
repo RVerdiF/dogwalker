@@ -451,11 +451,16 @@ export class Broker {
       return this.respond(socket, { ok: true });
     }
     // assign
-    const role = (req.role || '').trim();
-    if (!role) return this.respond(socket, { ok: false, error: 'assign needs a role' });
-    this.graph.rename(target, role);
-    this.ptys.announceReassign(target, role);
-    return this.respond(socket, { ok: true, data: { name: role } });
+    const requestedRole = (req.role || '').trim();
+    if (!requestedRole) return this.respond(socket, { ok: false, error: 'assign needs a role' });
+    const roleRecord = this.roles.list().find((r) => r.name === requestedRole || r.id === requestedRole);
+    if (!roleRecord) {
+      return this.respond(socket, { ok: false, error: `no role named "${requestedRole}"` });
+    }
+    const path = this.ptys.assignRole(target, roleRecord);
+    this.graph.rename(target, roleRecord.name);
+    this.ptys.announceReassign(target, roleRecord.name);
+    return this.respond(socket, { ok: true, data: { name: roleRecord.name, path } });
   }
 
   private respond(socket: net.Socket, res: BrokerResponse): void {
