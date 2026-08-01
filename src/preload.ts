@@ -35,6 +35,14 @@ const api: DwApi = {
   notify: (title, body) => ipcRenderer.send('notify', { title, body }),
   setMemoryLimit: (id, mb) => ipcRenderer.send('pty:memoryLimit', { id, mb }),
   setWalker: (id, walker) => ipcRenderer.send('pty:setWalker', { id, walker }),
+  listPresets: () => ipcRenderer.invoke('preset:list'),
+  createPreset: (input) => ipcRenderer.invoke('preset:create', input),
+  updatePreset: (id, input) => ipcRenderer.invoke('preset:update', { id, input }),
+  deletePreset: (id) => ipcRenderer.invoke('preset:delete', id),
+  listRoles: () => ipcRenderer.invoke('role:list'),
+  createRole: (input) => ipcRenderer.invoke('role:create', input),
+  updateRole: (id, input) => ipcRenderer.invoke('role:update', { id, input }),
+  deleteRole: (id) => ipcRenderer.invoke('role:delete', id),
   onRecruited: (cb) => {
     const listener = (
       _e: IpcRendererEvent,

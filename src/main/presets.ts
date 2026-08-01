@@ -17,10 +17,16 @@ export function presetCommand(preset: PresetId): string | null {
       return 'codex';
     case 'gemini':
       return 'gemini';
+    case 'opencode':
+      return 'opencode';
+    case 'aider':
+      return 'aider';
     case 'stress':
       return isWin
         ? `while($true){1..40|ForEach-Object{Write-Host ("stress " + (Get-Random) + " " + (Get-Random) + " " + (Get-Random))};Start-Sleep -Milliseconds 50}`
         : `while true; do for i in $(seq 40); do echo "stress $RANDOM $RANDOM $RANDOM"; done; sleep 0.05; done`;
+    default:
+      return null;
   }
 }
 

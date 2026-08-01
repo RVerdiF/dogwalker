@@ -15,6 +15,8 @@ import { WorkspaceStore } from './main/workspaceStore';
 import { NoteStore } from './main/noteStore';
 import { DraftStore } from './main/draftStore';
 import { SettingsStore } from './main/settingsStore';
+import { PresetStore } from './main/presetStore';
+import { RoleStore } from './main/roleStore';
 import { seedFirstRun } from './main/firstRun';
 import { runMemTest } from './main/memTest';
 import { FsService } from './main/fsService';
@@ -193,6 +195,16 @@ const createWindow = () => {
   });
 
   const settings = new SettingsStore(app.getPath('userData'));
+  const presets = new PresetStore(app.getPath('userData'));
+  const roles = new RoleStore(app.getPath('userData'));
+  ipcMain.handle('preset:list', () => presets.list());
+  ipcMain.handle('preset:create', (_e, input) => presets.create(input));
+  ipcMain.handle('preset:update', (_e, { id, input }) => presets.update(id, input));
+  ipcMain.handle('preset:delete', (_e, id: string) => presets.remove(id));
+  ipcMain.handle('role:list', () => roles.list());
+  ipcMain.handle('role:create', (_e, input) => roles.create(input));
+  ipcMain.handle('role:update', (_e, { id, input }) => roles.update(id, input));
+  ipcMain.handle('role:delete', (_e, id: string) => roles.remove(id));
   ipcMain.handle('settings:get', () => settings.get());
   ipcMain.handle('settings:set', (_e, partial: Partial<AppSettings>) =>
     settings.set(partial),
