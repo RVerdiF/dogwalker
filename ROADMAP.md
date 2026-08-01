@@ -285,7 +285,7 @@ meant to be.
 
 ## v1.2.0 — Team Operations & response contracts
 
-**Status: planned.** This version makes the existing connection graph useful
+**Status: complete (2026-08-01).** This version makes the existing connection graph useful
 for deliberate multi-agent loops: fan a task out to authorized teammates, get
 machine-readable outcomes back, and let a Walker choose the next action without
 repeating or screen-scraping noisy transcripts. It remains entirely local and
@@ -304,8 +304,8 @@ CLI, roles, floors and message history.
    documented `ok`, `data` and `error` fields. Broadcast output is deterministic
    and contains a result per target (name, stable id, status, output/error).
 3. **Response-contract library:** persisted local named contracts containing a
-   description and a constrained JSON-schema subset (objects, required fields,
-   scalar types, enums and arrays). Panel CRUD includes duplicate and a readable
+   description and a constrained object schema (required fields and scalar/array
+   types). Panel CRUD includes duplicate and a readable
    empty state; deleted contracts fail clearly but never corrupt history.
 4. **Broker validation:** `ask --contract <name>` injects exact output guidance,
    extracts one JSON value from the captured response, validates it in the host,

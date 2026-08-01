@@ -57,6 +57,7 @@ export function HistoryPanel({ pair, onClose }: Props) {
           <div key={i} className={`dw-msg dw-msg-${e.kind}`}>
             <div className="dw-msg-meta">
               <span className="dw-msg-kind">{KIND_LABEL[e.kind]}</span>
+              {e.broadcastId && <span className="dw-msg-kind" title={`Broadcast ${e.broadcastId}`}>team {e.broadcastId.slice(0, 6)}</span>}
               {nameOf(e.from)} → {nameOf(e.to)}
               <span className="dw-msg-time">
                 {new Date(e.ts).toLocaleTimeString()}

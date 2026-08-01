@@ -32,6 +32,11 @@ Dogwalker gives you one infinite canvas per project where every terminal is a li
 
 ## Features
 
+- **Team operations** — ask every connected teammate with `dogwalker ask --all`;
+  each result is independently authorized and returned as a compact JSON
+  envelope. Local response contracts validate expected JSON fields so a Walker
+  can continue from decisions rather than terminal noise.
+
 - **Roles & presets** — persist reusable launch commands and Markdown role
   instructions locally. A role on a live terminal gets a readable context file
   without dropping its leashes; deleted configuration has a direct replacement
@@ -139,6 +144,9 @@ Everything runs locally. No accounts, no telemetry, no cloud services. Notes are
 Free and open source. License file to be added (MIT intended).
 
 ## Status & roadmap
+
+- [x] **v1.2.0 — Team Operations & response contracts**: authorized broadcasts,
+  JSON envelopes and validated local output contracts
 
 - [x] **v1.1.0 — Roles, Presets & brand polish**: persistent configuration,
   context delivery and Walker integration
