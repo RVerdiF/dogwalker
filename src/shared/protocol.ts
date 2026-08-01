@@ -14,6 +14,8 @@ export interface AskReq {
   exclude?: string[];
   /** Request a stable JSON envelope from the CLI shim. */
   json?: boolean;
+  contract?: string;
+  strict?: boolean;
   body: string;
   /** How long to wait for the target's answer, in ms (clamped by the broker). */
   timeoutMs?: number;

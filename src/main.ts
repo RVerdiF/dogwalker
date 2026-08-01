@@ -17,6 +17,7 @@ import { DraftStore } from './main/draftStore';
 import { SettingsStore } from './main/settingsStore';
 import { PresetStore } from './main/presetStore';
 import { RoleStore } from './main/roleStore';
+import { ContractStore } from './main/contractStore';
 import { seedFirstRun } from './main/firstRun';
 import { runMemTest } from './main/memTest';
 import { FsService } from './main/fsService';
@@ -113,6 +114,7 @@ const createWindow = () => {
   const workspaces = new WorkspaceStore(app.getPath('userData'));
   const presets = new PresetStore(app.getPath('userData'));
   const roles = new RoleStore(app.getPath('userData'));
+  const contracts = new ContractStore(app.getPath('userData'));
   const shimDir = createShimDir();
   installSkill();
   const socketPath = brokerPipePath();
@@ -121,7 +123,7 @@ const createWindow = () => {
     presets.get(id)?.command || null,
   );
   const portals = new PortalManager(mainWindow, mainWindow.webContents);
-  broker = new Broker(socketPath, graph, ptys, history, notes, portals, workspaces, presets, roles);
+  broker = new Broker(socketPath, graph, ptys, history, notes, portals, workspaces, presets, roles, contracts);
   broker.listen();
 
   const wc = mainWindow.webContents;
@@ -208,6 +210,10 @@ const createWindow = () => {
   ipcMain.handle('role:create', (_e, input) => roles.create(input));
   ipcMain.handle('role:update', (_e, { id, input }) => roles.update(id, input));
   ipcMain.handle('role:delete', (_e, id: string) => roles.remove(id));
+  ipcMain.handle('contract:list', () => contracts.list());
+  ipcMain.handle('contract:create', (_e, input) => contracts.create(input));
+  ipcMain.handle('contract:update', (_e, { id, input }) => contracts.update(id, input));
+  ipcMain.handle('contract:delete', (_e, id: string) => contracts.remove(id));
   ipcMain.handle('role:assignTerminal', (_e, { id, roleId }: { id: string; roleId?: string }) =>
     ptys?.assignRole(id, roleId ? roles.get(roleId) : null) ?? '',
   );
