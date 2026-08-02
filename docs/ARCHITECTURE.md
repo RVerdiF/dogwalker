@@ -23,7 +23,7 @@ How Dogwalker is built. For what it is and why, see [PRODUCT.md](PRODUCT.md).
 │  Host daemon:                                                             │
 │   • PTY manager (node-pty spawn/kill, memory limits, env injection)       │
 │   • IPC server  (unix socket / named pipe)  ←── dogwalker CLI shims          │
-│   • Message broker (ask/reply correlation, timeouts, history log)         │
+│   • Message broker (ask capture, timeouts, history log)                  │
 │   • Portal controller (CDP sessions)                                      │
 │   • Floor manager (git worktree ops, hooks)                               │
 │   • Routine scheduler                                                     │
@@ -131,9 +131,7 @@ injection path to direct the live agent to it. The renderer persists ids, shows
 missing configurations without blocking workspace recovery, and lets users pick
 a replacement (preset changes apply on restart).
 
-## 6. Attention detection
-
-### 5.8 Team asks and response contracts
+### 5.7 Team asks and response contracts
 
 The broker expands `ask --all` only from the caller's direct terminal neighbors;
 each recipient still takes the normal `resolvePeer` authorization path. It runs
@@ -142,8 +140,13 @@ result array with a shared broadcast id; history retains that id on each leash
 entry. `ContractStore` persists local response contracts. For a contract ask,
 the broker appends output guidance, extracts one JSON object from the captured
 text, validates required typed fields, and returns the parsed value or errors.
-The shim only forwards flags and formats the envelope; it has no validation or
-authorization logic.
+For a single contract ask, the shim prints that result object directly; strict
+validation failures print the same object and exit non-zero. If configured, the
+broker atomically injects the contract's post-rejection prompt with validation
+errors, without awaiting or capturing a retry. The shim only forwards flags and
+formats output; it has no validation or authorization logic.
+
+## 6. Attention detection
 
 - Primary signal: **shell integration marks (OSC 133)** — command start/end sequences emitted by configured shells and understood by xterm.js. "Command ended + nothing new started" = agent idle / waiting for input → attention dot.
 - Fallback (no OSC 133): output quiescence heuristic (no PTY output for N seconds while a foreground child exists).
@@ -272,7 +275,7 @@ authorization logic.
 Build order is risk-ordered; the first milestone exists to falsify the architecture cheaply:
 
 1. **Spike:** Electron + React Flow + xterm.js/node-pty; 15 terminals running real agents; pan/zoom fluid; renderer hot-swap (tier 1 ↔ 2 ↔ 3) working. If this isn't smooth, revisit before building features.
-2. Broker + shim + `ask`/`reply`/`check` + skill (the product's core).
+2. Broker + shim + `ask`/`check` + skill (the product's core).
 3. Workspaces/persistence, notes, composer, connections UI.
 4. File tree, portals, floors, routines, Walker verbs.
 

@@ -29,7 +29,7 @@ lives in side-effect-free helpers so it can be asserted directly.
 
 ## Ground rules
 
-- **Invariants**: the ten in [AGENTS.md](AGENTS.md#invariants--do-not-violate-without-explicit-human-sign-off)
+- **Invariants**: the ten in [AGENTS.md](../AGENTS.md#invariants--do-not-violate-without-explicit-human-sign-off)
   are deliberate. Don't violate them without explicit sign-off.
 - **Scope**: respect the non-goals (no command palette / built-in LLM / remote
   execution / MCP / i18n).

@@ -1,6 +1,6 @@
 ---
 name: dogwalker
-version: 1
+version: 2
 description: Talk to other agents and read their terminals from inside a Dogwalker canvas. Use whenever you need to ask a connected teammate to do something, check what another terminal is doing, read or write a shared note, drive a connected browser portal, or list who you are connected to.
 ---
 
@@ -25,6 +25,14 @@ You can only reach terminals you are wired to. Run `dogwalker list` to see them.
   review, e.g. `dogwalker ask reviewer "review auth.ts, focus on token expiry"`.
   `--timeout` sets how long to wait (default 180s); raise it for slow work,
   e.g. `dogwalker ask builder "run the full suite" --timeout 600`.
+- `dogwalker ask --all <message> [--exclude <name>] --json` — ask every directly
+  connected terminal and receive an ordered JSON result envelope. Each target is
+  authorized independently, so one failure does not discard other results.
+- `dogwalker ask <name> <message> --contract <name> [--strict]` — ask with a
+  saved response contract. A single contract ask prints only one result object
+  with `valid`, `value`, `errors`, and `body`; `--strict` exits non-zero when the
+  result is invalid. If the contract has a post-rejection prompt, Dogwalker
+  delivers it to the target with the validation errors but does not retry for you.
 - `dogwalker check <name>` — print a connected terminal's current screen without
   interrupting it. Works on any terminal — another agent, a build, a dev server,
   a log tail.

@@ -50,7 +50,12 @@ export async function runBrokerTest(
   const c = ptys.spawn({ ...base, name: 'stranger', stableId: 'stranger' }).id;
   graph.connect(a, b);
   graph.connect(a, d);
-  const contract = contracts.create({ name: 'broker-test-contract', instructions: 'Return JSON only.', schema: { required: ['decision'], fields: { decision: 'string' } } });
+  const contract = contracts.create({
+    name: 'broker-test-contract',
+    instructions: 'Return JSON only.',
+    rejectionPrompt: 'echo CONTRACT_REJECTION_PROMPT',
+    schema: { required: ['decision'], fields: { decision: 'string' } },
+  });
 
   const result: Record<string, unknown> = {};
 
@@ -87,6 +92,15 @@ export async function runBrokerTest(
   const contractResult = contractAsk.data as { valid?: boolean; value?: { decision?: string } };
   result.contractValidated = contractAsk.ok && contractResult.valid === true && contractResult.value?.decision === 'approve';
 
+  const rejectedAsk = await rpc(sock, { cmd: 'ask', from: a, target: 'reviewer', body: 'echo {"decision":7}', contract: contract.id });
+  const rejectedResult = rejectedAsk.data as { valid?: boolean; errors?: string[] };
+  await wait(1000);
+  result.contractRejectionPrompt =
+    rejectedAsk.ok &&
+    rejectedResult.valid === false &&
+    (rejectedResult.errors?.[0] ?? '').includes('must be string') &&
+    (await ptys.serialize(b)).includes('CONTRACT_REJECTION_PROMPT');
+
   // 6. authorization — stranger (unwired) may not ask reviewer.
   const denied = await rpc(sock, { cmd: 'ask', from: c, target: 'reviewer', body: 'hi' });
   result.strangerDenied = !denied.ok;
@@ -105,6 +119,11 @@ export async function runBrokerTest(
   ptys.write(a, 'dogwalker ask --all "echo SHIM_TEAM_OK" --json\r');
   await wait(6000);
   result.shimTeamJson = ptys.serialize(a).includes('SHIM_TEAM_OK') && ptys.serialize(a).includes('broadcastId');
+
+  ptys.write(a, 'dogwalker ask reviewer "echo {\"decision\":\"approve\"}" --contract broker-test-contract --json\r');
+  await wait(6000);
+  const leadScreen = await ptys.serialize(a);
+  result.shimSingleContractResult = leadScreen.includes('"valid":true') && !leadScreen.includes('"data":{"valid":true');
 
   console.log('BROKERTEST RESULT ' + JSON.stringify(result));
 

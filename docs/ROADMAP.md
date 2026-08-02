@@ -15,6 +15,8 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v0.8](#v08--release-engineering) | Release engineering (RC) | A stranger can install from an artifact, not from source |
 | [v1.0](#v10--launch) | Launch | PRODUCT.md is true, installers public, release tagged |
 | [v1.1.0](#v110--roles-presets--brand-polish) | Roles, Presets & brand polish | An agent can be launched or reassigned from reusable, persisted team configuration |
+| [v1.2.0](#v120--team-operations--response-contracts) | Team Operations & response contracts | An authorized team loop returns concise, contract-validated output |
+| [v1.2.1](#v121--contract-result-ergonomics--documentation-consolidation) | Contract result ergonomics & documentation consolidation | Contract results are loop-ready and public docs are coherent |
 
 ---
 
@@ -55,7 +57,7 @@ accepted deviation (memory measured in dev mode) in
 1. **Workspaces**: create/edit/switch, working directory + icon, full sidebar, JSON persistence, load-only-active on startup ([PRODUCT.md §12](PRODUCT.md#12-workspaces--shell), [ARCHITECTURE.md §10](ARCHITECTURE.md#10-persistence--hibernation)).
 2. **Canvas, working set**: node create/move/resize/duplicate/delete, grid snapping, focus/zoom-to-selection, keyboard navigation, undo/redo ([PRODUCT.md §3.1–3.2](PRODUCT.md#31-node-creation--manipulation)).
 3. **Terminals & agents**: the five shipped presets + custom ([PRODUCT.md §4.2](PRODUCT.md#42-agents--launch-configs)), names/icons, number badges, one dark + one light theme. Attention system with OSC 133, dot + cycle shortcut + system notifications ([PRODUCT.md §4.4](PRODUCT.md#44-attention-system), [ARCHITECTURE.md §6](ARCHITECTURE.md#6-attention-detection)).
-4. **Broker + CLI + skill**: all of [ARCHITECTURE.md §5](ARCHITECTURE.md#5-the-ipc-bus--dogwalker-cli) for `ask` / `reply --stdin` / `check` / `list` / `connect` / `disconnect`; atomic bracketed-paste injection; timeouts; JSONL message history; the skill teaching agents the contract; roles as instruction files ([PRODUCT.md §4.3](PRODUCT.md#43-roles)).
+4. **Broker + CLI + skill**: all of [ARCHITECTURE.md §5](ARCHITECTURE.md#5-the-ipc-bus--dogwalker-cli) for `ask` / `check` / `list` / `connect` / `disconnect`; atomic bracketed-paste injection; timeouts; JSONL message history; the skill teaching agents the contract; roles as instruction files ([PRODUCT.md §4.3](PRODUCT.md#43-roles)).
 5. **Connections**: leash + circuit visuals, tool/shortcut creation, connections popover, per-leash message history view ([PRODUCT.md §5](PRODUCT.md#5-connections--the-dogwalker-cli)).
 6. **Notes**: markdown on disk, raw/formatted modes, rename, drag-in external files, delete-with-file, note chaining, `note read|append|write` verbs ([PRODUCT.md §6](PRODUCT.md#6-notes)); image paste landed in v0.3.
 7. **Prompt Composer**: floating editor, per-terminal persistent drafts, send/newline/passthrough keys, image paste via temp-file path, @-mentions of connected terminals and notes ([PRODUCT.md §7](PRODUCT.md#7-prompt-composer)).
@@ -64,7 +66,7 @@ accepted deviation (memory measured in dev mode) in
 **Exit criteria**
 - Dogfooding is real: multiple wired agents, daily, in a Dogwalker workspace.
 - The README quick start works exactly as written.
-- An unattended `ask`→work→`reply` round-trip completes while the user clicks around, focuses the target terminal, and types elsewhere.
+- An unattended `ask`→work→captured-output round-trip completes while the user clicks around, focuses the target terminal, and types elsewhere.
 - Any leash's history view reconstructs a full conversation accurately.
 - A 10+ node workspace restores byte-identical layout after restart; drafts survive restart.
 - Attention fires correctly for all five presets; no false positives mid-interaction.
@@ -180,7 +182,7 @@ accepted deviation (memory measured in dev mode) in
 - One week of daily use at 2× normal scale with zero crashes and zero data loss.
 - Kill -9 on the app mid-session: restart restores every workspace, note, draft, and history intact.
 - The cross-OS matrix passes 100% (or failures are documented as known limitations in README).
-- All ten [AGENTS.md invariants](AGENTS.md#invariants--do-not-violate-without-explicit-human-sign-off) audited against the code and holding.
+- All ten [AGENTS.md invariants](../AGENTS.md#invariants--do-not-violate-without-explicit-human-sign-off) audited against the code and holding.
 
 ---
 
@@ -197,7 +199,7 @@ accepted deviation (memory measured in dev mode) in
 6. RC builds (v0.8.x) cut from CI and installed fresh on clean machines/VMs.
 
 **Exit criteria**
-- Fresh-machine test on each OS: download artifact → install → two-agent `ask`/`reply` working in under 10 minutes using only the README.
+- Fresh-machine test on each OS: download artifact → install → two-agent `ask` working in under 10 minutes using only the README.
 - No OS security theater beyond the expected (documented Gatekeeper/SmartScreen behavior for unsigned pieces, if any).
 - CI produces all three artifacts from a clean tag with no manual steps.
 
@@ -300,12 +302,13 @@ CLI, roles, floors and message history.
    terminal targets, and exclusions for directly connected terminals. Each
    recipient is independently authorized; partial timeout/failure returns the
    successful peers instead of failing the whole round.
-2. **Stable automation envelopes:** `--json` on `ask`, `check` and `list`, with
-   documented `ok`, `data` and `error` fields. Broadcast output is deterministic
+2. **Stable automation envelopes:** `--json` on `ask`, with documented `ok`,
+   `data` and `error` fields. Broadcast output is deterministic
    and contains a result per target (name, stable id, status, output/error).
 3. **Response-contract library:** persisted local named contracts containing a
    description and a constrained object schema (required fields and scalar/array
-   types). Panel CRUD includes duplicate and a readable
+   types). The Panel creates, adjusts required fields, duplicates and deletes
+   entries with a readable
    empty state; deleted contracts fail clearly but never corrupt history.
 4. **Broker validation:** `ask --contract <name>` injects exact output guidance,
    extracts one JSON value from the captured response, validates it in the host,
@@ -327,10 +330,37 @@ CLI, roles, floors and message history.
 - A custom response contract survives restart, validates a live agent answer,
   and returns actionable errors for a malformed answer without hiding raw
   history.
-- A Walker uses a contract-backed broadcast across a floor boundary and makes a
-  follow-up decision from the JSON result without parsing terminal decorations.
+- A Walker can consume a contract-backed broadcast result without parsing
+  terminal decorations.
 - No vendor-specific adapter, provider call, ambient authority, silent retry or
   renderer snapshot is introduced.
+
+---
+
+## v1.2.1 — Contract result ergonomics & documentation consolidation
+
+**Status: complete (2026-08-02).** A patch release that makes single contract
+results ready for the next orchestration step and consolidates Dogwalker's public
+documentation under `docs/`.
+
+**Outputs**
+1. Public reference documents live in `docs/`; the repository `README.md`
+   remains the GitHub landing page and `AGENTS.md` remains the contributor guide.
+2. Internal links, release links and version references point to their current
+   locations and v1.2.1 development status.
+3. A focused truth pass corrects only statements that no longer match shipped
+   behavior.
+4. A single `ask --contract` prints only its validated result object. On a
+   strict rejection it prints that same object and exits non-zero.
+5. Contracts persist an optional post-rejection prompt. The broker injects it
+   with validation errors but does not await or capture an implicit retry.
+
+**Exit criteria**
+- All documentation links resolve from their new locations.
+- User-facing documents describe the implemented product without stale
+  release-era claims.
+- Valid and rejected contract asks, direct shim output, and post-rejection
+  delivery are covered by the broker harness.
 
 ---
 

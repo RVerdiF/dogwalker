@@ -20,7 +20,7 @@ Existing tools in the "agent orchestration canvas" category are single-platform 
 |---|---|
 | **Platforms** | macOS, Windows, Linux |
 | **Price** | 100% free. No license keys, no tiers, no telemetry. |
-| **Agent messaging** | Structured request/reply protocol with per-connection message history — not screen scraping. |
+| **Agent messaging** | Structured `ask` protocol with captured output and per-connection message history — not screen scraping. |
 | **Agent model** | An "agent" is any command auto-executed in a terminal. No hardcoded vendor list. |
 
 ### Non-goals (explicitly out of scope)
@@ -121,7 +121,7 @@ The differentiating feature. Wiring two nodes creates a real communication chann
 ### 5.2 What connections enable
 | Link | Capability |
 |---|---|
-| Terminal ↔ Terminal | Agents exchange structured messages (`ask` / `reply` / `check`). |
+| Terminal ↔ Terminal | Agents exchange structured messages (`ask` / `check`). |
 | Terminal → Note | Agent reads/edits the note via CLI; persistent shared context. |
 | Terminal → Portal | Agent drives the browser: navigate, click, type, screenshot, run JS, read DOM, read console. |
 | Note → Note | Chains/mind-maps; an agent connected to the entry note can traverse the whole chain. |
@@ -148,7 +148,7 @@ Design points:
   message, waits for target quiescence, and returns the output it produced; no
   `reply` command or cooperative TUI is required.
 - **`check` works on non-agent terminals too.** An agent can watch a build, a dev server, a log tail — any process — because `check` just serializes the target's screen.
-- **Every message is logged.** Click a connection cable to see the structured message history between those two nodes (who, what, when, reply status). This is only possible because messages flow through the host, and it is a capability screen-scraping designs cannot offer.
+- **Every message is logged.** Click a connection cable to see the structured message history between those two nodes (who, what, when, captured output). This is only possible because messages flow through the host, and it is a capability screen-scraping designs cannot offer.
 - **Why no MCP:** the CLI already covers every capability, works with *any* agent or script (or a human typing), needs zero per-vendor configuration, composes in pipelines (`dogwalker check builder | grep -i error`), and is trivially debuggable by hand. An MCP server would duplicate the whole surface for a subset of clients.
 
 ### 5.4 Team operations and response contracts
@@ -160,24 +160,26 @@ ordinary asks: one timeout or malformed response never discards the useful
 responses from the others, and each connection retains its own history entry.
 
 A **response contract** is a persisted local record with a name, a short
-instruction, and a deliberately small schema: required object fields with
+instruction, an optional post-rejection prompt, and a deliberately small schema: required object fields with
 string, number, boolean or array types. Contracts make an
 agent turn predictable without adding a model-provider API. When used with
 `ask --contract`, Dogwalker injects the expected shape alongside the work,
 captures the result normally, extracts one JSON value and validates it in the
 broker. The original captured text remains in history for inspection.
 
-`--json` returns a stable envelope for automation. Contract results contain
-`valid`, `value` when parsing succeeds, `errors` when it does not, and the
-captured response in `body`. A strict caller receives a non-zero result for an invalid contract;
-otherwise partial broadcast results are returned together so a Walker can make
-the next decision with less transcript noise. Dogwalker never silently retries
-or asks an agent to repair its own answer in v1.2: that is a visible decision
-for the caller, not background activity.
+For a single contract ask, the CLI prints only its result object: `valid`,
+`value` when parsing succeeds, `errors` when it does not, and the captured
+response in `body`. A strict caller receives that same object with a non-zero
+exit code for an invalid contract. When validation fails, the contract's optional
+post-rejection prompt is injected into the target with the validation errors;
+Dogwalker does not wait for or capture a second answer automatically. `--json`
+continues to return a stable envelope for team asks, so partial broadcast results
+remain available for a Walker's next decision.
 
-Contracts are created, edited, duplicated and deleted locally from the Panel.
-Deleting one never breaks history or a running terminal; a later command simply
-reports that the requested contract no longer exists.
+Contracts are created, have their required fields and post-rejection prompt
+adjusted, duplicated and deleted locally from the Panel. Deleting one never
+breaks history or a running terminal; a later command simply reports that the
+requested contract no longer exists.
 
 ### 5.5 Walker mode (manager agents)
 A terminal flagged as **Walker** gains extra CLI verbs to manage a team:

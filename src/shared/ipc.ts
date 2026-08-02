@@ -7,7 +7,14 @@ export type PresetId = string;
 export interface AgentPreset { id: PresetId; name: string; icon: string; command: string; builtin?: boolean; }
 export interface Role { id: string; name: string; instructions: string; }
 export type ContractScalar = 'string' | 'number' | 'boolean' | 'array';
-export interface ResponseContract { id: string; name: string; instructions: string; schema: { required: string[]; fields: Record<string, ContractScalar>; }; }
+export interface ResponseContract {
+  id: string;
+  name: string;
+  instructions: string;
+  /** Optional follow-up delivered when captured output fails validation. */
+  rejectionPrompt?: string;
+  schema: { required: string[]; fields: Record<string, ContractScalar> };
+}
 
 /** Persisted app settings (terminal theming + notifications). */
 export interface AppSettings {

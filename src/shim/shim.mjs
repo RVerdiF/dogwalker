@@ -60,7 +60,7 @@ async function buildRequest() {
       }
       const body = rest.join(' ');
       if ((!target && !all) || !body) {
-        die('usage: dogwalker ask <terminal[,terminal]> <message> [--all] [--exclude <terminal>] [--json] [--timeout <seconds>]');
+        die('usage: dogwalker ask <terminal[,terminal]> <message> [--all] [--exclude <terminal>] [--contract <name>] [--strict] [--json] [--timeout <seconds>]');
       }
       const targets = target?.split(',').filter(Boolean);
       const req = { cmd: 'ask', from, target: targets?.[0], targets, all, exclude, body, json, strict, contract };
@@ -188,6 +188,10 @@ function render(cmd, data, json = false) {
   }
 }
 
+function isSingleContractAsk(request) {
+  return request.cmd === 'ask' && !!request.contract && !request.all && request.targets?.length === 1;
+}
+
 const request = await buildRequest();
 
 const socket = net.connect(socketPath);
@@ -207,6 +211,10 @@ socket.on('data', (chunk) => {
     die('malformed response from broker');
   }
   socket.end();
+  if (isSingleContractAsk(request) && res.data) {
+    process.stdout.write(JSON.stringify(res.data) + '\n');
+    process.exit(res.ok ? 0 : 1);
+  }
   if (!res.ok) die(res.error || 'request failed');
   render(request.cmd, res.data, request.json);
   process.exit(0);
