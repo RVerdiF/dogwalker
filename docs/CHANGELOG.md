@@ -3,11 +3,30 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.2.1 — Unreleased
+
+- Single response-contract asks now emit only the validated result object;
+  `--strict` preserves it while exiting non-zero on rejection.
+- Contracts can persist a post-rejection prompt, injected with validation errors
+  without an implicit retry.
+- Public documentation moved to `docs/`; `README.md` remains the GitHub landing
+  page and `AGENTS.md` remains at the repository root.
+
+## 1.2.0 — Team Operations & response contracts
+
+- Authorized team asks, JSON envelopes, grouped broadcast history and local
+  response contracts with broker-side validation.
+
+## 1.1.0 — Roles, Presets & brand polish
+
+- Persistent preset and role libraries, role-context delivery, Walker
+  integration and refreshed vector identity assets.
+
 ## 1.0.0 — Launch
 
 First public release. The full [PRODUCT.md](PRODUCT.md) shape is built and
 audited ([PARITY.md](PARITY.md)); known limitations (unsigned installers,
-Windows-verified QA) are documented in the [README](README.md).
+Windows-verified QA) are documented in the [README](../README.md).
 
 Cumulative feature set:
 

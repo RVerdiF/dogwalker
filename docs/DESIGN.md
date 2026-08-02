@@ -6,7 +6,7 @@ color comes from the metaphor — a **golden-retriever** coat on the nodes and a
 so the agents and their leashes are what you see.
 
 The source of truth for color/spacing is the CSS custom-property block at the top
-of [`src/index.css`](src/index.css) (`:root`). This doc explains the intent.
+of [`src/index.css`](../src/index.css) (`:root`). This doc explains the intent.
 
 ## Brand
 
@@ -17,7 +17,7 @@ of [`src/index.css`](src/index.css) (`:root`). This doc explains the intent.
 - **Personality:** technical but friendly; precise, not sterile; playful accent,
   serious surface.
 
-Assets in [`assets/`](assets): `logo.svg` (mark / favicon),
+Assets in [`assets/`](../assets): `logo.svg` (mark / favicon),
 `hero.svg` (README banner).
 
 ## Color

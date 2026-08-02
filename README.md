@@ -2,11 +2,11 @@
 
 <img src="assets/hero.svg" alt="Dogwalker — walk all your agents at once" width="860">
 
-An infinite canvas for AI coding agents: real terminals as nodes on a zoomable 2D surface. Put them on a leash — wire terminals together and your agents talk to each other through a structured protocol. Cross-platform. Local. Free.
+An infinite canvas for AI coding agents: real terminals as nodes on a zoomable 2D surface. Put them on a leash — wire terminals together and your agents talk to each other through a structured protocol.
 
-*macOS · Windows · Linux — **v1.0** (Windows-verified; macOS/Linux QA pending)*
+*macOS · Windows · Linux*
 
-[Product](PRODUCT.md) · [Architecture](ARCHITECTURE.md) · [Agent guide](AGENTS.md) · [Design](DESIGN.md)
+[Product](docs/PRODUCT.md) · [Architecture](docs/ARCHITECTURE.md) · [Agent guide](AGENTS.md) · [Design](docs/DESIGN.md)
 
 </div>
 
@@ -34,8 +34,9 @@ Dogwalker gives you one infinite canvas per project where every terminal is a li
 
 - **Team operations** — ask every connected teammate with `dogwalker ask --all`;
   each result is independently authorized and returned as a compact JSON
-  envelope. Local response contracts validate expected JSON fields so a Walker
-  can continue from decisions rather than terminal noise.
+  envelope. A single response-contract ask returns only its validated result
+  object; contracts can also send a configurable post-rejection prompt to the
+  agent when its output misses the agreed shape.
 
 - **Roles & presets** — persist reusable launch commands and Markdown role
   instructions locally. A role on a live terminal gets a readable context file
@@ -58,7 +59,7 @@ Dogwalker gives you one infinite canvas per project where every terminal is a li
 
 ## Install
 
-> **Release candidate (v0.8).** Feature-complete; cross-OS QA verified on Windows, macOS/Linux pending (see [Compatibility](#compatibility)).
+> **Development build:** Windows is verified; macOS/Linux QA remains pending (see [Compatibility](#compatibility)).
 
 ### From a packaged build (recommended)
 
@@ -120,7 +121,7 @@ Agents learn the CLI through a skill installed in your agent-skills folder — n
 | Floors (git worktree) | ✅ | ✅ | ✅ |
 | QA verified (through v0.7) | pending | ✅ | pending |
 
-> **Known limitation (v0.7 beta):** the full feature matrix has been exercised on **Windows** so far. macOS and Linux (X11/Wayland) are supported by design — no OS-specific hacks — but their QA passes are still pending; see [ARCHITECTURE.md §8/§14](ARCHITECTURE.md). The cross-OS matrix is the one v0.7 exit criterion open by environment.
+> **Known limitation:** the full feature matrix has been exercised on **Windows** so far. macOS and Linux (X11/Wayland) are supported by design — no OS-specific hacks — but their QA passes are still pending; see [Architecture](docs/ARCHITECTURE.md).
 
 ## Architecture at a glance
 
@@ -128,12 +129,12 @@ Electron app, two halves: a **host daemon** (main process) owning PTYs, the IPC 
 
 Highlights worth reading about:
 
-- [Terminal rendering degradation ladder](ARCHITECTURE.md#4-terminal-rendering-the-degradation-ladder) — how dozens of live terminals stay smooth on a zoomable canvas.
-- [The ask protocol](ARCHITECTURE.md#5-the-ipc-bus--dogwalker-cli) — structured messaging via captured output, with atomic bracketed-paste injection.
-- [Attention detection](ARCHITECTURE.md#6-attention-detection) — OSC 133 shell integration instead of vendor heuristics.
-- [Floors on git worktrees](ARCHITECTURE.md#8-floors-git-worktrees) — cross-platform parallel workspaces.
+- [Terminal rendering degradation ladder](docs/ARCHITECTURE.md#4-terminal-rendering-the-degradation-ladder) — how dozens of live terminals stay smooth on a zoomable canvas.
+- [The ask protocol](docs/ARCHITECTURE.md#5-the-ipc-bus--dogwalker-cli) — structured messaging via captured output, with atomic bracketed-paste injection.
+- [Attention detection](docs/ARCHITECTURE.md#6-attention-detection) — OSC 133 shell integration instead of vendor heuristics.
+- [Floors on git worktrees](docs/ARCHITECTURE.md#8-floors-git-worktrees) — cross-platform parallel workspaces.
 
-Full docs: [PRODUCT.md](PRODUCT.md) (what & why) · [ARCHITECTURE.md](ARCHITECTURE.md) (how) · [AGENTS.md](AGENTS.md) (for AI agents working on this codebase).
+Full docs: [PRODUCT.md](docs/PRODUCT.md) (what & why) · [ARCHITECTURE.md](docs/ARCHITECTURE.md) (how) · [AGENTS.md](AGENTS.md) (for AI agents working on this codebase).
 
 ## Privacy
 
@@ -145,13 +146,16 @@ Free and open source. License file to be added (MIT intended).
 
 ## Status & roadmap
 
+- [x] **v1.2.1 — Contract result ergonomics & documentation consolidation**:
+  direct single-contract results, post-rejection prompts, and consolidated public docs
+
 - [x] **v1.2.0 — Team Operations & response contracts**: authorized broadcasts,
   JSON envelopes and validated local output contracts
 
 - [x] **v1.1.0 — Roles, Presets & brand polish**: persistent configuration,
   context delivery and Walker integration
 
-The full path — expectations, outputs, and exit criteria per version — is in [ROADMAP.md](ROADMAP.md):
+The full path — expectations, outputs, and exit criteria per version — is in [ROADMAP.md](docs/ROADMAP.md):
 
 - [x] **v0.0.1 — Alpha**: spike — 15 live agent terminals on a React Flow canvas with renderer hot-swap (validates the stack) ✓ *passed 2026-07-19*
 - [x] **v0.1 — Core loop**: broker + `dogwalker` CLI (`ask`/`check`/`note`) + agent skill, connections, workspace persistence, app shell, notes, prompt composer, terminal themes, attention
@@ -164,4 +168,4 @@ The full path — expectations, outputs, and exit criteria per version — is in
 - [x] **v0.8 — Release engineering**: per-OS installers, versioned skill, GitHub Actions CI
 - [x] **v1.0 — Launch**: parity audit, changelog, tagged release *(open exit criteria: macOS/Linux fresh-install QA + signing)*
 
-Contributions and issue reports welcome — see [CONTRIBUTING.md](CONTRIBUTING.md). Bugs/ideas go through the [issue templates](.github/ISSUE_TEMPLATE); the honest status is in [PARITY.md](PARITY.md).
+Contributions and issue reports welcome — see [CONTRIBUTING.md](docs/CONTRIBUTING.md). Bugs/ideas go through the [issue templates](.github/ISSUE_TEMPLATE); the honest status is in [PARITY.md](docs/PARITY.md).

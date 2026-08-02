@@ -9,6 +9,7 @@ import type { WorkspaceStore } from './workspaceStore';
 import type { PresetStore } from './presetStore';
 import type { RoleStore } from './roleStore';
 import type { ContractStore } from './contractStore';
+import type { ResponseContract } from '../shared/ipc';
 import {
   encode,
   type BrokerRequest,
@@ -135,13 +136,15 @@ export class Broker {
     if (req.contract && !contract) return this.respond(socket, { ok: false, error: `no response contract named "${req.contract}"` });
     const guidedBody = contract ? `${req.body}\n\nResponse contract (${contract.name}): ${contract.instructions}\nReturn exactly one JSON object with required fields: ${contract.schema.required.join(', ')}.` : req.body;
     const results = await Promise.all(requested.map((target) => this.askOne(req.from, target, guidedBody, req.timeoutMs, broadcastId, contract)));
-    if (req.strict && results.some((result) => result.ok && result.valid === false)) return this.respond(socket, { ok: false, error: 'response contract validation failed', data: { broadcastId, results } });
     if (!broadcast) {
       const result = results[0];
-      return result.ok
-        ? this.respond(socket, { ok: true, data: result })
-        : this.respond(socket, { ok: false, error: result.error });
+      if (!result.ok) return this.respond(socket, { ok: false, error: result.error });
+      if (req.strict && result.valid === false) {
+        return this.respond(socket, { ok: false, error: 'response contract validation failed', data: result });
+      }
+      return this.respond(socket, { ok: true, data: result });
     }
+    if (req.strict && results.some((result) => result.ok && result.valid === false)) return this.respond(socket, { ok: false, error: 'response contract validation failed', data: { broadcastId, results } });
     this.respond(socket, { ok: true, data: { broadcastId, results } });
   }
 
@@ -151,7 +154,7 @@ export class Broker {
     body: string,
     timeoutMs?: number,
     broadcastId?: string,
-    contract?: { schema: { required: string[]; fields: Record<string, string> } } | null,
+    contract?: ResponseContract | null,
   ): Promise<{ id?: string; name: string; ok: boolean; body?: string; error?: string; valid?: boolean; value?: unknown; errors?: string[] }> {
     const to = this.graph.resolvePeer(from, target);
     if (!to) {
@@ -184,7 +187,7 @@ export class Broker {
     });
     if (!contract) return { id: to, name: this.graph.name(to), ok: true, body: response };
     const match = response.match(/\{[\s\S]*\}/);
-    if (!match) return { id: to, name: this.graph.name(to), ok: true, body: response, valid: false, errors: ['no JSON object found'] };
+    if (!match) return this.contractResult(to, response, contract, ['no JSON object found']);
     try {
       const value = JSON.parse(match[0]) as Record<string, unknown>;
       const errors = contract.schema.required.flatMap((key) => {
@@ -192,8 +195,23 @@ export class Broker {
         const actual = Array.isArray(value[key]) ? 'array' : typeof value[key];
         return value[key] === undefined ? [`missing required field "${key}"`] : expected && actual !== expected ? [`field "${key}" must be ${expected}`] : [];
       });
-      return { id: to, name: this.graph.name(to), ok: true, body: response, valid: errors.length === 0, value, errors };
-    } catch { return { id: to, name: this.graph.name(to), ok: true, body: response, valid: false, errors: ['invalid JSON'] }; }
+      if (errors.length > 0) return this.contractResult(to, response, contract, errors, value);
+      return { id: to, name: this.graph.name(to), ok: true, body: response, valid: true, value, errors };
+    } catch { return this.contractResult(to, response, contract, ['invalid JSON']); }
+  }
+
+  private contractResult(
+    to: string,
+    body: string,
+    contract: ResponseContract,
+    errors: string[],
+    value?: unknown,
+  ): { id: string; name: string; ok: true; body: string; valid: false; value?: unknown; errors: string[] } {
+    const prompt = contract.rejectionPrompt?.trim();
+    if (prompt) {
+      this.ptys.inject(to, `${prompt}\n\nContract validation errors: ${errors.join('; ')}`);
+    }
+    return { id: to, name: this.graph.name(to), ok: true, body, valid: false, value, errors };
   }
 
   private handleCheck(socket: net.Socket, from: string, target: string): void {
