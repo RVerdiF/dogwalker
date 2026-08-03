@@ -39,6 +39,7 @@ import { Hud } from './Hud';
 import { HistoryPanel } from './HistoryPanel';
 import { DevBar } from './DevBar';
 import { TerminalPalette } from './TerminalPalette';
+import { DogwalkerLogo } from './icons';
 import { Composer, type ComposerTarget, type Mention } from './Composer';
 import { CanvasMenu } from './CanvasMenu';
 import {
@@ -2144,7 +2145,7 @@ export function Canvas({
         </ViewportPortal>
         {nodes.length === 0 && loaded.current && (
           <div className="dw-empty">
-            <div className="dw-empty-emoji">🐕</div>
+            <div className="dw-empty-emoji"><DogwalkerLogo size={56} /></div>
             <h2>This workspace is empty</h2>
             <p>
               Add a terminal from the palette above — pick an agent or a plain

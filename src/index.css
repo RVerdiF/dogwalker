@@ -523,7 +523,9 @@ body,
 }
 
 .dw-rail-brand {
-  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-bottom: 6px;
 }
 
@@ -579,6 +581,12 @@ body,
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dw-rail-ws-mini {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .dw-rail-ws:hover,
@@ -771,8 +779,53 @@ body,
 }
 
 .dw-tmodal-preset-icon {
-  font-size: 15px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---- Preset icon picker ------------------------------------------------- */
+.dw-icon-picker {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
+}
+
+.dw-icon-swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  border: 1px solid #3a3f4b;
+  border-radius: 8px;
+  background: #0f1114;
+  color: var(--dw-text-dim);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.dw-icon-swatch:hover {
+  border-color: var(--dw-border-strong);
+  color: var(--dw-text);
+}
+
+.dw-icon-swatch.active {
+  border-color: var(--dw-accent);
+  color: var(--dw-accent);
+  box-shadow: var(--dw-ring);
+}
+
+.dw-preset-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dw-text-dim);
+  margin-top: 1px;
+  flex-shrink: 0;
+}
+
+.dw-preset-editing {
+  display: block;
 }
 
 /* ---- Dev toolbar (dev only) --------------------------------------------- */
@@ -1338,8 +1391,13 @@ body,
   cursor: pointer;
 }
 
-.dw-btn-small:hover {
+.dw-btn-small:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.14);
+}
+
+.dw-btn-small:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .dw-btn-danger:hover {
@@ -2626,8 +2684,56 @@ body,
 }
 
 .dw-empty-emoji {
-  font-size: 44px;
-  opacity: 0.85;
+  display: flex;
+  justify-content: center;
+  opacity: 0.9;
+}
+
+/* ---- Inline SVG icon alignment (replaces former emoji glyphs) ----------- */
+.dw-panel-navicon,
+.dw-ft-icon,
+.dw-ft-header-icon,
+.dw-ctxmenu-icon,
+.dw-note-emoji,
+.dw-preview-icon,
+.dw-walker-crown,
+.dw-walker-toggle,
+.dw-mention-icon,
+.dw-hook-ok,
+.dw-hook-err {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+.dw-routine-err,
+.dw-preview-error,
+.dw-ft-error,
+.dw-note-img-ph,
+.dw-history-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dw-composer-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dw-walker-crown {
+  color: var(--dw-accent);
+}
+
+.dw-walker-toggle {
+  color: var(--dw-text-muted);
+  filter: none;
+}
+
+.dw-walker-toggle.on {
+  color: var(--dw-accent);
 }
 
 .dw-empty h2 {

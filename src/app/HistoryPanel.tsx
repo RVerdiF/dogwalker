@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { HistoryEntry } from '../shared/ipc';
+import { LinkIcon } from './icons';
 
 interface Props {
   pair: { a: string; b: string; aName: string; bName: string } | null;
@@ -44,8 +45,8 @@ export function HistoryPanel({ pair, onClose }: Props) {
   return (
     <div className="dw-history">
       <div className="dw-history-head">
-        <span>
-          🐕 {pair.aName} ⟷ {pair.bName}
+        <span className="dw-history-title">
+          <LinkIcon size={14} /> {pair.aName} ⟷ {pair.bName}
         </span>
         <button className="dw-close" onClick={onClose}>
           ×

@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react';
+import type { ComponentType } from 'react';
 import type { AppSettings, ContractScalar, LiveTerminal, ResponseContract, Routine, WorkspaceMeta } from '../shared/ipc';
 import type { ThemeSpec } from '../shared/themes';
+import {
+  WorkspacesIcon,
+  RoutinesIcon,
+  BoltIcon,
+  RoleIcon,
+  ContractIcon,
+  GearIcon,
+  WarningIcon,
+  PresetGlyph,
+  PRESET_ICON_IDS,
+  DEFAULT_PRESET_ICON,
+} from './icons';
 
 interface Props {
   open: boolean;
@@ -20,13 +33,18 @@ interface Props {
 
 type SectionId = 'workspaces' | 'routines' | 'presets' | 'roles' | 'contracts' | 'settings';
 
-const SECTIONS: Array<{ id: SectionId; label: string; icon: string; ready: boolean }> = [
-  { id: 'workspaces', label: 'Workspaces', icon: '🗂️', ready: true },
-  { id: 'routines', label: 'Routines', icon: '⏱️', ready: true },
-  { id: 'presets', label: 'Presets', icon: '⚡', ready: true },
-  { id: 'roles', label: 'Roles', icon: '🎭', ready: true },
-  { id: 'contracts', label: 'Contracts', icon: '☑', ready: true },
-  { id: 'settings', label: 'Settings', icon: '⚙️', ready: true },
+const SECTIONS: Array<{
+  id: SectionId;
+  label: string;
+  icon: ComponentType<{ size?: number }>;
+  ready: boolean;
+}> = [
+  { id: 'workspaces', label: 'Workspaces', icon: WorkspacesIcon, ready: true },
+  { id: 'routines', label: 'Routines', icon: RoutinesIcon, ready: true },
+  { id: 'presets', label: 'Presets', icon: BoltIcon, ready: true },
+  { id: 'roles', label: 'Roles', icon: RoleIcon, ready: true },
+  { id: 'contracts', label: 'Contracts', icon: ContractIcon, ready: true },
+  { id: 'settings', label: 'Settings', icon: GearIcon, ready: true },
 ];
 
 /**
@@ -59,7 +77,7 @@ export function Panel(props: Props) {
               }`}
               onClick={() => s.ready && setSection(s.id)}
             >
-              <span className="dw-panel-navicon">{s.icon}</span>
+              <span className="dw-panel-navicon"><s.icon size={16} /></span>
               {s.label}
               {!s.ready && <span className="dw-soon">soon</span>}
             </button>
@@ -92,17 +110,106 @@ export function Panel(props: Props) {
   );
 }
 
+function IconPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  return (
+    <div className="dw-icon-picker">
+      {PRESET_ICON_IDS.map((id) => (
+        <button
+          key={id}
+          type="button"
+          className={`dw-icon-swatch${id === value ? ' active' : ''}`}
+          title={id}
+          onClick={() => onChange(id)}
+        >
+          <PresetGlyph id={id} size={18} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type PresetItem = { id: string; name: string; icon: string; command: string; builtin?: boolean };
+
 function PresetsSection() {
-  const [items, setItems] = useState<Array<{ id: string; name: string; icon: string; command: string; builtin?: boolean }>>([]);
-  const [name, setName] = useState(''); const [icon, setIcon] = useState('⚡'); const [command, setCommand] = useState('');
+  const [items, setItems] = useState<PresetItem[]>([]);
+  const [name, setName] = useState('');
+  const [icon, setIcon] = useState(DEFAULT_PRESET_ICON);
+  const [command, setCommand] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const refresh = () => void window.dw.listPresets().then((presets) => { setItems(presets); window.dispatchEvent(new Event('dw:presets-changed')); });
   useEffect(() => { refresh(); }, []);
-  const add = async () => { if (!command.trim()) return; await window.dw.createPreset({ name, icon, command }); setName(''); setCommand(''); refresh(); };
+  const add = async () => {
+    if (!command.trim() && !name.trim()) return;
+    await window.dw.createPreset({ name, icon, command });
+    setName(''); setCommand(''); setIcon(DEFAULT_PRESET_ICON);
+    refresh();
+  };
   return <div className="dw-section"><div className="dw-section-head"><h2>Presets</h2></div>
-    <p className="dw-settings-hint">Reusable terminal launch commands. Built-ins are read-only.</p>
-    <div className="dw-routine-form"><div className="dw-routine-row"><input value={icon} onChange={(e) => setIcon(e.target.value)} maxLength={2} /><input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} /><input placeholder="Command" value={command} onChange={(e) => setCommand(e.target.value)} /></div><button className="dw-btn-primary" onClick={() => void add()}>+ Add preset</button></div>
-    <div className="dw-routine-list">{items.map((p) => <div className="dw-routine-card" key={p.id}><div className="dw-routine-info"><div className="dw-routine-title">{p.icon} {p.name} {p.builtin && <span className="dw-routine-meta">built-in</span>}</div><div className="dw-routine-prompt-preview">{p.command || 'plain shell'}</div></div>{!p.builtin && <div className="dw-routine-actions"><button className="dw-btn-small" onClick={() => { const name = window.prompt('Preset name', p.name); const command = window.prompt('Command', p.command); if (name !== null && command !== null) void window.dw.updatePreset(p.id, { name, icon: p.icon, command }).then(refresh); }}>Edit</button><button className="dw-btn-small" onClick={() => void window.dw.createPreset({ name: p.name + ' copy', icon: p.icon, command: p.command }).then(refresh)}>Duplicate</button><button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deletePreset(p.id).then(refresh)}>Delete</button></div>}</div>)}</div>
+    <p className="dw-settings-hint">Reusable terminal launch commands. Pick an icon for the terminal palette; built-in commands are read-only but can be duplicated or deleted.</p>
+    <div className="dw-routine-form">
+      <IconPicker value={icon} onChange={setIcon} />
+      <div className="dw-routine-row">
+        <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <input placeholder="Command" value={command} onChange={(e) => setCommand(e.target.value)} />
+      </div>
+      <button className="dw-btn-primary" onClick={() => void add()}>+ Add preset</button>
+    </div>
+    <div className="dw-routine-list">{items.map((p) => (
+      editingId === p.id ? (
+        <PresetEditor
+          key={p.id}
+          preset={p}
+          onCancel={() => setEditingId(null)}
+          onSave={(next) => void window.dw.updatePreset(p.id, next).then(() => { setEditingId(null); refresh(); })}
+        />
+      ) : (
+        <div className="dw-routine-card" key={p.id}>
+          <span className="dw-preset-glyph"><PresetGlyph id={p.icon} size={16} /></span>
+          <div className="dw-routine-info">
+            <div className="dw-routine-title">{p.name} {p.builtin && <span className="dw-routine-meta">built-in</span>}</div>
+            <div className="dw-routine-prompt-preview">{p.command || 'plain shell'}</div>
+          </div>
+          <div className="dw-routine-actions">
+            {!p.builtin && <button className="dw-btn-small" onClick={() => setEditingId(p.id)}>Edit</button>}
+            <button className="dw-btn-small" onClick={() => void window.dw.createPreset({ name: p.name + ' copy', icon: p.icon, command: p.command }).then(refresh)}>Duplicate</button>
+            <button
+              className="dw-btn-small dw-btn-danger"
+              disabled={items.length <= 1}
+              title={items.length <= 1 ? 'At least one preset must remain' : undefined}
+              onClick={() => void window.dw.deletePreset(p.id).then(refresh)}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )
+    ))}</div>
   </div>;
+}
+
+function PresetEditor({ preset, onSave, onCancel }: {
+  preset: PresetItem;
+  onSave: (next: { name: string; icon: string; command: string }) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(preset.name);
+  const [icon, setIcon] = useState(preset.icon);
+  const [command, setCommand] = useState(preset.command);
+  return (
+    <div className="dw-routine-card dw-preset-editing">
+      <div className="dw-routine-form" style={{ margin: 0, width: '100%' }}>
+        <IconPicker value={icon} onChange={setIcon} />
+        <div className="dw-routine-row">
+          <input placeholder="Name" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
+          <input placeholder="Command" value={command} onChange={(e) => setCommand(e.target.value)} />
+        </div>
+        <div className="dw-routine-actions">
+          <button className="dw-btn-primary" onClick={() => onSave({ name, icon, command })}>Save</button>
+          <button className="dw-btn-small" onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function RolesSection() {
@@ -273,7 +380,11 @@ function RoutinesSection({ activeId }: { activeId: string }) {
                 </span>
               </div>
               <div className="dw-routine-prompt-preview">{r.prompt}</div>
-              {r.lastError && <div className="dw-routine-err">⚠ {r.lastError}</div>}
+              {r.lastError && (
+                <div className="dw-routine-err">
+                  <WarningIcon size={12} /> {r.lastError}
+                </div>
+              )}
             </div>
             <div className="dw-routine-actions">
               <button className="dw-btn-small" onClick={() => void window.dw.runRoutineNow(r.id)}>
@@ -410,12 +521,11 @@ function WorkspaceCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(ws.name);
-  const [icon, setIcon] = useState(ws.icon);
   const [cwd, setCwd] = useState(ws.cwd);
   const [sync, setSync] = useState(!!ws.syncAgentDocs);
 
   const save = () => {
-    onRename(name.trim() || ws.name, icon || ws.icon, cwd.trim() || ws.cwd);
+    onRename(name.trim() || ws.name, ws.icon, cwd.trim() || ws.cwd);
     setEditing(false);
   };
 
@@ -424,12 +534,6 @@ function WorkspaceCard({
       {editing ? (
         <div className="dw-ws-editor">
           <div className="dw-ws-edit">
-            <input
-              className="dw-ws-icon-input"
-              value={icon}
-              maxLength={2}
-              onChange={(e) => setIcon(e.target.value)}
-            />
             <input
               className="dw-ws-name-input"
               value={name}
@@ -468,7 +572,6 @@ function WorkspaceCard({
       ) : (
         <>
           <button className="dw-ws-open" onClick={onSwitch}>
-            <span className="dw-ws-card-icon">{ws.icon}</span>
             <span className="dw-ws-card-name">{ws.name}</span>
             {active && <span className="dw-ws-active-dot" />}
           </button>

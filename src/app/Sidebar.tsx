@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { SidebarEntry, WorkspaceMeta } from '../shared/ipc';
 import { reorderByDrop, sectionsOf } from './sidebarOps';
+import { DogwalkerLogo, GearIcon } from './icons';
 
 interface Props {
   workspaces: WorkspaceMeta[];
@@ -63,7 +64,7 @@ export function Sidebar({
   return (
     <div className={`dw-rail ${mini ? 'mini' : 'expanded'}`}>
       <div className="dw-rail-brand" title="Dogwalker">
-        🐕
+        <DogwalkerLogo size={40} />
       </div>
       <div className="dw-rail-list">
         {sections.map((sec, i) => (
@@ -115,8 +116,11 @@ export function Sidebar({
                   onClick={() => onSwitch(id)}
                   {...dragProps(id)}
                 >
-                  <span className="dw-rail-ws-icon">{w.icon}</span>
-                  {!mini && <span className="dw-rail-ws-name">{w.name}</span>}
+                  {!mini ? (
+                    <span className="dw-rail-ws-name">{w.name}</span>
+                  ) : (
+                    <span className="dw-rail-ws-mini">{w.name.slice(0, 2)}</span>
+                  )}
                 </button>
               );
             })}
@@ -143,7 +147,7 @@ export function Sidebar({
         {mini ? '»' : '«'}
       </button>
       <button className="dw-rail-menu" title="Menu" onClick={onOpenMenu}>
-        ⚙
+        <GearIcon size={17} />
       </button>
     </div>
   );

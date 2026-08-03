@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { AgentPreset, PresetId, Role } from '../shared/ipc';
-import { TerminalIcon, NoteIcon, FilesIcon, PortalIcon } from './icons';
+import { TerminalIcon, NoteIcon, FilesIcon, PortalIcon, PresetGlyph } from './icons';
 
 interface Props {
   onSpawn: (preset: PresetId, roleId?: string) => void;
@@ -112,7 +112,7 @@ function NewTerminalModal({ onClose, onCreate }: ModalProps) {
                 className={`dw-tmodal-preset${p.id === presetId ? ' active' : ''}`}
                 onClick={() => setPresetId(p.id)}
               >
-                <span className="dw-tmodal-preset-icon">{p.icon}</span>
+                <span className="dw-tmodal-preset-icon"><PresetGlyph id={p.icon} size={16} /></span>
                 {p.name}
               </button>
             ))}

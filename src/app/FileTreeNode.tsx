@@ -12,6 +12,17 @@ import { GitDiffView } from './GitDiffView';
 import { GitGraphView } from './GitGraphView';
 import { GitBranchMenu } from './GitBranchMenu';
 import { CodeEditor } from './CodeEditor';
+import {
+  FilesIcon,
+  ImageIcon,
+  CodeFileIcon,
+  DocIcon,
+  ArchiveIcon,
+  SearchIcon,
+  PencilIcon,
+  TrashIcon,
+  WarningIcon,
+} from './icons';
 
 type View = 'list' | 'diff' | 'graph';
 
@@ -38,16 +49,15 @@ function joinPath(dir: string, name: string): string {
   return dir.replace(/[\\/]+$/, '') + sepOf(dir) + name;
 }
 
-/** File-type glyph from the extension — enough visual context for a list. */
-function iconFor(entry: FileEntry): string {
-  if (entry.isDir) return '📁';
+/** File-type icon from the extension — enough visual context for a list. */
+function iconFor(entry: FileEntry) {
+  if (entry.isDir) return <FilesIcon size={14} />;
   const ext = entry.name.slice(entry.name.lastIndexOf('.') + 1).toLowerCase();
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return '🖼';
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) return <ImageIcon size={14} />;
   if (['ts', 'tsx', 'js', 'jsx', 'json', 'py', 'rs', 'go', 'c', 'cpp', 'h'].includes(ext))
-    return '📜';
-  if (['md', 'txt', 'rst'].includes(ext)) return '📄';
-  if (['zip', 'tar', 'gz', 'rar', '7z'].includes(ext)) return '🗜';
-  return '📃';
+    return <CodeFileIcon size={14} />;
+  if (['zip', 'tar', 'gz', 'rar', '7z'].includes(ext)) return <ArchiveIcon size={14} />;
+  return <DocIcon size={14} />;
 }
 
 function humanSize(bytes: number): string {
@@ -281,7 +291,7 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
     if (err) {
       rows.push(
         <div key={`${dir}::err`} className="dw-ft-error" style={{ paddingLeft: depth * 14 + 8 }}>
-          ⚠ {err}
+          <WarningIcon size={12} /> {err}
         </div>,
       );
       return;
@@ -327,7 +337,7 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
     >
       <NodeResizer isVisible={selected} minWidth={240} minHeight={180} />
       <div className="dw-drag dw-ft-header">
-        <span className="dw-ft-header-icon">🗂</span>
+        <span className="dw-ft-header-icon"><FilesIcon size={14} /></span>
         {editingRoot ? (
           <input
             className="dw-ft-root-input nodrag"
@@ -422,7 +432,7 @@ function FileTreeNodeInner({ id, data, selected }: NodeProps<FileTreeFlowNode>) 
               setQuery('');
             }}
           >
-            🔍
+            <SearchIcon size={14} />
           </button>
         </div>
         {git?.isRepo && (
@@ -625,19 +635,19 @@ function FileMenu({
   return (
     <div className="dw-ctxmenu dw-ft-menu nodrag" style={{ left: menu.x, top: menu.y }}>
       <button className="dw-ctxmenu-item" onClick={run(onNewFile)}>
-        <span className="dw-ctxmenu-icon">📄</span> New file
+        <span className="dw-ctxmenu-icon"><DocIcon size={14} /></span> New file
       </button>
       <button className="dw-ctxmenu-item" onClick={run(onNewFolder)}>
-        <span className="dw-ctxmenu-icon">📁</span> New folder
+        <span className="dw-ctxmenu-icon"><FilesIcon size={14} /></span> New folder
       </button>
       {menu.entry && (
         <>
           <div className="dw-ctxmenu-sep" />
           <button className="dw-ctxmenu-item" onClick={run(onRename)}>
-            <span className="dw-ctxmenu-icon">✎</span> Rename
+            <span className="dw-ctxmenu-icon"><PencilIcon size={14} /></span> Rename
           </button>
           <button className="dw-ctxmenu-item" onClick={run(onDelete)}>
-            <span className="dw-ctxmenu-icon">🗑</span> Delete
+            <span className="dw-ctxmenu-icon"><TrashIcon size={14} /></span> Delete
           </button>
         </>
       )}

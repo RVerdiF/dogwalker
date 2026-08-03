@@ -134,7 +134,7 @@ export function App() {
   }, [workspaces, activeId, switchTo]);
 
   const create = useCallback(async () => {
-    const ws = await window.dw.createWorkspace('New workspace', '🐕');
+    const ws = await window.dw.createWorkspace('New workspace', '');
     await refresh();
     switchTo(ws.id);
   }, [refresh, switchTo]);

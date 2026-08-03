@@ -10,6 +10,7 @@ import {
 import type { AgentPreset, PresetId, Role } from '../shared/ipc';
 import { terminals, type Tier } from './terminalService';
 import { getFileDrag } from './dnd';
+import { CrownIcon } from './icons';
 
 export interface TerminalNodeData extends Record<string, unknown> {
   name: string;
@@ -121,7 +122,7 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
       <div className="dw-drag dw-node-header">
         {data.attention && <span className="dw-attention" title="Needs attention" />}
         <span className="dw-node-name">
-          {data.walker && <span className="dw-walker-crown" title="Walker">👑</span>}
+          {data.walker && <span className="dw-walker-crown" title="Walker"><CrownIcon size={13} /></span>}
           {data.name}
           {data.exited ? ' · exited' : ''}
         </span>
@@ -145,7 +146,7 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
           onClick={toggleWalker}
           title={data.walker ? 'Walker (manages a team) — click to unset' : 'Make this a Walker (manager agent)'}
         >
-          👑
+          <CrownIcon size={15} />
         </button>
         <span className={`dw-tier dw-tier-${data.tier}`}>
           {TIER_LABELS[data.tier]}
