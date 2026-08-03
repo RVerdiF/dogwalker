@@ -18,12 +18,11 @@ interface Props {
   onUpdateSettings: (partial: Partial<AppSettings>) => void;
 }
 
-type SectionId = 'workspaces' | 'routines' | 'agents' | 'presets' | 'roles' | 'contracts' | 'settings';
+type SectionId = 'workspaces' | 'routines' | 'presets' | 'roles' | 'contracts' | 'settings';
 
 const SECTIONS: Array<{ id: SectionId; label: string; icon: string; ready: boolean }> = [
   { id: 'workspaces', label: 'Workspaces', icon: '🗂️', ready: true },
   { id: 'routines', label: 'Routines', icon: '⏱️', ready: true },
-  { id: 'agents', label: 'Agents', icon: '🤖', ready: false },
   { id: 'presets', label: 'Presets', icon: '⚡', ready: true },
   { id: 'roles', label: 'Roles', icon: '🎭', ready: true },
   { id: 'contracts', label: 'Contracts', icon: '☑', ready: true },
@@ -31,9 +30,8 @@ const SECTIONS: Array<{ id: SectionId; label: string; icon: string; ready: boole
 ];
 
 /**
- * The sectioned end-user menu, rendered as a light glass surface. Workspaces is
- * live; the other sections are placeholders that map to upcoming versions
- * (Agents/Presets/Roles/Settings) so the shell is already the home for them.
+ * The sectioned end-user menu, rendered as a light glass surface: workspaces,
+ * routines, presets, roles, response contracts, and settings.
  */
 export function Panel(props: Props) {
   const { open, onClose } = props;

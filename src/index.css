@@ -177,15 +177,20 @@ body,
   flex: 1;
 }
 
-.dw-routine-row input,
-.dw-routine-row select,
-.dw-routine-prompt {
+.dw-routine-form input,
+.dw-routine-form select,
+.dw-routine-form textarea {
   background: #0f1114;
   border: 1px solid #3a3f4b;
   border-radius: 6px;
   color: #e6e8ee;
   font-size: 13px;
   padding: 6px 8px;
+}
+
+.dw-routine-form textarea {
+  width: 100%;
+  resize: vertical;
 }
 
 .dw-routine-every {
