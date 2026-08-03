@@ -22,11 +22,7 @@ The path from empty repo to public release, one version at a time. Each version 
 
 ## v0.0.1 — Alpha: the spike
 
-**Status: PASSED (2026-07-19, Windows)** — results and one consciously
-accepted deviation (memory measured in dev mode) in
-[ARCHITECTURE.md §13](ARCHITECTURE.md#13-spike-findings-v001--passed-2026-07-19-windows-11).
-
-**Expectation:** falsify the architecture as cheaply as possible ([ARCHITECTURE.md §12](ARCHITECTURE.md#12-validation-order-the-spike)). Every risky bet — React Flow hosting live terminals, the renderer degradation ladder, the headless mirror — is exercised before any product feature exists. Code from this phase is allowed to be throwaway; the *conclusions* are the deliverable.
+**Expectation:** falsify the architecture as cheaply as possible. Every risky bet — React Flow hosting live terminals, the renderer degradation ladder, the headless mirror — is exercised before any product feature exists. Code from this phase is allowed to be throwaway; the *conclusions* are the deliverable.
 
 **Outputs**
 1. Electron + TypeScript (strict) scaffold with the main/renderer split of [ARCHITECTURE.md §2](ARCHITECTURE.md#2-process-model); one hardcoded workspace, no persistence.
@@ -224,7 +220,7 @@ accepted deviation (memory measured in dev mode) in
 
 ## v1.1.0 — Roles, Presets & brand polish
 
-**Status: complete (2026-08-01).** The first post-launch feature release completes the
+The first post-launch feature release completes the
 configuration layer that the v1.0 canvas already exposes: reusable agent launch
 presets and reusable role instructions. It does not add a provider integration:
 agents remain vendor-agnostic commands driven only through the PTY and the
@@ -287,7 +283,7 @@ meant to be.
 
 ## v1.2.0 — Team Operations & response contracts
 
-**Status: complete (2026-08-01).** This version makes the existing connection graph useful
+This version makes the existing connection graph useful
 for deliberate multi-agent loops: fan a task out to authorized teammates, get
 machine-readable outcomes back, and let a Walker choose the next action without
 repeating or screen-scraping noisy transcripts. It remains entirely local and
@@ -339,7 +335,7 @@ CLI, roles, floors and message history.
 
 ## v1.2.1 — Contract result ergonomics & documentation consolidation
 
-**Status: complete (2026-08-02).** A patch release that makes single contract
+A patch release that makes single contract
 results ready for the next orchestration step and consolidates Dogwalker's public
 documentation under `docs/`.
 
@@ -365,9 +361,6 @@ documentation under `docs/`.
 ---
 
 ## After v1 (parked, unscheduled)
-
-**Scheduling note:** Presets and roles are no longer parked; they are the
-v1.1.0 scope above. The remaining ideas follow.
 
 Recurring ideas deliberately not on the path: community preset/skill sharing,
 `--json` on every remaining verb, automatic contract-repair retries, and tier-4

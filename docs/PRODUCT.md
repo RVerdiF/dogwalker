@@ -201,65 +201,71 @@ Prompt Composer and instruct it in natural language: *"assemble a team: one code
 
 ## 6. Notes
 
-- Markdown files on disk, rendered as sticky notes on the canvas.
-- Two modes: raw (plain text editing) and formatted (live-rendered headings, tables, code blocks).
-- Paste images directly; stored alongside, rendered inline, readable by connected agents.
-- Auto-named from the first line; renameable to a stable name.
-- Stored in the workspace's notes folder by default; movable; external `.md`/`.txt` files can be dragged in from the OS file manager.
-- Deleting the node deletes the file (with confirmation).
+Markdown files on disk, rendered as sticky notes on the canvas.
+
+- **Editing:** two modes — raw (plain text) and formatted (live-rendered headings, tables, code blocks).
+- **Images:** paste directly; stored alongside the note, rendered inline, readable by connected agents.
+- **Naming:** auto-named from the first line; renameable to a stable name.
+- **Storage:** in the workspace's notes folder by default; movable; external `.md`/`.txt` files can be dragged in from the OS file manager.
+- **Chaining:** wire note↔note to build mind-maps; an agent connected to the entry note can traverse the whole chain.
+- **Deletion:** deleting the node deletes the file (with confirmation).
 
 ## 7. Prompt Composer
 
 A floating rich-text input that overlays the focused terminal.
 
-- **@-mentions** of connected resources: terminals, notes, portals, `@Walker`, plus `@New Note` / `@New Portal` to create-and-wire in one step.
-- **Images**: paste screenshots/files; delivered to agents as a temp-file path injected into the prompt (works uniformly across Claude Code, Codex, Gemini CLI — anything that reads image paths). Temp files are cleaned up on session end.
-- **Per-terminal drafts** persist across workspace/floor switches and app restarts.
-- With an empty composer, navigation keys pass through to the terminal so TUI dialogs remain usable.
+- **@-mentions:** connected resources — terminals, notes, portals, `@Walker` — plus `@New Note` / `@New Portal` to create-and-wire in one step.
+- **Images:** paste screenshots/files; delivered to agents as a temp-file path injected into the prompt (uniform across Claude Code, Codex, Gemini CLI — anything that reads image paths). Temp files are cleaned up on session end.
+- **Drafts:** per-terminal, persisted across workspace/floor switches and app restarts.
+- **Key passthrough:** with an empty composer, navigation keys pass through to the terminal so TUI dialogs stay usable.
 
 ## 8. File Tree
 
 An embedded file manager node; multiple independent instances per canvas.
 
-- **Views**: list (hierarchical), icon grid (with previews), git diff (uncommitted changes side-by-side), git graph (commit history with branch lanes).
-- **Ops**: create/rename/move/delete via context menu; drag files onto a terminal to hand paths to an agent; drag onto the canvas for a preview node.
-- **Git**: branch indicator with commit, pull/push, checkout, branch, merge, fetch, stash.
-- **Editor**: embedded code editor (syntax highlighting, find & replace, multi-cursor); selecting text offers "send to agent".
-- **Search**: fuzzy file-name search within the node; `>`-prefixed content search with jump-to-line.
+- **Views:** list (hierarchical), icon grid (with previews), git diff (uncommitted changes side-by-side), git graph (commit history with branch lanes).
+- **Ops:** create/rename/move/delete via context menu; drag files onto a terminal to hand paths to an agent; drag onto the canvas for a preview node.
+- **Git:** branch indicator with commit, pull/push, checkout, branch, merge, fetch, stash.
+- **Editor:** embedded code editor (syntax highlighting, find & replace, multi-cursor); selecting text offers "send to agent".
+- **Search:** fuzzy file-name search within the node; `>`-prefixed content search with jump-to-line.
 
 ## 9. Portals
 
 Embedded, automatable browser windows on the canvas.
 
-- Each portal is an isolated browser session (own cookies/storage); portals can be linked to share a session (multi-account testing of the same site is a first-class use case).
-- Connected agents automate them through `dogwalker portal ...`: navigate, click, type, scroll, screenshot, execute JS, inspect DOM, read console — no external browser-automation dependency, designed for token efficiency.
-- Agents can create portals themselves (`@New Portal` / CLI).
+- **Sessions:** each portal is an isolated browser session (own cookies/storage); portals can be linked to share a session (multi-account testing of the same site is a first-class use case).
+- **Automation:** connected agents drive them through `dogwalker portal ...` — navigate, click, type, scroll, screenshot, execute JS, inspect DOM, read console — with no external browser-automation dependency, designed for token efficiency.
+- **Agent-created:** agents can create portals themselves (`@New Portal` / CLI).
 
 ## 10. Floors
 
 Parallel, isolated working copies of the project — context-switching without stashing.
 
-- Backed by **git worktrees**: creating a floor runs `git worktree add` on a chosen/new branch. Near-instant, cross-platform, disk-cheap.
-- Each floor gets its own canvas layer — the create dialog offers cloning the ground layout or starting empty — and its own terminals; dev servers and builds on different floors never collide.
-- **Land**: commit, pick target branch, Dogwalker merges and removes the worktree. Diff stats and conflict detection shown; conflict *resolution* happens in your tools.
-- **Hooks**: setup (on create — e.g. `npm install`, copy `.env`), run (on demand), teardown (on delete). Hooks receive env vars: floor name, branch, floor path, root path, project name.
-- **Documented constraints** (inherent to worktrees, stated plainly in-app): a branch can be checked out in only one floor at a time; untracked files (deps, `.env`, build artifacts) don't come along — that's what setup hooks are for.
-- Requires an initialized git repository. No filesystem-specific tricks (no APFS dependency).
+- **Backing:** git worktrees — creating a floor runs `git worktree add` on a chosen/new branch. Near-instant, cross-platform, disk-cheap. Requires an initialized git repository; no filesystem-specific tricks (no APFS dependency).
+- **Layers:** each floor gets its own canvas layer — the create dialog offers cloning the ground layout or starting empty — and its own terminals; dev servers and builds on different floors never collide.
+- **Land:** commit, pick target branch, Dogwalker merges and removes the worktree. Diff stats and conflict detection shown; conflict *resolution* happens in your tools.
+- **Hooks:** setup (on create — e.g. `npm install`, copy `.env`), run (on demand), teardown (on delete). Hooks receive env vars: floor name, branch, floor path, root path, project name.
+- **Constraints** (inherent to worktrees, stated plainly in-app): a branch can be checked out in only one floor at a time; untracked files (deps, `.env`, build artifacts) don't come along — that's what setup hooks are for.
 
 ## 11. Routines
 
-- Scheduled prompts: define prompt text, interval, and target agent; runs until paused or deleted.
-- Chain steps with `&&` lines; each step waits for the previous agent turn to complete.
-- Live status indicator on active routines.
-- Use cases: recurring test runs, health checks, periodic review sweeps, portal-based scraping into notes.
+Scheduled prompts that run on an agent until paused or deleted.
+
+- **Definition:** prompt text, interval, and target agent.
+- **Chains:** `&&` lines chain steps; each step waits for the previous agent turn to complete.
+- **Status:** a live indicator on active routines.
+- **Use cases:** recurring test runs, health checks, periodic review sweeps, portal-based scraping into notes.
 
 ## 12. Workspaces & shell
 
-- Sidebar with workspaces, folders (same project, different directories) and group dividers; compact icon-only mini sidebar.
-- Fast switching: prev/next shortcuts, per-workspace number shortcuts.
-- Workspaces keep running in the background; right-click → hibernate releases all resources (terminals, agents, portals) and resumes on demand. On startup only the active workspace loads.
-- One-click "open in editor" for the workspace directory (VS Code, etc.).
-- A `CLAUDE.md` / `AGENTS.md` sync helper (per-workspace toggle) for mixed-agent projects. *(Built v0.7: mirrors edits both ways in the workspace directory; the newer file wins on enable.)*
+Per-project containers with a saved canvas layout, switchable from a sidebar.
+
+- **Sidebar:** workspaces, folders (same project, different directories) and group dividers; a compact icon-only mini sidebar.
+- **Switching:** prev/next shortcuts and per-workspace number shortcuts.
+- **Background & hibernate:** workspaces keep running in the background; right-click → hibernate releases all resources (terminals, agents, portals) and resumes on demand. On startup only the active workspace loads.
+- **First run:** a fresh install seeds a friendly starting canvas (a welcome note) instead of a blank void.
+- **Open in editor:** one-click open of the workspace directory (VS Code, etc.).
+- **CLAUDE.md / AGENTS.md sync:** a per-workspace toggle for mixed-agent projects — mirrors edits both ways in the workspace directory; the newer file wins when enabled.
 
 ---
 

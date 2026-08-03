@@ -6,7 +6,7 @@ An infinite canvas for AI coding agents: real terminals as nodes on a zoomable 2
 
 *macOS · Windows · Linux*
 
-[Product](docs/PRODUCT.md) · [Architecture](docs/ARCHITECTURE.md) · [Agent guide](AGENTS.md) · [Design](docs/DESIGN.md)
+[Why](#why) · [Features](#features) · [Install](#install) · [Quick start](#quick-start) · [Compatibility](#compatibility) · [Architecture](#architecture) · [Documents](#documents) · [Privacy](#privacy) · [License](#license)
 
 </div>
 
@@ -14,7 +14,7 @@ An infinite canvas for AI coding agents: real terminals as nodes on a zoomable 2
 
 ## Why
 
-Running multiple AI coding agents today means a pile of terminal tabs: no spatial context, no way for agents to cooperate, no view of the whole operation. Existing "agent canvas" tools are single-platform and paid.
+Running multiple AI coding agents today means a pile of terminal tabs: no spatial context, no way for agents to cooperate, no view of the whole operation. Existing "agent canvas" tools are paid.
 
 Dogwalker gives you one infinite canvas per project where every terminal is a live node. Zoom out and watch your team of agents work; zoom in and talk to one. Connect two terminals and their agents can message each other, review each other's code, and share notes — through a real request/response protocol (the asker gets the target's captured output back), not brittle screen scraping.
 
@@ -32,36 +32,33 @@ Dogwalker gives you one infinite canvas per project where every terminal is a li
 
 ## Features
 
+- **Inter-agent messaging** — wire terminals and agents use the `dogwalker` CLI (alias: `walk`) to `ask` each other; the asker gets back whatever the target produced (no cooperation or reply command needed). Click any leash to see the full message history.
+- **Portals** — isolated embedded browsers agents can drive: navigate, click, type, screenshot, run JS, read DOM and console. Link portals to share sessions.
+- **Floors** — parallel isolated copies of your repo via git worktrees, each with its own canvas layer and terminals; "Land" merges back when done. Setup/teardown hooks included.
+- **Routines** — scheduled prompts (single or `&&`-chained) on any agent, for recurring tests, health checks, review sweeps.
+- **Workspaces** — per-project canvases with saved layouts, background operation, and one-click hibernation.
+- **File Tree** — embedded file manager with list/grid/git-diff/git-graph views, drag-to-agent, and a built-in code editor.
+- **Roles & presets** — persist reusable launch commands and Markdown role
+  instructions locally. A role on a live terminal gets a readable context file
+  without dropping its leashes; deleted configuration has a direct replacement
+  control.
+- **Notes** — markdown files on disk rendered as sticky notes; agents read and edit connected notes; chain notes into mind-maps.
+- **Prompt Composer** — floating rich-text input with @-mentions of terminals/notes/portals and image paste (delivered to agents as file paths — works with every major agent CLI).
+- **`check` anything** — agents can read the live screen of *any* connected terminal: another agent, a build, a dev server, a log tail.
 - **Team operations** — ask every connected teammate with `dogwalker ask --all`;
   each result is independently authorized and returned as a compact JSON
   envelope. A single response-contract ask returns only its validated result
   object; contracts can also send a configurable post-rejection prompt to the
   agent when its output misses the agreed shape.
-
-- **Roles & presets** — persist reusable launch commands and Markdown role
-  instructions locally. A role on a live terminal gets a readable context file
-  without dropping its leashes; deleted configuration has a direct replacement
-  control.
-
 - **Infinite canvas** — Figma-style pan/zoom, groups, snapping, align/tidy, minimap.
 - **Real terminals** — actual PTYs with GPU-accelerated rendering, 1–9 quick-jump, themes, per-terminal memory limits. Terminals stay visibly alive at every zoom level.
-- **Agents as launch configs** — an agent is just a command auto-run in a terminal. Ships with presets for Claude Code, Codex, Gemini CLI, OpenCode and aider (plus a plain shell); add, edit and duplicate any local command you want.
-- **Inter-agent messaging** — wire terminals and agents use the `dogwalker` CLI (alias: `walk`) to `ask` each other; the asker gets back whatever the target produced (no cooperation or reply command needed). Click any leash to see the full message history.
-- **`check` anything** — agents can read the live screen of *any* connected terminal: another agent, a build, a dev server, a log tail.
 - **Walker mode** — promote an agent to manager: it recruits, wires, re-roles, and dismisses its own team via CLI.
-- **Notes** — markdown files on disk rendered as sticky notes; agents read and edit connected notes; chain notes into mind-maps.
-- **Prompt Composer** — floating rich-text input with @-mentions of terminals/notes/portals and image paste (delivered to agents as file paths — works with every major agent CLI).
-- **File Tree** — embedded file manager with list/grid/git-diff/git-graph views, drag-to-agent, and a built-in code editor.
-- **Portals** — isolated embedded browsers agents can drive: navigate, click, type, screenshot, run JS, read DOM and console. Link portals to share sessions.
-- **Floors** — parallel isolated copies of your repo via git worktrees, each with its own canvas layer and terminals; "Land" merges back when done. Setup/teardown hooks included.
-- **Routines** — scheduled prompts (single or `&&`-chained) on any agent, for recurring tests, health checks, review sweeps.
-- **Workspaces** — per-project canvases with saved layouts, background operation, and one-click hibernation.
 
 ## Install
 
-> **Development build:** Windows is verified; macOS/Linux QA remains pending (see [Compatibility](#compatibility)).
-
 ### From a packaged build (recommended)
+
+**Requirements:** `git` on your PATH (for Floors and the git views).
 
 Grab the installer for your OS from the [latest release](https://github.com/caribeedu/dogwalker/releases/latest):
 
@@ -73,11 +70,9 @@ Grab the installer for your OS from the [latest release](https://github.com/cari
 
 Unsigned for now: Windows SmartScreen ("More info → Run anyway") and macOS Gatekeeper (right-click → Open, or `xattr -dr com.apple.quarantine Dogwalker.app`) will warn on first launch. Code signing + notarization are tracked for a later release.
 
-**Requirement:** `git` on your PATH (for Floors and the git views).
-
 ### From source
 
-**Requirements:** Node.js 20+, git.
+**Requirements:** Node.js 20+ and `git`.
 
 ```bash
 git clone https://github.com/caribeedu/dogwalker
@@ -121,9 +116,7 @@ Agents learn the CLI through a skill installed in your agent-skills folder — n
 | Floors (git worktree) | ✅ | ✅ | ✅ |
 | QA verified (through v0.7) | pending | ✅ | pending |
 
-> **Known limitation:** the full feature matrix has been exercised on **Windows** so far. macOS and Linux (X11/Wayland) are supported by design — no OS-specific hacks — but their QA passes are still pending; see [Architecture](docs/ARCHITECTURE.md).
-
-## Architecture at a glance
+## Architecture
 
 Electron app, two halves: a **host daemon** (main process) owning PTYs, the IPC socket, the message broker, portals (CDP), floors, and routines — and a **canvas UI** (renderer) built on React Flow with xterm.js terminal nodes. The `dogwalker` CLI available inside canvas terminals is a thin shim over the daemon's socket; **all** agent-facing capability flows through one broker, gated by the connection graph.
 
@@ -134,7 +127,18 @@ Highlights worth reading about:
 - [Attention detection](docs/ARCHITECTURE.md#6-attention-detection) — OSC 133 shell integration instead of vendor heuristics.
 - [Floors on git worktrees](docs/ARCHITECTURE.md#8-floors-git-worktrees) — cross-platform parallel workspaces.
 
-Full docs: [PRODUCT.md](docs/PRODUCT.md) (what & why) · [ARCHITECTURE.md](docs/ARCHITECTURE.md) (how) · [AGENTS.md](AGENTS.md) (for AI agents working on this codebase).
+## Documents
+
+| Document | Purpose |
+|---|---|
+| [PRODUCT.md](docs/PRODUCT.md) | What Dogwalker is — every feature, core concepts, compatibility targets, and non-goals. |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it's built — stack, process model, the IPC broker and CLI protocol, terminal rendering, floors, portals, persistence, security. |
+| [ROADMAP.md](docs/ROADMAP.md) | The version path and each version's expectation, outputs, and exit criteria. |
+| [CHANGELOG.md](docs/CHANGELOG.md) | Notable changes per release, newest first. |
+| [DESIGN.md](docs/DESIGN.md) | The visual language — brand, color tokens, type, shape, components. |
+| [ANNOUNCEMENT.md](docs/ANNOUNCEMENT.md) | The public launch post. |
+| [CONTRIBUTING.md](docs/CONTRIBUTING.md) | How to run from source, how the code is tested, and the ground rules. |
+| [AGENTS.md](AGENTS.md) | Guide for AI agents working on this codebase — invariants and conventions. |
 
 ## Privacy
 
@@ -144,28 +148,4 @@ Everything runs locally. No accounts, no telemetry, no cloud services. Notes are
 
 Free and open source. License file to be added (MIT intended).
 
-## Status & roadmap
-
-- [x] **v1.2.1 — Contract result ergonomics & documentation consolidation**:
-  direct single-contract results, post-rejection prompts, and consolidated public docs
-
-- [x] **v1.2.0 — Team Operations & response contracts**: authorized broadcasts,
-  JSON envelopes and validated local output contracts
-
-- [x] **v1.1.0 — Roles, Presets & brand polish**: persistent configuration,
-  context delivery and Walker integration
-
-The full path — expectations, outputs, and exit criteria per version — is in [ROADMAP.md](docs/ROADMAP.md):
-
-- [x] **v0.0.1 — Alpha**: spike — 15 live agent terminals on a React Flow canvas with renderer hot-swap (validates the stack) ✓ *passed 2026-07-19*
-- [x] **v0.1 — Core loop**: broker + `dogwalker` CLI (`ask`/`check`/`note`) + agent skill, connections, workspace persistence, app shell, notes, prompt composer, terminal themes, attention
-- [x] **v0.2 — Daily-driver comfort**: canvas completion, workspace shell, themes, memory limits
-- [x] **v0.3 — File Tree & visual context**: list/diff/graph views, git ops, embedded editor, search, note images
-- [x] **v0.4 — Portals**: embedded automatable browsers + `portal` CLI verbs
-- [x] **v0.5 — Floors**: parallel git-worktree workspaces with Land flow and hooks
-- [x] **v0.6 — Automation**: Routines + Walker mode
-- [x] **v0.7 — Hardening**: failure recovery, doc-sync, invariant audit *(cross-OS QA: Windows verified, macOS/Linux pending)*
-- [x] **v0.8 — Release engineering**: per-OS installers, versioned skill, GitHub Actions CI
-- [x] **v1.0 — Launch**: parity audit, changelog, tagged release *(open exit criteria: macOS/Linux fresh-install QA + signing)*
-
-Contributions and issue reports welcome — see [CONTRIBUTING.md](docs/CONTRIBUTING.md). Bugs/ideas go through the [issue templates](.github/ISSUE_TEMPLATE); the honest status is in [PARITY.md](docs/PARITY.md).
+Contributions and issue reports welcome — see [CONTRIBUTING.md](docs/CONTRIBUTING.md). Bugs and ideas go through the [issue templates](.github/ISSUE_TEMPLATE); the version path is in [ROADMAP.md](docs/ROADMAP.md).
