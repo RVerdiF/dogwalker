@@ -692,7 +692,7 @@ body,
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 8px 6px 12px;
+  padding: 6px 8px;
   background: rgba(32, 32, 42, 0.6);
   backdrop-filter: blur(22px) saturate(1.3);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -700,27 +700,10 @@ body,
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
 }
 
-.dw-palette-plus {
-  color: #8a8a99;
-  font-size: 15px;
-  margin-right: 2px;
-}
-
-.dw-palette-role {
-  max-width: 106px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 6px;
-  background: rgba(8, 10, 16, 0.72);
-  color: #c9cad3;
-  font: inherit;
-  font-size: 11px;
-  padding: 4px 6px;
-}
-
 .dw-palette-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   padding: 6px 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 10px;
@@ -728,24 +711,63 @@ body,
   color: #e6e6ee;
   font-size: 13px;
   cursor: pointer;
-  transition: background 0.12s, transform 0.12s, border-color 0.12s;
+  transition: background 0.12s, transform 0.12s, border-color 0.12s, color 0.12s;
 }
 
 .dw-palette-chip:hover {
   background: rgba(232, 181, 101, 0.16);
   border-color: rgba(232, 181, 101, 0.5);
+  color: var(--dw-accent);
   transform: translateY(-1px);
 }
 
 .dw-palette-chip-icon {
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dw-text-muted);
+  transition: color 0.12s;
 }
 
-.dw-palette-sep {
-  width: 1px;
-  height: 22px;
-  background: rgba(255, 255, 255, 0.14);
-  margin: 0 2px;
+.dw-palette-chip:hover .dw-palette-chip-icon {
+  color: var(--dw-accent);
+}
+
+/* ---- New-terminal modal (preset + role) --------------------------------- */
+.dw-tmodal-presets {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.dw-tmodal-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #3a3f4b;
+  border-radius: 8px;
+  background: #0f1114;
+  color: var(--dw-text-dim);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+
+.dw-tmodal-preset:hover {
+  border-color: var(--dw-border-strong);
+  color: var(--dw-text);
+}
+
+.dw-tmodal-preset.active {
+  border-color: var(--dw-accent);
+  color: var(--dw-text);
+  box-shadow: var(--dw-ring);
+}
+
+.dw-tmodal-preset-icon {
+  font-size: 15px;
+  line-height: 1;
 }
 
 /* ---- Dev toolbar (dev only) --------------------------------------------- */
