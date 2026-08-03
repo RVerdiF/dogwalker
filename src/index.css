@@ -537,7 +537,7 @@ body,
   align-items: center;
   gap: 8px;
   overflow-y: auto;
-  padding: 0 8px;
+  padding: 4px 8px 0;
 }
 
 .dw-rail-section {
@@ -672,6 +672,11 @@ body,
   width: 100%;
   justify-content: center;
   margin-top: 2px;
+}
+
+.dw-rail.mini .dw-rail-adders {
+  flex-direction: column;
+  align-items: center;
 }
 
 .dw-rail-add {

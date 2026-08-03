@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { SidebarEntry, WorkspaceMeta } from '../shared/ipc';
 import { reorderByDrop, sectionsOf } from './sidebarOps';
-import { DogwalkerLogo, GearIcon } from './icons';
+import { DogwalkerLogo, DogwalkerWordmark, GearIcon } from './icons';
 
 interface Props {
   workspaces: WorkspaceMeta[];
@@ -64,7 +64,7 @@ export function Sidebar({
   return (
     <div className={`dw-rail ${mini ? 'mini' : 'expanded'}`}>
       <div className="dw-rail-brand" title="Dogwalker">
-        <DogwalkerLogo size={40} />
+        {mini ? <DogwalkerLogo size={40} /> : <DogwalkerWordmark height={34} />}
       </div>
       <div className="dw-rail-list">
         {sections.map((sec, i) => (
