@@ -28,7 +28,7 @@ const ASK_TIMEOUT_MAX_MS = 3_600_000;
  * the caller validates each candidate and keeps whichever one satisfies the
  * contract rather than guessing which brace-run is the answer.
  */
-function extractJsonObjects(text: string): unknown[] {
+export function extractJsonObjects(text: string): unknown[] {
   const out: unknown[] = [];
   let i = 0;
   while (i < text.length) {

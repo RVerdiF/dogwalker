@@ -13,15 +13,19 @@ this guide only has to add what's specific to contributing:
 
 ## How this codebase is tested
 
-There is no unit-test runner. Behavior is verified with **in-app harnesses**:
-setting a `DW_*TEST=1` env var makes `npm start` run a scenario in the main or
-renderer process and print a single `NAME RESULT {...}` line to inspect. Examples:
-`DW_BROKERTEST`, `DW_FLOORTEST`, `DW_WALKERTEST`, `DW_RECOVERYTEST`, `DW_V06BDD`.
-When you add behavior, add or extend a harness and keep it green. Pure logic
-(layout, snapping, git-graph lanes, fuzzy, diff) lives in side-effect-free helpers
-so it can be asserted directly.
+- **Unit + component tests — Vitest.** Colocated next to the file under test as
+  `<name>.test.ts[x]` (e.g. `fuzzy.ts` → `fuzzy.test.ts`). `src/main` and
+  `src/shared` run in a node environment; `src/app` runs in jsdom with React
+  Testing Library. Run them with `npm test` (`npm run test:watch` to iterate).
+  Test **behavior, not implementation detail** — a component's behavior belongs
+  in its own `Component.test.tsx`, not a separate ad-hoc file.
+- **End-to-end tests — Playwright.** Specs in `e2e/*.spec.ts` launch the real
+  Electron app (broker over its socket, real PTYs, portals). Build first
+  (`npm run package`), then `npm run test:e2e`. This is where the app-level
+  scenarios the older `DW_*TEST` in-app harnesses covered are being migrated.
 
-`npm run typecheck` and `npm run lint` are the standing correctness gates.
+`npm run typecheck`, `npm run lint` and `npm test` are the standing correctness
+gates.
 
 ## Pull requests
 

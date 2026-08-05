@@ -27,6 +27,7 @@ These were deliberate decisions with reasoning behind them (see ARCHITECTURE.md 
 - **Naming:** the product/CLI/env-var prefix is `dogwalker` / `DOGWALKER_*`. Dogwalker is a clean-room product: never reference other products in this category — their names, branding, or documentation text — in code, UI, or docs.
 - **Process placement:** capability → main-process broker; presentation → renderer. If a feature is reachable by both the UI and the CLI, there is exactly one implementation (in the broker) and two thin callers.
 - **Docs stay truthful:** when behavior lands or changes, update `docs\*.md` (just where necessary) in the same change.
+- **Tests are colocated and behavior-focused:** unit/component tests are Vitest, next to the file under test as `<name>.test.ts[x]` (node for `src/main`/`src/shared`, jsdom + Testing Library for `src/app`); app-level end-to-end tests are Playwright under `e2e/`. Test what a unit does, not how it does it — no separate ad-hoc test files.
 
 ## Releasing a version
 
