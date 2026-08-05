@@ -119,7 +119,9 @@ export function Sidebar({
                   {!mini ? (
                     <span className="dw-rail-ws-name">{w.name}</span>
                   ) : (
-                    <span className="dw-rail-ws-mini">{w.name.slice(0, 2)}</span>
+                    <span className="dw-rail-ws-mini">
+                      {w.name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]).join('')}
+                    </span>
                   )}
                 </button>
               );
