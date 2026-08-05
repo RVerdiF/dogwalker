@@ -4,7 +4,7 @@ You are working on **Dogwalker**: a free, cross-platform (macOS/Windows/Linux) E
 
 ## Project status
 
-v1.3.0 is in development.
+v1.3.0 is released.
 
 ## Invariants — do not violate without explicit human sign-off
 
@@ -27,3 +27,46 @@ These were deliberate decisions with reasoning behind them (see ARCHITECTURE.md 
 - **Naming:** the product/CLI/env-var prefix is `dogwalker` / `DOGWALKER_*`. Dogwalker is a clean-room product: never reference other products in this category — their names, branding, or documentation text — in code, UI, or docs.
 - **Process placement:** capability → main-process broker; presentation → renderer. If a feature is reachable by both the UI and the CLI, there is exactly one implementation (in the broker) and two thin callers.
 - **Docs stay truthful:** when behavior lands or changes, update `docs\*.md` (just where necessary) in the same change.
+
+## Releasing a version
+
+Dogwalker ships version-by-version ([ROADMAP.md](docs/ROADMAP.md)). Cut a release
+from `main`, once the version's work has landed and `npm run typecheck`,
+`npm run lint`, and the `DW_*TEST` harnesses the change touched are all green.
+Every file that must move, end to end:
+
+1. **`package.json`** — set `"version"` to the new `X.Y.Z` (SemVer: patch = fixes,
+   minor = features, major = breaking). It lags behind development and is bumped
+   here, at release time.
+2. **[AGENTS.md](AGENTS.md) → Project status** — update the line above (mark the
+   version released, or bump it to the next `vX.Y.Z is in development`).
+3. **[docs/CHANGELOG.md](docs/CHANGELOG.md)** — the newest section *is* the
+   release: retitle its top `## X.Y.Z — Unreleased` to `## X.Y.Z`, newest-first,
+   listing the user-facing changes. Add the section if it doesn't exist yet.
+4. **[docs/ROADMAP.md](docs/ROADMAP.md)** — add the version's row to the table and
+   its section (Expectation / Outputs / Exit criteria) in the standardized format.
+5. **[skills/dogwalker/SKILL.md](skills/dogwalker/SKILL.md)** — if the CLI/agent
+   contract changed, bump the `version:` in its frontmatter so installed skills
+   are flagged to re-read (`installSkill` warns on a version mismatch).
+6. **README** — the install table uses a `<version>` placeholder and links to
+   `/releases/latest`, so it needs no per-release edit; touch it only if the
+   public surface actually changed.
+7. **Commit** the bump (convention: `chore: set vX.Y.Z package version`) and get
+   it onto `main` (via PR — the `check` job gates every PR to `main`).
+
+**Trigger the release build.** Packaging is driven entirely by a `v*` **git tag**
+(`.github/workflows/build.yml`). Tag the release commit on `main` and push the tag:
+
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+That fires the workflow's `make` matrix (macOS / Windows / Linux; tag-only), which
+runs `npm run make` on each runner and attaches every OS's installer to the tag's
+GitHub Release via `action-gh-release`. The `check` job (typecheck + lint) gates
+PRs to `main`; packaging never runs on a PR, only on the tag. Installers are
+unsigned (documented first-launch Gatekeeper/SmartScreen warnings).
+
+To redo a botched release, delete the tag both places
+(`git tag -d vX.Y.Z && git push origin :vX.Y.Z`), fix, then re-tag and push.

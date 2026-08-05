@@ -17,6 +17,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v1.1.0](#v110--roles-presets--brand-polish) | Roles, Presets & brand polish | An agent can be launched or reassigned from reusable, persisted team configuration |
 | [v1.2.0](#v120--team-operations--contracts) | Team Operations & contracts | An authorized team loop returns concise, contract-validated output |
 | [v1.2.1](#v121--contract-result-ergonomics--documentation-consolidation) | Contract result ergonomics & documentation consolidation | Contract results are loop-ready and public docs are coherent |
+| [v1.3.0](#v130--iconography--json-schema-contracts) | Iconography & JSON-Schema contracts | Chrome is all SVG; a contract loops until the answer matches its JSON Schema |
 
 ---
 
@@ -357,6 +358,43 @@ documentation under `docs/`.
   release-era claims.
 - Valid and rejected contract asks, direct shim output, and post-rejection
   delivery are covered by the broker harness.
+
+---
+
+## v1.3.0 — Iconography & JSON-Schema contracts
+
+A polish-and-power release: the chrome drops every emoji/character glyph for a
+consistent line-style SVG icon set, and contracts graduate from a required-field
+list to a real JSON Schema with a bounded validate-until-valid loop.
+
+**Expectation:** the app reads as one designed surface, and a contract lets one
+agent hold another to an exact JSON shape without a human in the loop.
+
+**Outputs**
+1. **Iconography:** a single line-style SVG icon set (`src/app/icons.tsx`)
+   replaces emoji/character glyphs across the palette, sidebar, terminal/note/
+   portal/preview nodes, floors, composer, File Tree, and the config and align
+   menus. The sidebar carries the Dogwalker mark, and its wordmark when expanded.
+2. **Workspaces lose the icon field:** gone from the rail (collapsed rail shows
+   name initials), the workspace card, and the create/edit form.
+3. **Preset icons:** presets pick from a fixed set of built-in SVG glyphs instead
+   of a free-form emoji field, stored as an icon id; built-in presets can be
+   duplicated and deleted (hidden via a persisted set, never below one preset).
+4. **JSON-Schema contracts:** a contract holds a JSON Schema, a max-attempts
+   budget, a per-attempt timeout, a rejection prompt and a fallback value.
+   `ask --contract <name>` runs a bounded loop — validate the peer's JSON answer
+   with Ajv, re-ask with the rejection prompt and the errors on a miss, and return
+   the validated object or, once attempts run out, the fallback. Removes
+   `--strict`, the `instructions` field and the required-field model; renames
+   "response contracts" to "contracts" everywhere.
+5. **Validation:** `DW_BROKERTEST` covers the contract loop (validated answer,
+   fallback on exhaustion, bare-value shim output); typecheck and lint stay green.
+
+**Exit criteria**
+- No emoji or character glyph remains as a chrome icon.
+- A contract's JSON Schema validates a live agent answer and returns the
+  configured fallback when the attempt budget is exhausted — no hang, no error.
+- A single `ask --contract` prints just the value object, not an envelope.
 
 ---
 

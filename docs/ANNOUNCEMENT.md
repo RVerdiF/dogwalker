@@ -17,15 +17,15 @@ Currently:
 - **Roles & presets** — reusable, persisted launch presets and Markdown
   role instructions. Define a role once, pair it with a preset when recruiting,
   and reassign a live terminal's role without dropping its leashes.
-- **Team operations & contracts** — ask every directly
-  connected teammate at once (`dogwalker ask --all`), each independently
-  authorized, with results returned as a stable JSON envelope. Response
-  contracts let the broker validate a captured answer against a small local
-  schema, so a Walker gets machine-readable outcomes instead of scraped text.
-- **Contract result ergonomics** — a single contract ask returns just
-  its validated result object, ready for the next step in a loop; contracts can
-  carry a post-rejection prompt that's injected with the validation errors when
-  an answer misses the agreed shape.
+- **Team operations & contracts** — ask every directly connected teammate at
+  once (`dogwalker ask --all`), each independently authorized, with results as a
+  stable JSON envelope. A **contract** binds an answer to a JSON Schema:
+  `ask --contract` re-asks the peer until its JSON validates (up to the contract's
+  attempt budget), then hands back just that object — or a configured fallback
+  once attempts run out. Machine-readable outcomes, no screen scraping.
+- **Refined interface** — one line-style SVG icon set across the whole canvas
+  chrome, the Dogwalker wordmark in the sidebar, and a built-in icon picker for
+  terminal presets.
 - **Canvas & terminals** — GPU-rendered xterm nodes with a degradation ladder so
   dozens stay smooth; attention dots when an agent needs you; groups, snapping,
   themes.

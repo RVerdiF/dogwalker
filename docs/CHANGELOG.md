@@ -3,7 +3,7 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
-## 1.3.0 — Unreleased
+## 1.3.0
 
 - Contracts are now driven by a full **JSON Schema** (validated with Ajv). Using
   `ask --contract <name>` runs a bounded validate-until-valid loop: the broker
@@ -19,7 +19,7 @@ canvas for AI coding agents.
   free-form emoji field, and built-in presets can be deleted. Workspaces no longer
   carry an icon.
 
-## 1.2.1 — Unreleased
+## 1.2.1
 
 - Single contract asks now emit only the validated result object;
   `--strict` preserves it while exiting non-zero on rejection.
