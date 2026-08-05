@@ -103,6 +103,24 @@ export async function runBrokerTest(
     (rejectedAsk.data as { decision?: string })?.decision === 'FALLBACK' &&
     (await ptys.serialize(b)).includes('CONTRACT_REJECTION_PROMPT');
 
+  // contract management CLI: create → list → inspect → edit → delete.
+  const schema = '{"type":"object","required":["ok"],"properties":{"ok":{"type":"boolean"}}}';
+  const cCreate = await rpc(sock, { cmd: 'contract', from: a, op: 'create', target: 'cli-contract', schema, attempts: 2, timeoutMs: 5000, rejectionPrompt: 'fix it', fallback: '{"ok":false}' });
+  result.contractCreate = cCreate.ok && (cCreate.data as { name?: string })?.name === 'cli-contract';
+  const cList = await rpc(sock, { cmd: 'contract', from: a, op: 'list' });
+  result.contractList = cList.ok && ((cList.data as { contracts?: string[] })?.contracts ?? []).includes('cli-contract');
+  const cInspect = await rpc(sock, { cmd: 'contract', from: a, op: 'inspect', target: 'cli-contract' });
+  const inspected = (cInspect.data as { contract?: { maxAttempts?: number; fallback?: { ok?: boolean } } })?.contract;
+  result.contractInspect = cInspect.ok && inspected?.maxAttempts === 2 && inspected?.fallback?.ok === false;
+  const cEdit = await rpc(sock, { cmd: 'contract', from: a, op: 'edit', target: 'cli-contract', attempts: 5 });
+  const cInspect2 = await rpc(sock, { cmd: 'contract', from: a, op: 'inspect', target: 'cli-contract' });
+  result.contractEdit = cEdit.ok && (cInspect2.data as { contract?: { maxAttempts?: number } })?.contract?.maxAttempts === 5;
+  const cBadSchema = await rpc(sock, { cmd: 'contract', from: a, op: 'create', target: 'bad-contract', schema: '{not json}' });
+  result.contractBadSchemaRejected = !cBadSchema.ok;
+  const cDelete = await rpc(sock, { cmd: 'contract', from: a, op: 'delete', target: 'cli-contract' });
+  const cList2 = await rpc(sock, { cmd: 'contract', from: a, op: 'list' });
+  result.contractDelete = cDelete.ok && !((cList2.data as { contracts?: string[] })?.contracts ?? []).includes('cli-contract');
+
   // 6. authorization — stranger (unwired) may not ask reviewer.
   const denied = await rpc(sock, { cmd: 'ask', from: c, target: 'reviewer', body: 'hi' });
   result.strangerDenied = !denied.ok;

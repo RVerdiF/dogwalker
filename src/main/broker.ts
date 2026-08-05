@@ -129,6 +129,8 @@ export class Broker {
       case 'portal':
         void this.handlePortal(socket, req);
         return;
+      case 'contract':
+        return this.handleContract(socket, req);
       case 'recruit':
       case 'dismiss':
       case 'assign':
@@ -251,6 +253,76 @@ export class Broker {
 
   private clampTimeout(ms?: number): number {
     return Math.min(ASK_TIMEOUT_MAX_MS, Math.max(ASK_TIMEOUT_MIN_MS, ms ?? ASK_TIMEOUT_DEFAULT_MS));
+  }
+
+  /**
+   * `dogwalker contract list|inspect|create|edit|delete` — manage the workspace's
+   * local contracts (§5.7). Contracts are shared config, not a graph node, so this
+   * needs no connection-graph authorization beyond the caller being a real
+   * terminal. All parsing/validation lives here; the shim just frames argv.
+   */
+  private handleContract(socket: net.Socket, req: Extract<BrokerRequest, { cmd: 'contract' }>): void {
+    const find = (n?: string) => (n ? this.contracts.list().find((c) => c.id === n || c.name === n) : undefined);
+    try {
+      switch (req.op) {
+        case 'list':
+          return this.respond(socket, { ok: true, data: { contracts: this.contracts.list().map((c) => c.name) } });
+        case 'inspect': {
+          const c = find(req.target);
+          if (!c) return this.respond(socket, { ok: false, error: `no contract named "${req.target}"` });
+          return this.respond(socket, { ok: true, data: { contract: c } });
+        }
+        case 'create': {
+          if (!req.target) return this.respond(socket, { ok: false, error: 'contract create needs a name' });
+          if (find(req.target)) return this.respond(socket, { ok: false, error: `a contract named "${req.target}" already exists` });
+          if (req.schema === undefined) return this.respond(socket, { ok: false, error: 'contract create needs --schema <json>' });
+          const created = this.contracts.create({
+            name: req.target,
+            schema: this.parseContractSchema(req.schema),
+            maxAttempts: req.attempts ?? 3,
+            timeoutMs: req.timeoutMs ?? 180_000,
+            rejectionPrompt: req.rejectionPrompt ?? '',
+            fallback: req.fallback !== undefined ? this.parseJsonArg(req.fallback, 'fallback') : null,
+          });
+          return this.respond(socket, { ok: true, data: { name: created.name } });
+        }
+        case 'edit': {
+          const c = find(req.target);
+          if (!c) return this.respond(socket, { ok: false, error: `no contract named "${req.target}"` });
+          const next = {
+            name: req.name?.trim() || c.name,
+            schema: req.schema !== undefined ? this.parseContractSchema(req.schema) : c.schema,
+            maxAttempts: req.attempts ?? c.maxAttempts,
+            timeoutMs: req.timeoutMs ?? c.timeoutMs,
+            rejectionPrompt: req.rejectionPrompt ?? c.rejectionPrompt,
+            fallback: req.fallback !== undefined ? this.parseJsonArg(req.fallback, 'fallback') : c.fallback,
+          };
+          const updated = this.contracts.update(c.id, next);
+          return this.respond(socket, { ok: true, data: { name: updated?.name } });
+        }
+        case 'delete': {
+          const c = find(req.target);
+          if (!c) return this.respond(socket, { ok: false, error: `no contract named "${req.target}"` });
+          this.contracts.remove(c.id);
+          return this.respond(socket, { ok: true, data: { deleted: true } });
+        }
+        default:
+          return this.respond(socket, { ok: false, error: 'unknown contract op' });
+      }
+    } catch (e) {
+      return this.respond(socket, { ok: false, error: e instanceof Error ? e.message : 'invalid contract input' });
+    }
+  }
+
+  private parseJsonArg(raw: string, label: string): unknown {
+    try { return JSON.parse(raw); } catch { throw new Error(`${label} is not valid JSON`); }
+  }
+
+  private parseContractSchema(raw: string): Record<string, unknown> {
+    const schema = this.parseJsonArg(raw, 'schema');
+    if (!schema || typeof schema !== 'object' || Array.isArray(schema)) throw new Error('schema must be a JSON object');
+    try { this.ajv.compile(schema); } catch { throw new Error('schema is not a valid JSON Schema'); }
+    return schema as Record<string, unknown>;
   }
 
   private handleCheck(socket: net.Socket, from: string, target: string): void {

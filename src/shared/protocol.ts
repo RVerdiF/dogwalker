@@ -68,6 +68,27 @@ export interface PortalReq {
   y?: number;
 }
 
+/** Manage the workspace's local contracts (shared config, not graph-gated). */
+export interface ContractReq {
+  cmd: 'contract';
+  from: string;
+  op: 'list' | 'inspect' | 'create' | 'edit' | 'delete';
+  /** Contract name: the target for inspect/edit/delete, the new name for create. */
+  target?: string;
+  /** edit: rename the contract to this. */
+  name?: string;
+  /** create/edit: JSON Schema as a raw JSON string (the broker parses/validates). */
+  schema?: string;
+  /** create/edit: retry budget. */
+  attempts?: number;
+  /** create/edit: per-attempt timeout in ms. */
+  timeoutMs?: number;
+  /** create/edit: prompt re-sent to the peer after a failed attempt. */
+  rejectionPrompt?: string;
+  /** create/edit: fallback value as a raw JSON string (the broker parses). */
+  fallback?: string;
+}
+
 /** Walker (manager agent) verbs, PRODUCT.md §5.4. Only Walker terminals may. */
 export interface WalkerReq {
   cmd: 'recruit' | 'dismiss' | 'assign';
@@ -89,6 +110,7 @@ export type BrokerRequest =
   | ConnectReq
   | NoteReq
   | PortalReq
+  | ContractReq
   | WalkerReq;
 
 export interface BrokerResponse {

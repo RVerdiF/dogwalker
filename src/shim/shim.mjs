@@ -122,6 +122,48 @@ async function buildRequest() {
       else if (op === 'dom') req.arg = argv.slice(3).join(' ') || undefined;
       return req;
     }
+    case 'contract': {
+      // dogwalker contract list|inspect|create|edit|delete <name> [flags]
+      const flag = (name) => {
+        const i = argv.indexOf(name);
+        return i >= 0 ? argv[i + 1] : undefined;
+      };
+      const op = argv[1];
+      if (op === 'list') return { cmd: 'contract', from, op: 'list' };
+      const target = argv[2] && !argv[2].startsWith('--') ? argv[2] : undefined;
+      if (op === 'inspect') {
+        if (!target) die('usage: dogwalker contract inspect <name>');
+        return { cmd: 'contract', from, op: 'inspect', target };
+      }
+      if (op === 'delete') {
+        if (!target) die('usage: dogwalker contract delete <name>');
+        return { cmd: 'contract', from, op: 'delete', target };
+      }
+      if (op === 'create' || op === 'edit') {
+        if (!target) {
+          die(`usage: dogwalker contract ${op} <name> [--schema <json>] [--attempts <n>] [--timeout <seconds>] [--rejection <text>] [--fallback <json>]${op === 'edit' ? ' [--name <newname>]' : ''}`);
+        }
+        const req = { cmd: 'contract', from, op, target };
+        const schema = flag('--schema');
+        if (schema !== undefined) req.schema = schema;
+        const attempts = flag('--attempts');
+        if (attempts !== undefined) req.attempts = Number(attempts);
+        const timeout = flag('--timeout');
+        if (timeout !== undefined) req.timeoutMs = Math.round(Number(timeout) * 1000);
+        const rejection = flag('--rejection');
+        if (rejection !== undefined) req.rejectionPrompt = rejection;
+        const fallback = flag('--fallback');
+        if (fallback !== undefined) req.fallback = fallback;
+        if (op === 'edit') {
+          const newName = flag('--name');
+          if (newName !== undefined) req.name = newName;
+        }
+        if (op === 'create' && req.schema === undefined) die('contract create needs --schema <json>');
+        return req;
+      }
+      die('usage: dogwalker contract list|inspect <name>|create <name> …|edit <name> …|delete <name>');
+      return;
+    }
     case 'recruit': {
       // dogwalker recruit --agent <preset> --role <role> [--floor <floor>]
       const flag = (name) => {
@@ -149,7 +191,7 @@ async function buildRequest() {
     }
     default:
       die(
-        'commands: ask <t> <msg> | check <t> | list | note read|append|write <n> | portal <op> <p> | recruit --agent <a> --role <r> | dismiss <r> | assign <r> --role <r> | connect <t> | disconnect <t>',
+        'commands: ask <t> <msg> | check <t> | list | note read|append|write <n> | portal <op> <p> | contract list|inspect|create|edit|delete <n> | recruit --agent <a> --role <r> | dismiss <r> | assign <r> --role <r> | connect <t> | disconnect <t>',
       );
   }
 }
@@ -180,7 +222,12 @@ function render(cmd, data, json = false) {
     process.stdout.write(
       (typeof data.result === 'string' ? data.result : JSON.stringify(data.result)) + '\n',
     );
-  } else if ((cmd === 'recruit' || cmd === 'assign') && data && typeof data.name === 'string') {
+  } else if (cmd === 'contract' && data && Array.isArray(data.contracts)) {
+    if (data.contracts.length === 0) process.stdout.write('(no contracts)\n');
+    for (const n of data.contracts) process.stdout.write(n + '\n');
+  } else if (cmd === 'contract' && data && data.contract) {
+    process.stdout.write(JSON.stringify(data.contract, null, 2) + '\n');
+  } else if ((cmd === 'recruit' || cmd === 'assign' || cmd === 'contract') && data && typeof data.name === 'string') {
     process.stdout.write(data.name + '\n');
   } else {
     process.stdout.write('ok\n');

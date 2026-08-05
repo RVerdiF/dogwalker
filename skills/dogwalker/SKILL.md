@@ -1,6 +1,6 @@
 ---
 name: dogwalker
-version: 4
+version: 5
 description: Talk to other agents and read their terminals from inside a Dogwalker canvas. Use whenever you need to ask a connected teammate to do something, check what another terminal is doing, read or write a shared note, drive a connected browser portal, or list who you are connected to.
 ---
 
@@ -63,8 +63,21 @@ There is no error to handle and nothing to retry yourself.
 When to reach for it: you're going to consume the answer programmatically — gate a
 step, drive a loop, or aggregate results across teammates. For a conversational
 reply, use a plain `ask`. You pass only the message, the peer, and the contract
-name; everything else lives on the contract. If the named contract doesn't exist,
-the command tells you (create and edit contracts in the app's Contracts panel).
+name; everything else lives on the contract.
+
+You can create and manage contracts yourself (they're shared, local config):
+
+- `dogwalker contract list` — names of all saved contracts.
+- `dogwalker contract inspect <name>` — show a contract's schema, attempts,
+  timeout, rejection prompt and fallback.
+- `dogwalker contract create <name> --schema '<json-schema>' [--attempts <n>] [--timeout <seconds>] [--rejection '<text>'] [--fallback '<json>']`
+  — create one. `--schema` is required and must be a valid JSON Schema (as a JSON
+  string); `--fallback` is a JSON value; attempts default to 3 and timeout to 180s.
+- `dogwalker contract edit <name> [--schema …] [--attempts …] [--timeout …] [--rejection …] [--fallback …] [--name <newname>]`
+  — change only the fields you pass.
+- `dogwalker contract delete <name>` — remove one.
+
+Example: `dogwalker contract create verdict --schema '{"type":"object","required":["decision"],"properties":{"decision":{"type":"string"}}}' --fallback '{"decision":"unknown"}'`
 
 ## Walker mode (managing a team)
 
