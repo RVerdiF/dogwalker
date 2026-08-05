@@ -14,8 +14,8 @@ export interface AskReq {
   exclude?: string[];
   /** Request a stable JSON envelope from the CLI shim. */
   json?: boolean;
+  /** When set, contract rules apply: loop-until-valid against its JSON Schema. */
   contract?: string;
-  strict?: boolean;
   body: string;
   /** How long to wait for the target's answer, in ms (clamped by the broker). */
   timeoutMs?: number;

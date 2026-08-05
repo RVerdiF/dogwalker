@@ -15,6 +15,7 @@ How Dogwalker is built. For what it is and why, see [PRODUCT.md](PRODUCT.md).
 | Git | Shell out to system `git` | Diff/graph/branch ops and worktrees without reimplementing git. |
 | Portals | Electron `WebContentsView` + **Chrome DevTools Protocol** | Navigation, clicks, screenshots, JS eval, DOM/console access with zero external dependencies. |
 | Persistence | JSON files per workspace + markdown notes on disk | Open formats, greppable, syncable. No database. |
+| Contract validation | **Ajv** | Validates a peer's captured JSON answer against a contract's JSON Schema (`ask --contract`, §5.7). |
 
 ## 2. Process model
 
@@ -131,20 +132,34 @@ injection path to direct the live agent to it. The renderer persists ids, shows
 missing configurations without blocking workspace recovery, and lets users pick
 a replacement (preset changes apply on restart).
 
-### 5.7 Team asks and response contracts
+### 5.7 Team asks and contracts
 
 The broker expands `ask --all` only from the caller's direct terminal neighbors;
 each recipient still takes the normal `resolvePeer` authorization path. It runs
 the ordinary atomic injection/capture cycle per target and returns a deterministic
 result array with a shared broadcast id; history retains that id on each leash
-entry. `ContractStore` persists local response contracts. For a contract ask,
-the broker appends output guidance, extracts one JSON object from the captured
-text, validates required typed fields, and returns the parsed value or errors.
-For a single contract ask, the shim prints that result object directly; strict
-validation failures print the same object and exit non-zero. If configured, the
-broker atomically injects the contract's post-rejection prompt with validation
-errors, without awaiting or capturing a retry. The shim only forwards flags and
-formats output; it has no validation or authorization logic.
+entry.
+
+`ContractStore` persists local contracts. A contract holds a **JSON Schema**, a
+**max-attempts** budget, a per-attempt **timeout**, a **rejection prompt**, and a
+**fallback value** — the CLI passes only the message, peer, and contract name.
+When `ask` carries `--contract`, the broker runs a bounded validate-until-valid
+loop per target: inject the message (plus the schema) → capture → pull every
+balanced JSON object out of the output and validate each with **Ajv** → return the
+first that satisfies the schema. On a miss it re-injects the contract's rejection
+prompt with the specific validation errors and tries again, up to the attempt
+budget; when the budget is exhausted the asker receives the contract's fallback
+value (no error, no hang). Because the injected prompt contains the schema (its
+own braces) and a peer may echo it, the broker validates *every* candidate object
+rather than guessing which brace-run is the answer. Every attempt is logged to
+history like any ask.
+
+**Bounded retry is deliberate.** This reverses the earlier "no silent retry"
+stance: the loop is capped by the contract's own attempt budget and per-attempt
+timeout, and it always terminates in a value (validated or fallback), so it can
+neither hang nor burn tokens unbounded. A single contract ask prints just that
+value; the shim only frames the request and formats output — validation lives in
+the broker.
 
 ## 6. Attention detection
 

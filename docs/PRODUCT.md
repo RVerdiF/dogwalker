@@ -44,7 +44,7 @@ Existing tools in the "agent orchestration canvas" category are single-platform 
 | **Agent** | A terminal launch configuration: a command that is auto-executed when the terminal spawns (e.g. `claude`, `codex`, `aider`, or any script). Dogwalker interacts with it exclusively as simulated user input — no vendor-specific integration. |
 | **Connection** | An animated leash between two nodes. Defines who can talk to whom via the CLI. |
 | **Role** | A named instruction set (e.g. Lead, Coder, Reviewer, Tester) attachable to a terminal, delivered to the agent as context. |
-| **Response contract** | A named, local expected-output definition for an agent turn. It asks for one JSON value matching a small schema and lets the broker validate and return that value without model-vendor coupling. |
+| **Contract** | A named, local record binding an agent turn to a JSON Schema. Used with `ask --contract`, the broker re-asks the peer until its JSON answer validates (up to a configured attempt budget), then returns it — or a configured fallback value once attempts run out. Also holds a per-attempt timeout and a rejection prompt. |
 | **Floor** | An isolated working copy of the repository (git worktree) with its own canvas layer, for parallel branches of work. |
 | **Portal** | An embedded, automatable browser window on the canvas. |
 | **Routine** | A prompt (or chain of prompts) scheduled to run on an agent at an interval. |
@@ -135,7 +135,7 @@ Core verbs:
 ```
 dogwalker ask <node> "message"          # inject a message and return captured target output
 dogwalker ask --all "message"            # ask every directly connected terminal
-dogwalker ask <node> "message" --contract <name> --json
+dogwalker ask <node> "message" --contract <name>  # loop until the answer matches the contract's JSON Schema
 dogwalker check <node>                  # read-only snapshot of a connected terminal's screen
 dogwalker note read|append|write <note> # operate on a connected note
 dogwalker portal <verb> ...             # drive a connected portal (navigate/click/type/screenshot/js/dom/console)
@@ -151,7 +151,7 @@ Design points:
 - **Every message is logged.** Click a connection cable to see the structured message history between those two nodes (who, what, when, captured output). This is only possible because messages flow through the host, and it is a capability screen-scraping designs cannot offer.
 - **Why no MCP:** the CLI already covers every capability, works with *any* agent or script (or a human typing), needs zero per-vendor configuration, composes in pipelines (`dogwalker check builder | grep -i error`), and is trivially debuggable by hand. An MCP server would duplicate the whole surface for a subset of clients.
 
-### 5.4 Team operations and response contracts
+### 5.4 Team operations and contracts
 
 An agent can ask one directly connected terminal, an explicit comma-separated
 set, or every directly connected terminal (`ask --all`). Every target is still
@@ -159,25 +159,23 @@ authorized separately by the connection graph. A broadcast is a collection of
 ordinary asks: one timeout or malformed response never discards the useful
 responses from the others, and each connection retains its own history entry.
 
-A **response contract** is a persisted local record with a name, a short
-instruction, an optional post-rejection prompt, and a deliberately small schema: required object fields with
-string, number, boolean or array types. Contracts make an
-agent turn predictable without adding a model-provider API. When used with
-`ask --contract`, Dogwalker injects the expected shape alongside the work,
-captures the result normally, extracts one JSON value and validates it in the
-broker. The original captured text remains in history for inspection.
+A **contract** is a persisted local record that makes an agent turn predictable
+without adding a model-provider API. It holds a name, a **JSON Schema** the answer
+must validate against, a **max-attempts** budget, a **timeout**, a **rejection
+prompt**, and a **fallback value**. All of that lives on the contract — the only
+thing the CLI passes is the message, the peer, and the contract name.
 
-For a single contract ask, the CLI prints only its result object: `valid`,
-`value` when parsing succeeds, `errors` when it does not, and the captured
-response in `body`. A strict caller receives that same object with a non-zero
-exit code for an invalid contract. When validation fails, the contract's optional
-post-rejection prompt is injected into the target with the validation errors;
-Dogwalker does not wait for or capture a second answer automatically. `--json`
-continues to return a stable envelope for team asks, so partial broadcast results
-remain available for a Walker's next decision.
+When an agent runs `dogwalker ask <peer> "message" --contract <name>`, contract
+rules take over: the broker delivers the message, captures the peer's answer,
+extracts a JSON object and validates it against the schema. If it doesn't match,
+the broker re-asks the peer with the contract's rejection prompt and the specific
+validation errors, and repeats — **up to the contract's attempt budget**. The
+asker receives the validated JSON object as soon as one passes; once the attempts
+run out, the asker receives the contract's **fallback value** instead (no error,
+no hang). Every attempt is logged to the leash's history.
 
-Contracts are created, have their required fields and post-rejection prompt
-adjusted, duplicated and deleted locally from the Panel. Deleting one never
+Contracts are created, edited (schema, attempts, timeout, rejection prompt,
+fallback), duplicated and deleted locally from the Panel. Deleting one never
 breaks history or a running terminal; a later command simply reports that the
 requested contract no longer exists.
 

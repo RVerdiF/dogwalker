@@ -15,7 +15,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v0.8](#v08--release-engineering) | Release engineering (RC) | A stranger can install from an artifact, not from source |
 | [v1.0](#v10--launch) | Launch | PRODUCT.md is true, installers public, release tagged |
 | [v1.1.0](#v110--roles-presets--brand-polish) | Roles, Presets & brand polish | An agent can be launched or reassigned from reusable, persisted team configuration |
-| [v1.2.0](#v120--team-operations--response-contracts) | Team Operations & response contracts | An authorized team loop returns concise, contract-validated output |
+| [v1.2.0](#v120--team-operations--contracts) | Team Operations & contracts | An authorized team loop returns concise, contract-validated output |
 | [v1.2.1](#v121--contract-result-ergonomics--documentation-consolidation) | Contract result ergonomics & documentation consolidation | Contract results are loop-ready and public docs are coherent |
 
 ---
@@ -281,7 +281,7 @@ meant to be.
 
 ---
 
-## v1.2.0 — Team Operations & response contracts
+## v1.2.0 — Team Operations & contracts
 
 This version makes the existing connection graph useful
 for deliberate multi-agent loops: fan a task out to authorized teammates, get
@@ -301,7 +301,7 @@ CLI, roles, floors and message history.
 2. **Stable automation envelopes:** `--json` on `ask`, with documented `ok`,
    `data` and `error` fields. Broadcast output is deterministic
    and contains a result per target (name, stable id, status, output/error).
-3. **Response-contract library:** persisted local named contracts containing a
+3. **Contract library:** persisted local named contracts containing a
    description and a constrained object schema (required fields and scalar/array
    types). The Panel creates, adjusts required fields, duplicates and deletes
    entries with a readable
@@ -323,7 +323,7 @@ CLI, roles, floors and message history.
   target is denied even when another target in the same round succeeds.
 - A timed-out or malformed response leaves the valid results of other peers
   available in a deterministic JSON envelope.
-- A custom response contract survives restart, validates a live agent answer,
+- A custom contract survives restart, validates a live agent answer,
   and returns actionable errors for a malformed answer without hiding raw
   history.
 - A Walker can consume a contract-backed broadcast result without parsing
@@ -363,6 +363,6 @@ documentation under `docs/`.
 ## After v1 (parked, unscheduled)
 
 Recurring ideas deliberately not on the path: community preset/skill sharing,
-`--json` on every remaining verb, automatic contract-repair retries, and tier-4
-rendering if profiling demands it. New scope enters [PRODUCT.md](PRODUCT.md)
-first, then lands here — never the other way around.
+`--json` on every remaining verb, and tier-4 rendering if profiling demands it.
+New scope enters [PRODUCT.md](PRODUCT.md) first, then lands here — never the other
+way around.

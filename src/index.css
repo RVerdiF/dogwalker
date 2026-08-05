@@ -833,6 +833,16 @@ body,
   display: block;
 }
 
+.dw-contract-label {
+  font-size: 11px;
+  color: var(--dw-text-muted);
+  margin: 2px 0 -3px;
+}
+
+.dw-routine-form textarea.dw-mono {
+  font-family: var(--dw-mono, ui-monospace, "Cascadia Code", monospace);
+}
+
 /* ---- Dev toolbar (dev only) --------------------------------------------- */
 .dw-devbar {
   position: absolute;

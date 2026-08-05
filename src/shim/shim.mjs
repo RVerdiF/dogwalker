@@ -38,12 +38,11 @@ async function buildRequest() {
       const rest = argv.slice(1);
       const all = rest.includes('--all');
       const json = rest.includes('--json');
-      const strict = rest.includes('--strict');
       const ci = rest.indexOf('--contract');
       const contract = ci >= 0 ? rest[ci + 1] : undefined;
       const exclude = [];
       for (let i = rest.length - 1; i >= 0; i--) {
-        if (rest[i] === '--all' || rest[i] === '--json' || rest[i] === '--strict') rest.splice(i, 1);
+        if (rest[i] === '--all' || rest[i] === '--json') rest.splice(i, 1);
         if (rest[i] === '--contract') rest.splice(i, 2);
         if (rest[i] === '--exclude') { exclude.push(...(rest[i + 1] || '').split(',').filter(Boolean)); rest.splice(i, 2); }
       }
@@ -60,10 +59,10 @@ async function buildRequest() {
       }
       const body = rest.join(' ');
       if ((!target && !all) || !body) {
-        die('usage: dogwalker ask <terminal[,terminal]> <message> [--all] [--exclude <terminal>] [--contract <name>] [--strict] [--json] [--timeout <seconds>]');
+        die('usage: dogwalker ask <terminal[,terminal]> <message> [--all] [--exclude <terminal>] [--contract <name>] [--json] [--timeout <seconds>]');
       }
       const targets = target?.split(',').filter(Boolean);
-      const req = { cmd: 'ask', from, target: targets?.[0], targets, all, exclude, body, json, strict, contract };
+      const req = { cmd: 'ask', from, target: targets?.[0], targets, all, exclude, body, json, contract };
       if (timeoutMs !== undefined) req.timeoutMs = timeoutMs;
       return req;
     }
@@ -211,9 +210,9 @@ socket.on('data', (chunk) => {
     die('malformed response from broker');
   }
   socket.end();
-  if (isSingleContractAsk(request) && res.data) {
+  if (isSingleContractAsk(request) && res.ok && res.data !== undefined) {
     process.stdout.write(JSON.stringify(res.data) + '\n');
-    process.exit(res.ok ? 0 : 1);
+    process.exit(0);
   }
   if (!res.ok) die(res.error || 'request failed');
   render(request.cmd, res.data, request.json);

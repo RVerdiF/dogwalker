@@ -3,19 +3,35 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.3.0 — Unreleased
+
+- Contracts are now driven by a full **JSON Schema** (validated with Ajv). Using
+  `ask --contract <name>` runs a bounded validate-until-valid loop: the broker
+  re-asks the peer with the contract's rejection prompt and the validation errors
+  until the answer matches, then returns just that JSON object — or the contract's
+  configured fallback value once the attempt budget runs out. Attempts, timeout,
+  rejection prompt and fallback all live on the contract; the CLI passes only the
+  message, peer, and contract name. Removes `--strict` and the old required-fields
+  model. Renamed "response contracts" to "contracts" throughout.
+- UI: the sidebar shows the Dogwalker wordmark; every emoji/character glyph in the
+  chrome is now a line-style SVG icon (nodes, floors, composer, file tree, config
+  menu, align menu). Presets pick from a set of built-in SVG icons instead of a
+  free-form emoji field, and built-in presets can be deleted. Workspaces no longer
+  carry an icon.
+
 ## 1.2.1 — Unreleased
 
-- Single response-contract asks now emit only the validated result object;
+- Single contract asks now emit only the validated result object;
   `--strict` preserves it while exiting non-zero on rejection.
 - Contracts can persist a post-rejection prompt, injected with validation errors
   without an implicit retry.
 - Public documentation moved to `docs/`; `README.md` remains the GitHub landing
   page and `AGENTS.md` remains at the repository root.
 
-## 1.2.0 — Team Operations & response contracts
+## 1.2.0 — Team Operations & contracts
 
 - Authorized team asks, JSON envelopes, grouped broadcast history and local
-  response contracts with broker-side validation.
+  contracts with broker-side validation.
 
 ## 1.1.0 — Roles, Presets & brand polish
 

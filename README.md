@@ -47,7 +47,7 @@ Dogwalker gives you one infinite canvas per project where every terminal is a li
 - **`check` anything** — agents can read the live screen of *any* connected terminal: another agent, a build, a dev server, a log tail.
 - **Team operations** — ask every connected teammate with `dogwalker ask --all`;
   each result is independently authorized and returned as a compact JSON
-  envelope. A single response-contract ask returns only its validated result
+  envelope. A single contract ask returns only its validated result
   object; contracts can also send a configurable post-rejection prompt to the
   agent when its output misses the agreed shape.
 - **Infinite canvas** — Figma-style pan/zoom, groups, snapping, align/tidy, minimap.

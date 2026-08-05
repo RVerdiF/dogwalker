@@ -17,7 +17,7 @@ Currently:
 - **Roles & presets** — reusable, persisted launch presets and Markdown
   role instructions. Define a role once, pair it with a preset when recruiting,
   and reassign a live terminal's role without dropping its leashes.
-- **Team operations & response contracts** — ask every directly
+- **Team operations & contracts** — ask every directly
   connected teammate at once (`dogwalker ask --all`), each independently
   authorized, with results returned as a stable JSON envelope. Response
   contracts let the broker validate a captured answer against a small local

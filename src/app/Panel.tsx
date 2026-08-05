@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
-import type { AppSettings, ContractScalar, LiveTerminal, ResponseContract, Routine, WorkspaceMeta } from '../shared/ipc';
+import type { AppSettings, LiveTerminal, Contract, Routine, WorkspaceMeta } from '../shared/ipc';
 import type { ThemeSpec } from '../shared/themes';
 import {
   WorkspacesIcon,
@@ -49,7 +49,7 @@ const SECTIONS: Array<{
 
 /**
  * The sectioned end-user menu, rendered as a light glass surface: workspaces,
- * routines, presets, roles, response contracts, and settings.
+ * routines, presets, roles, contracts, and settings.
  */
 export function Panel(props: Props) {
   const { open, onClose } = props;
@@ -225,20 +225,131 @@ function RolesSection() {
   </div>;
 }
 
+const DEFAULT_SCHEMA = `{
+  "type": "object",
+  "required": ["decision"],
+  "properties": {
+    "decision": { "type": "string" }
+  }
+}`;
+
+type ContractDraft = {
+  name: string; schemaText: string; attempts: number; timeoutSec: number; rejectionPrompt: string; fallbackText: string;
+};
+
+function contractToDraft(c: Contract): ContractDraft {
+  return {
+    name: c.name,
+    schemaText: JSON.stringify(c.schema, null, 2),
+    attempts: c.maxAttempts,
+    timeoutSec: Math.round(c.timeoutMs / 1000),
+    rejectionPrompt: c.rejectionPrompt,
+    fallbackText: c.fallback === null || c.fallback === undefined ? '' : JSON.stringify(c.fallback, null, 2),
+  };
+}
+
+function draftToInput(d: ContractDraft): Omit<Contract, 'id'> {
+  const schema = JSON.parse(d.schemaText) as unknown;
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) throw new Error('Schema must be a JSON object');
+  const fallback = d.fallbackText.trim() ? (JSON.parse(d.fallbackText) as unknown) : null;
+  return {
+    name: d.name.trim() || 'contract',
+    schema: schema as Record<string, unknown>,
+    maxAttempts: Math.max(1, Math.floor(d.attempts) || 1),
+    timeoutMs: Math.max(1, Math.floor(d.timeoutSec) || 1) * 1000,
+    rejectionPrompt: d.rejectionPrompt.trim(),
+    fallback,
+  };
+}
+
+function schemaSummary(schema: Record<string, unknown>): string {
+  const req = schema.required;
+  if (Array.isArray(req) && req.length) return `requires ${req.join(', ')}`;
+  return typeof schema.type === 'string' ? schema.type : 'json';
+}
+
+function ContractForm({ initial, submitLabel, onSubmit, onCancel }: {
+  initial?: ContractDraft;
+  submitLabel: string;
+  onSubmit: (input: Omit<Contract, 'id'>) => void;
+  onCancel?: () => void;
+}) {
+  const [name, setName] = useState(initial?.name ?? '');
+  const [schemaText, setSchemaText] = useState(initial?.schemaText ?? DEFAULT_SCHEMA);
+  const [attempts, setAttempts] = useState(initial?.attempts ?? 3);
+  const [timeoutSec, setTimeoutSec] = useState(initial?.timeoutSec ?? 180);
+  const [rejectionPrompt, setRejectionPrompt] = useState(initial?.rejectionPrompt ?? '');
+  const [fallbackText, setFallbackText] = useState(initial?.fallbackText ?? '');
+  const [error, setError] = useState('');
+  const submit = () => {
+    try {
+      const input = draftToInput({ name, schemaText, attempts, timeoutSec, rejectionPrompt, fallbackText });
+      setError('');
+      onSubmit(input);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Invalid JSON');
+    }
+  };
+  return (
+    <div className="dw-routine-form" style={{ width: '100%' }}>
+      <input placeholder="Contract name" value={name} onChange={(e) => setName(e.target.value)} />
+      <label className="dw-contract-label">JSON Schema the peer's answer must match</label>
+      <textarea className="dw-mono" rows={7} value={schemaText} onChange={(e) => setSchemaText(e.target.value)} />
+      <div className="dw-routine-row">
+        <label className="dw-routine-every">attempts<input type="number" min={1} value={attempts} onChange={(e) => setAttempts(Number(e.target.value))} /></label>
+        <label className="dw-routine-every">timeout<input type="number" min={1} value={timeoutSec} onChange={(e) => setTimeoutSec(Number(e.target.value))} />s</label>
+      </div>
+      <label className="dw-contract-label">Rejection prompt — re-sent to the peer after a failed attempt</label>
+      <textarea rows={2} placeholder="Please return valid JSON matching the schema." value={rejectionPrompt} onChange={(e) => setRejectionPrompt(e.target.value)} />
+      <label className="dw-contract-label">Fallback value (JSON) — returned to the asker when attempts run out</label>
+      <textarea className="dw-mono" rows={2} placeholder="null" value={fallbackText} onChange={(e) => setFallbackText(e.target.value)} />
+      {error && <div className="dw-floor-error">{error}</div>}
+      <div className="dw-routine-actions">
+        <button className="dw-btn-primary" onClick={submit}>{submitLabel}</button>
+        {onCancel && <button className="dw-btn-small" onClick={onCancel}>Cancel</button>}
+      </div>
+    </div>
+  );
+}
+
 function ContractsSection() {
-  const [items, setItems] = useState<ResponseContract[]>([]);
-  const [name, setName] = useState(''); const [instructions, setInstructions] = useState('Return a concise decision.'); const [rejectionPrompt, setRejectionPrompt] = useState(''); const [required, setRequired] = useState('decision');
+  const [items, setItems] = useState<Contract[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
   const refresh = () => void window.dw.listContracts().then(setItems);
   useEffect(() => { refresh(); }, []);
-  const schema = () => {
-    const keys = required.split(',').map((x) => x.trim()).filter(Boolean);
-    return { required: keys, fields: Object.fromEntries(keys.map((key) => [key, 'string' as ContractScalar])) };
-  };
-  const add = async () => { if (!name.trim()) return; await window.dw.createContract({ name: name.trim(), instructions, rejectionPrompt: rejectionPrompt.trim() || undefined, schema: schema() }); setName(''); setRejectionPrompt(''); refresh(); };
-  return <div className="dw-section"><div className="dw-section-head"><h2>Response contracts</h2></div>
-    <p className="dw-settings-hint">Expected JSON output for a team ask. Required fields are comma-separated strings.</p>
-    <div className="dw-routine-form"><input placeholder="Contract name" value={name} onChange={(e) => setName(e.target.value)} /><textarea rows={2} value={instructions} onChange={(e) => setInstructions(e.target.value)} /><textarea rows={2} placeholder="Optional prompt after a rejected response" value={rejectionPrompt} onChange={(e) => setRejectionPrompt(e.target.value)} /><input placeholder="Required fields, e.g. decision,risks" value={required} onChange={(e) => setRequired(e.target.value)} /><button className="dw-btn-primary" onClick={() => void add()}>+ Add contract</button></div>
-    <div className="dw-routine-list">{items.length === 0 && <div className="dw-routine-empty">No response contracts yet.</div>}{items.map((c) => <div className="dw-routine-card" key={c.id}><div className="dw-routine-info"><div className="dw-routine-title">{c.name}</div><div className="dw-routine-prompt-preview">required: {c.schema.required.join(', ') || 'none'} · {c.instructions}</div></div><div className="dw-routine-actions"><button className="dw-btn-small" onClick={() => { const next = window.prompt('Required fields', c.schema.required.join(',')); if (next !== null) { const keys = next.split(',').map((x) => x.trim()).filter(Boolean); void window.dw.updateContract(c.id, { ...c, schema: { required: keys, fields: Object.fromEntries(keys.map((key) => [key, c.schema.fields[key] ?? 'string'])) } }).then(refresh); } }}>Edit fields</button><button className="dw-btn-small" onClick={() => { const next = window.prompt('Prompt after rejection', c.rejectionPrompt ?? ''); if (next !== null) void window.dw.updateContract(c.id, { ...c, rejectionPrompt: next.trim() || undefined }).then(refresh); }}>Edit rejection prompt</button><button className="dw-btn-small" onClick={() => void window.dw.createContract({ ...c, name: c.name + ' copy' }).then(refresh)}>Duplicate</button><button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deleteContract(c.id).then(refresh)}>Delete</button></div></div>)}</div>
+  return <div className="dw-section"><div className="dw-section-head"><h2>Contracts</h2></div>
+    <p className="dw-settings-hint">A JSON Schema an <code>ask --contract</code> answer must validate against. The broker re-asks the peer up to the attempt budget; when they run out, the asker receives the fallback value.</p>
+    <ContractForm
+      key={`create-${nonce}`}
+      submitLabel="+ Add contract"
+      onSubmit={(input) => void window.dw.createContract(input).then(() => { setNonce((n) => n + 1); refresh(); })}
+    />
+    <div className="dw-routine-list">
+      {items.length === 0 && <div className="dw-routine-empty">No contracts yet.</div>}
+      {items.map((c) => editingId === c.id ? (
+        <div className="dw-routine-card dw-preset-editing" key={c.id}>
+          <ContractForm
+            initial={contractToDraft(c)}
+            submitLabel="Save"
+            onCancel={() => setEditingId(null)}
+            onSubmit={(input) => void window.dw.updateContract(c.id, input).then(() => { setEditingId(null); refresh(); })}
+          />
+        </div>
+      ) : (
+        <div className="dw-routine-card" key={c.id}>
+          <div className="dw-routine-info">
+            <div className="dw-routine-title">{c.name}</div>
+            <div className="dw-routine-prompt-preview">{c.maxAttempts} attempt{c.maxAttempts === 1 ? '' : 's'} · {Math.round(c.timeoutMs / 1000)}s timeout · {schemaSummary(c.schema)}</div>
+          </div>
+          <div className="dw-routine-actions">
+            <button className="dw-btn-small" onClick={() => setEditingId(c.id)}>Edit</button>
+            <button className="dw-btn-small" onClick={() => void window.dw.createContract({ ...c, name: c.name + ' copy' }).then(refresh)}>Duplicate</button>
+            <button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deleteContract(c.id).then(refresh)}>Delete</button>
+          </div>
+        </div>
+      ))}
+    </div>
   </div>;
 }
 

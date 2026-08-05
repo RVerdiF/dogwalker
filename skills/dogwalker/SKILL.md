@@ -1,6 +1,6 @@
 ---
 name: dogwalker
-version: 2
+version: 3
 description: Talk to other agents and read their terminals from inside a Dogwalker canvas. Use whenever you need to ask a connected teammate to do something, check what another terminal is doing, read or write a shared note, drive a connected browser portal, or list who you are connected to.
 ---
 
@@ -28,11 +28,13 @@ You can only reach terminals you are wired to. Run `dogwalker list` to see them.
 - `dogwalker ask --all <message> [--exclude <name>] --json` — ask every directly
   connected terminal and receive an ordered JSON result envelope. Each target is
   authorized independently, so one failure does not discard other results.
-- `dogwalker ask <name> <message> --contract <name> [--strict]` — ask with a
-  saved response contract. A single contract ask prints only one result object
-  with `valid`, `value`, `errors`, and `body`; `--strict` exits non-zero when the
-  result is invalid. If the contract has a post-rejection prompt, Dogwalker
-  delivers it to the target with the validation errors but does not retry for you.
+- `dogwalker ask <name> <message> --contract <name>` — ask under a saved
+  contract. Dogwalker re-asks the peer until its JSON answer validates against the
+  contract's JSON Schema, then prints just that JSON object. If the peer never
+  produces a valid answer within the contract's attempt budget, you get the
+  contract's configured fallback value instead. The attempt count, timeout,
+  rejection prompt and fallback all live on the contract — you pass only the
+  message, the peer, and the contract name.
 - `dogwalker check <name>` — print a connected terminal's current screen without
   interrupting it. Works on any terminal — another agent, a build, a dev server,
   a log tail.

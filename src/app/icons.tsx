@@ -269,7 +269,7 @@ export function RoleIcon(props: IconProps) {
   );
 }
 
-/** A checklist document, for response Contracts. */
+/** A checklist document, for Contracts. */
 export function ContractIcon(props: IconProps) {
   return (
     <Svg {...props}>
