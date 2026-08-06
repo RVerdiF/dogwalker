@@ -22,7 +22,6 @@ import { seedFirstRun } from './main/firstRun';
 import { runMemTest } from './main/memTest';
 import { FsService } from './main/fsService';
 import { GitService } from './main/gitService';
-import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
 import { runCrossFloorTest } from './main/crossFloorTest';
 import { runWalkerTest } from './main/walkerTest';
 import { runRolePresetTest } from './main/rolePresetTest';
@@ -613,17 +612,6 @@ const createWindow = () => {
   }
 
 
-  if (process.env.DW_FLOORTEST) {
-    void runFloorTest(workspaces, git);
-  }
-
-  if (process.env.DW_LANDTEST) {
-    void runLandTest(git);
-  }
-
-  if (process.env.DW_HOOKTEST) {
-    void runHookTest(hooks, git);
-  }
 
   if (process.env.DW_CROSSFLOORTEST) {
     void runCrossFloorTest(ptys, graph, git, socketPath);

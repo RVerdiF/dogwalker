@@ -17,6 +17,7 @@ describe('GitService', () => {
     run('config', 'user.email', 'test@dogwalker.dev');
     run('config', 'user.name', 'Test');
     run('config', 'commit.gpgsign', 'false');
+    run('config', 'core.autocrlf', 'false');
     fs.writeFileSync(path.join(repo, 'a.txt'), 'one');
     run('add', '-A');
   });
@@ -50,5 +51,51 @@ describe('GitService', () => {
     expect((await git.checkout(repo, 'feature')).ok).toBe(true);
     expect((await git.status(repo)).branch).toBe('feature');
     expect(await git.branches(repo)).toContainEqual({ name: 'feature', current: true });
+  });
+
+  it('adds, lists and removes a worktree on a new branch', async () => {
+    await git.commit(repo, 'init');
+    const wt = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'dw-wt-')), 'featA');
+    expect((await git.worktreeAdd(repo, wt, 'feat-a', true)).ok).toBe(true);
+    expect(fs.existsSync(wt)).toBe(true);
+    expect(await git.worktreeList(repo)).toContainEqual(
+      expect.objectContaining({ branch: 'feat-a' }),
+    );
+    expect((await git.worktreeRemove(repo, wt, true)).ok).toBe(true);
+    expect(fs.existsSync(wt)).toBe(false);
+    fs.rmSync(path.dirname(wt), { recursive: true, force: true });
+  });
+
+  it('lands a clean floor branch and safely aborts a conflicting one', async () => {
+    await git.commit(repo, 'init');
+    const wtRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-land-'));
+    const at = (cwd: string) => (...args: string[]) => execFileSync('git', args, { cwd, stdio: 'pipe' });
+
+    // Clean land: a disjoint change on a floor branch merges into the ground.
+    const floorA = path.join(wtRoot, 'featA');
+    await git.worktreeAdd(repo, floorA, 'feat-a', true);
+    fs.writeFileSync(path.join(floorA, 'only.txt'), 'from the floor');
+    at(floorA)('add', '-A');
+    at(floorA)('commit', '-m', 'add only.txt');
+    expect((await git.merge(repo, 'feat-a')).ok).toBe(true);
+    expect(fs.existsSync(path.join(repo, 'only.txt'))).toBe(true);
+
+    // Conflict land: the same line diverges → merge fails and aborts cleanly.
+    const floorB = path.join(wtRoot, 'featB');
+    await git.worktreeAdd(repo, floorB, 'feat-b', true);
+    fs.writeFileSync(path.join(floorB, 'a.txt'), 'floor-side');
+    at(floorB)('add', '-A');
+    at(floorB)('commit', '-m', 'floor edits a.txt');
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'ground-side');
+    at(repo)('add', '-A');
+    at(repo)('commit', '-m', 'ground edits a.txt');
+    expect((await git.merge(repo, 'feat-b')).ok).toBe(false);
+    expect((await git.mergeAbort(repo)).ok).toBe(true);
+    expect(await git.isClean(repo)).toBe(true);
+    const a = fs.readFileSync(path.join(repo, 'a.txt'), 'utf8');
+    expect(a).toContain('ground-side');
+    expect(a).not.toContain('<<<<<<<');
+
+    fs.rmSync(wtRoot, { recursive: true, force: true });
   });
 });
