@@ -18,10 +18,8 @@ import { PresetStore } from './main/presetStore';
 import { RoleStore } from './main/roleStore';
 import { ContractStore } from './main/contractStore';
 import { seedFirstRun } from './main/firstRun';
-import { runMemTest } from './main/memTest';
 import { FsService } from './main/fsService';
 import { GitService } from './main/gitService';
-import { runV06Bdd } from './main/v06BddTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { AgentDocsSync } from './main/agentDocsSync';
@@ -600,20 +598,6 @@ const createWindow = () => {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
-
-  if (process.env.DW_MEMTEST && ptys) {
-    void runMemTest(ptys, workspaces);
-  }
-
-
-
-
-
-
-  if (process.env.DW_V06BDD) {
-    void runV06Bdd(ptys, graph, notes, routines, workspaces, git, socketPath);
-  }
-
 
 
 
