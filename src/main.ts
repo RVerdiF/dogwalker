@@ -28,7 +28,6 @@ import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { AgentDocsSync } from './main/agentDocsSync';
 import { RoutineService } from './main/routineService';
-import { runRoutineTest } from './main/routineTest';
 import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
 import type { AppSettings } from './shared/ipc';
 import type {
@@ -614,9 +613,6 @@ const createWindow = () => {
     void runCrossFloorTest(ptys, graph, git, socketPath);
   }
 
-  if (process.env.DW_ROUTINETEST) {
-    void runRoutineTest(ptys, routines);
-  }
 
 
   if (process.env.DW_V06BDD) {
