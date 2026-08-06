@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react';
-import type { AppSettings, ContractScalar, LiveTerminal, ResponseContract, Routine, WorkspaceMeta } from '../shared/ipc';
+import type { ComponentType } from 'react';
+import type { AppSettings, LiveTerminal, Contract, Routine, WorkspaceMeta } from '../shared/ipc';
 import type { ThemeSpec } from '../shared/themes';
+import {
+  WorkspacesIcon,
+  RoutinesIcon,
+  BoltIcon,
+  RoleIcon,
+  ContractIcon,
+  GearIcon,
+  WarningIcon,
+  PresetGlyph,
+  PRESET_ICON_IDS,
+  DEFAULT_PRESET_ICON,
+} from './icons';
 
 interface Props {
   open: boolean;
@@ -18,22 +31,25 @@ interface Props {
   onUpdateSettings: (partial: Partial<AppSettings>) => void;
 }
 
-type SectionId = 'workspaces' | 'routines' | 'agents' | 'presets' | 'roles' | 'contracts' | 'settings';
+type SectionId = 'workspaces' | 'routines' | 'presets' | 'roles' | 'contracts' | 'settings';
 
-const SECTIONS: Array<{ id: SectionId; label: string; icon: string; ready: boolean }> = [
-  { id: 'workspaces', label: 'Workspaces', icon: '🗂️', ready: true },
-  { id: 'routines', label: 'Routines', icon: '⏱️', ready: true },
-  { id: 'agents', label: 'Agents', icon: '🤖', ready: false },
-  { id: 'presets', label: 'Presets', icon: '⚡', ready: true },
-  { id: 'roles', label: 'Roles', icon: '🎭', ready: true },
-  { id: 'contracts', label: 'Contracts', icon: '☑', ready: true },
-  { id: 'settings', label: 'Settings', icon: '⚙️', ready: true },
+const SECTIONS: Array<{
+  id: SectionId;
+  label: string;
+  icon: ComponentType<{ size?: number }>;
+  ready: boolean;
+}> = [
+  { id: 'workspaces', label: 'Workspaces', icon: WorkspacesIcon, ready: true },
+  { id: 'routines', label: 'Routines', icon: RoutinesIcon, ready: true },
+  { id: 'presets', label: 'Presets', icon: BoltIcon, ready: true },
+  { id: 'roles', label: 'Roles', icon: RoleIcon, ready: true },
+  { id: 'contracts', label: 'Contracts', icon: ContractIcon, ready: true },
+  { id: 'settings', label: 'Settings', icon: GearIcon, ready: true },
 ];
 
 /**
- * The sectioned end-user menu, rendered as a light glass surface. Workspaces is
- * live; the other sections are placeholders that map to upcoming versions
- * (Agents/Presets/Roles/Settings) so the shell is already the home for them.
+ * The sectioned end-user menu, rendered as a light glass surface: workspaces,
+ * routines, presets, roles, contracts, and settings.
  */
 export function Panel(props: Props) {
   const { open, onClose } = props;
@@ -61,7 +77,7 @@ export function Panel(props: Props) {
               }`}
               onClick={() => s.ready && setSection(s.id)}
             >
-              <span className="dw-panel-navicon">{s.icon}</span>
+              <span className="dw-panel-navicon"><s.icon size={16} /></span>
               {s.label}
               {!s.ready && <span className="dw-soon">soon</span>}
             </button>
@@ -94,17 +110,106 @@ export function Panel(props: Props) {
   );
 }
 
+function IconPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  return (
+    <div className="dw-icon-picker">
+      {PRESET_ICON_IDS.map((id) => (
+        <button
+          key={id}
+          type="button"
+          className={`dw-icon-swatch${id === value ? ' active' : ''}`}
+          title={id}
+          onClick={() => onChange(id)}
+        >
+          <PresetGlyph id={id} size={18} />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+type PresetItem = { id: string; name: string; icon: string; command: string; builtin?: boolean };
+
 function PresetsSection() {
-  const [items, setItems] = useState<Array<{ id: string; name: string; icon: string; command: string; builtin?: boolean }>>([]);
-  const [name, setName] = useState(''); const [icon, setIcon] = useState('⚡'); const [command, setCommand] = useState('');
+  const [items, setItems] = useState<PresetItem[]>([]);
+  const [name, setName] = useState('');
+  const [icon, setIcon] = useState(DEFAULT_PRESET_ICON);
+  const [command, setCommand] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
   const refresh = () => void window.dw.listPresets().then((presets) => { setItems(presets); window.dispatchEvent(new Event('dw:presets-changed')); });
   useEffect(() => { refresh(); }, []);
-  const add = async () => { if (!command.trim()) return; await window.dw.createPreset({ name, icon, command }); setName(''); setCommand(''); refresh(); };
+  const add = async () => {
+    if (!command.trim() && !name.trim()) return;
+    await window.dw.createPreset({ name, icon, command });
+    setName(''); setCommand(''); setIcon(DEFAULT_PRESET_ICON);
+    refresh();
+  };
   return <div className="dw-section"><div className="dw-section-head"><h2>Presets</h2></div>
-    <p className="dw-settings-hint">Reusable terminal launch commands. Built-ins are read-only.</p>
-    <div className="dw-routine-form"><div className="dw-routine-row"><input value={icon} onChange={(e) => setIcon(e.target.value)} maxLength={2} /><input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} /><input placeholder="Command" value={command} onChange={(e) => setCommand(e.target.value)} /></div><button className="dw-btn-primary" onClick={() => void add()}>+ Add preset</button></div>
-    <div className="dw-routine-list">{items.map((p) => <div className="dw-routine-card" key={p.id}><div className="dw-routine-info"><div className="dw-routine-title">{p.icon} {p.name} {p.builtin && <span className="dw-routine-meta">built-in</span>}</div><div className="dw-routine-prompt-preview">{p.command || 'plain shell'}</div></div>{!p.builtin && <div className="dw-routine-actions"><button className="dw-btn-small" onClick={() => { const name = window.prompt('Preset name', p.name); const command = window.prompt('Command', p.command); if (name !== null && command !== null) void window.dw.updatePreset(p.id, { name, icon: p.icon, command }).then(refresh); }}>Edit</button><button className="dw-btn-small" onClick={() => void window.dw.createPreset({ name: p.name + ' copy', icon: p.icon, command: p.command }).then(refresh)}>Duplicate</button><button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deletePreset(p.id).then(refresh)}>Delete</button></div>}</div>)}</div>
+    <p className="dw-settings-hint">Reusable terminal launch commands. Pick an icon for the terminal palette; built-in commands are read-only but can be duplicated or deleted.</p>
+    <div className="dw-routine-form">
+      <IconPicker value={icon} onChange={setIcon} />
+      <div className="dw-routine-row">
+        <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <input placeholder="Command" value={command} onChange={(e) => setCommand(e.target.value)} />
+      </div>
+      <button className="dw-btn-primary" onClick={() => void add()}>+ Add preset</button>
+    </div>
+    <div className="dw-routine-list">{items.map((p) => (
+      editingId === p.id ? (
+        <PresetEditor
+          key={p.id}
+          preset={p}
+          onCancel={() => setEditingId(null)}
+          onSave={(next) => void window.dw.updatePreset(p.id, next).then(() => { setEditingId(null); refresh(); })}
+        />
+      ) : (
+        <div className="dw-routine-card" key={p.id}>
+          <span className="dw-preset-glyph"><PresetGlyph id={p.icon} size={16} /></span>
+          <div className="dw-routine-info">
+            <div className="dw-routine-title">{p.name} {p.builtin && <span className="dw-routine-meta">built-in</span>}</div>
+            <div className="dw-routine-prompt-preview">{p.command || 'plain shell'}</div>
+          </div>
+          <div className="dw-routine-actions">
+            {!p.builtin && <button className="dw-btn-small" onClick={() => setEditingId(p.id)}>Edit</button>}
+            <button className="dw-btn-small" onClick={() => void window.dw.createPreset({ name: p.name + ' copy', icon: p.icon, command: p.command }).then(refresh)}>Duplicate</button>
+            <button
+              className="dw-btn-small dw-btn-danger"
+              disabled={items.length <= 1}
+              title={items.length <= 1 ? 'At least one preset must remain' : undefined}
+              onClick={() => void window.dw.deletePreset(p.id).then(refresh)}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )
+    ))}</div>
   </div>;
+}
+
+function PresetEditor({ preset, onSave, onCancel }: {
+  preset: PresetItem;
+  onSave: (next: { name: string; icon: string; command: string }) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(preset.name);
+  const [icon, setIcon] = useState(preset.icon);
+  const [command, setCommand] = useState(preset.command);
+  return (
+    <div className="dw-routine-card dw-preset-editing">
+      <div className="dw-routine-form" style={{ margin: 0, width: '100%' }}>
+        <IconPicker value={icon} onChange={setIcon} />
+        <div className="dw-routine-row">
+          <input placeholder="Name" value={name} autoFocus onChange={(e) => setName(e.target.value)} />
+          <input placeholder="Command" value={command} onChange={(e) => setCommand(e.target.value)} />
+        </div>
+        <div className="dw-routine-actions">
+          <button className="dw-btn-primary" onClick={() => onSave({ name, icon, command })}>Save</button>
+          <button className="dw-btn-small" onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function RolesSection() {
@@ -120,20 +225,131 @@ function RolesSection() {
   </div>;
 }
 
+const DEFAULT_SCHEMA = `{
+  "type": "object",
+  "required": ["decision"],
+  "properties": {
+    "decision": { "type": "string" }
+  }
+}`;
+
+type ContractDraft = {
+  name: string; schemaText: string; attempts: number; timeoutSec: number; rejectionPrompt: string; fallbackText: string;
+};
+
+function contractToDraft(c: Contract): ContractDraft {
+  return {
+    name: c.name,
+    schemaText: JSON.stringify(c.schema, null, 2),
+    attempts: c.maxAttempts,
+    timeoutSec: Math.round(c.timeoutMs / 1000),
+    rejectionPrompt: c.rejectionPrompt,
+    fallbackText: c.fallback === null || c.fallback === undefined ? '' : JSON.stringify(c.fallback, null, 2),
+  };
+}
+
+function draftToInput(d: ContractDraft): Omit<Contract, 'id'> {
+  const schema = JSON.parse(d.schemaText) as unknown;
+  if (!schema || typeof schema !== 'object' || Array.isArray(schema)) throw new Error('Schema must be a JSON object');
+  const fallback = d.fallbackText.trim() ? (JSON.parse(d.fallbackText) as unknown) : null;
+  return {
+    name: d.name.trim() || 'contract',
+    schema: schema as Record<string, unknown>,
+    maxAttempts: Math.max(1, Math.floor(d.attempts) || 1),
+    timeoutMs: Math.max(1, Math.floor(d.timeoutSec) || 1) * 1000,
+    rejectionPrompt: d.rejectionPrompt.trim(),
+    fallback,
+  };
+}
+
+function schemaSummary(schema: Record<string, unknown>): string {
+  const req = schema.required;
+  if (Array.isArray(req) && req.length) return `requires ${req.join(', ')}`;
+  return typeof schema.type === 'string' ? schema.type : 'json';
+}
+
+function ContractForm({ initial, submitLabel, onSubmit, onCancel }: {
+  initial?: ContractDraft;
+  submitLabel: string;
+  onSubmit: (input: Omit<Contract, 'id'>) => void;
+  onCancel?: () => void;
+}) {
+  const [name, setName] = useState(initial?.name ?? '');
+  const [schemaText, setSchemaText] = useState(initial?.schemaText ?? DEFAULT_SCHEMA);
+  const [attempts, setAttempts] = useState(initial?.attempts ?? 3);
+  const [timeoutSec, setTimeoutSec] = useState(initial?.timeoutSec ?? 180);
+  const [rejectionPrompt, setRejectionPrompt] = useState(initial?.rejectionPrompt ?? '');
+  const [fallbackText, setFallbackText] = useState(initial?.fallbackText ?? '');
+  const [error, setError] = useState('');
+  const submit = () => {
+    try {
+      const input = draftToInput({ name, schemaText, attempts, timeoutSec, rejectionPrompt, fallbackText });
+      setError('');
+      onSubmit(input);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Invalid JSON');
+    }
+  };
+  return (
+    <div className="dw-routine-form" style={{ width: '100%' }}>
+      <input placeholder="Contract name" value={name} onChange={(e) => setName(e.target.value)} />
+      <label className="dw-contract-label">JSON Schema the peer's answer must match</label>
+      <textarea className="dw-mono" rows={7} value={schemaText} onChange={(e) => setSchemaText(e.target.value)} />
+      <div className="dw-routine-row">
+        <label className="dw-routine-every">attempts<input type="number" min={1} value={attempts} onChange={(e) => setAttempts(Number(e.target.value))} /></label>
+        <label className="dw-routine-every">timeout<input type="number" min={1} value={timeoutSec} onChange={(e) => setTimeoutSec(Number(e.target.value))} />s</label>
+      </div>
+      <label className="dw-contract-label">Rejection prompt — re-sent to the peer after a failed attempt</label>
+      <textarea rows={2} placeholder="Please return valid JSON matching the schema." value={rejectionPrompt} onChange={(e) => setRejectionPrompt(e.target.value)} />
+      <label className="dw-contract-label">Fallback value (JSON) — returned to the asker when attempts run out</label>
+      <textarea className="dw-mono" rows={2} placeholder="null" value={fallbackText} onChange={(e) => setFallbackText(e.target.value)} />
+      {error && <div className="dw-floor-error">{error}</div>}
+      <div className="dw-routine-actions">
+        <button className="dw-btn-primary" onClick={submit}>{submitLabel}</button>
+        {onCancel && <button className="dw-btn-small" onClick={onCancel}>Cancel</button>}
+      </div>
+    </div>
+  );
+}
+
 function ContractsSection() {
-  const [items, setItems] = useState<ResponseContract[]>([]);
-  const [name, setName] = useState(''); const [instructions, setInstructions] = useState('Return a concise decision.'); const [rejectionPrompt, setRejectionPrompt] = useState(''); const [required, setRequired] = useState('decision');
+  const [items, setItems] = useState<Contract[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
   const refresh = () => void window.dw.listContracts().then(setItems);
   useEffect(() => { refresh(); }, []);
-  const schema = () => {
-    const keys = required.split(',').map((x) => x.trim()).filter(Boolean);
-    return { required: keys, fields: Object.fromEntries(keys.map((key) => [key, 'string' as ContractScalar])) };
-  };
-  const add = async () => { if (!name.trim()) return; await window.dw.createContract({ name: name.trim(), instructions, rejectionPrompt: rejectionPrompt.trim() || undefined, schema: schema() }); setName(''); setRejectionPrompt(''); refresh(); };
-  return <div className="dw-section"><div className="dw-section-head"><h2>Response contracts</h2></div>
-    <p className="dw-settings-hint">Expected JSON output for a team ask. Required fields are comma-separated strings.</p>
-    <div className="dw-routine-form"><input placeholder="Contract name" value={name} onChange={(e) => setName(e.target.value)} /><textarea rows={2} value={instructions} onChange={(e) => setInstructions(e.target.value)} /><textarea rows={2} placeholder="Optional prompt after a rejected response" value={rejectionPrompt} onChange={(e) => setRejectionPrompt(e.target.value)} /><input placeholder="Required fields, e.g. decision,risks" value={required} onChange={(e) => setRequired(e.target.value)} /><button className="dw-btn-primary" onClick={() => void add()}>+ Add contract</button></div>
-    <div className="dw-routine-list">{items.length === 0 && <div className="dw-routine-empty">No response contracts yet.</div>}{items.map((c) => <div className="dw-routine-card" key={c.id}><div className="dw-routine-info"><div className="dw-routine-title">{c.name}</div><div className="dw-routine-prompt-preview">required: {c.schema.required.join(', ') || 'none'} · {c.instructions}</div></div><div className="dw-routine-actions"><button className="dw-btn-small" onClick={() => { const next = window.prompt('Required fields', c.schema.required.join(',')); if (next !== null) { const keys = next.split(',').map((x) => x.trim()).filter(Boolean); void window.dw.updateContract(c.id, { ...c, schema: { required: keys, fields: Object.fromEntries(keys.map((key) => [key, c.schema.fields[key] ?? 'string'])) } }).then(refresh); } }}>Edit fields</button><button className="dw-btn-small" onClick={() => { const next = window.prompt('Prompt after rejection', c.rejectionPrompt ?? ''); if (next !== null) void window.dw.updateContract(c.id, { ...c, rejectionPrompt: next.trim() || undefined }).then(refresh); }}>Edit rejection prompt</button><button className="dw-btn-small" onClick={() => void window.dw.createContract({ ...c, name: c.name + ' copy' }).then(refresh)}>Duplicate</button><button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deleteContract(c.id).then(refresh)}>Delete</button></div></div>)}</div>
+  return <div className="dw-section"><div className="dw-section-head"><h2>Contracts</h2></div>
+    <p className="dw-settings-hint">A JSON Schema an <code>ask --contract</code> answer must validate against. The broker re-asks the peer up to the attempt budget; when they run out, the asker receives the fallback value.</p>
+    <ContractForm
+      key={`create-${nonce}`}
+      submitLabel="+ Add contract"
+      onSubmit={(input) => void window.dw.createContract(input).then(() => { setNonce((n) => n + 1); refresh(); })}
+    />
+    <div className="dw-routine-list">
+      {items.length === 0 && <div className="dw-routine-empty">No contracts yet.</div>}
+      {items.map((c) => editingId === c.id ? (
+        <div className="dw-routine-card dw-preset-editing" key={c.id}>
+          <ContractForm
+            initial={contractToDraft(c)}
+            submitLabel="Save"
+            onCancel={() => setEditingId(null)}
+            onSubmit={(input) => void window.dw.updateContract(c.id, input).then(() => { setEditingId(null); refresh(); })}
+          />
+        </div>
+      ) : (
+        <div className="dw-routine-card" key={c.id}>
+          <div className="dw-routine-info">
+            <div className="dw-routine-title">{c.name}</div>
+            <div className="dw-routine-prompt-preview">{c.maxAttempts} attempt{c.maxAttempts === 1 ? '' : 's'} · {Math.round(c.timeoutMs / 1000)}s timeout · {schemaSummary(c.schema)}</div>
+          </div>
+          <div className="dw-routine-actions">
+            <button className="dw-btn-small" onClick={() => setEditingId(c.id)}>Edit</button>
+            <button className="dw-btn-small" onClick={() => void window.dw.createContract({ ...c, name: c.name + ' copy' }).then(refresh)}>Duplicate</button>
+            <button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deleteContract(c.id).then(refresh)}>Delete</button>
+          </div>
+        </div>
+      ))}
+    </div>
   </div>;
 }
 
@@ -275,7 +491,11 @@ function RoutinesSection({ activeId }: { activeId: string }) {
                 </span>
               </div>
               <div className="dw-routine-prompt-preview">{r.prompt}</div>
-              {r.lastError && <div className="dw-routine-err">⚠ {r.lastError}</div>}
+              {r.lastError && (
+                <div className="dw-routine-err">
+                  <WarningIcon size={12} /> {r.lastError}
+                </div>
+              )}
             </div>
             <div className="dw-routine-actions">
               <button className="dw-btn-small" onClick={() => void window.dw.runRoutineNow(r.id)}>
@@ -412,12 +632,11 @@ function WorkspaceCard({
 }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(ws.name);
-  const [icon, setIcon] = useState(ws.icon);
   const [cwd, setCwd] = useState(ws.cwd);
   const [sync, setSync] = useState(!!ws.syncAgentDocs);
 
   const save = () => {
-    onRename(name.trim() || ws.name, icon || ws.icon, cwd.trim() || ws.cwd);
+    onRename(name.trim() || ws.name, ws.icon, cwd.trim() || ws.cwd);
     setEditing(false);
   };
 
@@ -426,12 +645,6 @@ function WorkspaceCard({
       {editing ? (
         <div className="dw-ws-editor">
           <div className="dw-ws-edit">
-            <input
-              className="dw-ws-icon-input"
-              value={icon}
-              maxLength={2}
-              onChange={(e) => setIcon(e.target.value)}
-            />
             <input
               className="dw-ws-name-input"
               value={name}
@@ -470,7 +683,6 @@ function WorkspaceCard({
       ) : (
         <>
           <button className="dw-ws-open" onClick={onSwitch}>
-            <span className="dw-ws-card-icon">{ws.icon}</span>
             <span className="dw-ws-card-name">{ws.name}</span>
             {active && <span className="dw-ws-active-dot" />}
           </button>

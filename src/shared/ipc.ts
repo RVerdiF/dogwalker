@@ -6,14 +6,19 @@ import type { ThemeSpec } from './themes';
 export type PresetId = string;
 export interface AgentPreset { id: PresetId; name: string; icon: string; command: string; builtin?: boolean; }
 export interface Role { id: string; name: string; instructions: string; }
-export type ContractScalar = 'string' | 'number' | 'boolean' | 'array';
-export interface ResponseContract {
+export interface Contract {
   id: string;
   name: string;
-  instructions: string;
-  /** Optional follow-up delivered when captured output fails validation. */
-  rejectionPrompt?: string;
-  schema: { required: string[]; fields: Record<string, ContractScalar> };
+  /** JSON Schema the peer's captured JSON answer must validate against. */
+  schema: Record<string, unknown>;
+  /** How many times to re-ask the peer until its answer validates. */
+  maxAttempts: number;
+  /** Per-attempt wait for the peer's answer, in ms. */
+  timeoutMs: number;
+  /** Injected into the peer after a failed attempt, alongside the validation errors. */
+  rejectionPrompt: string;
+  /** Value returned to the asker once every attempt is exhausted. */
+  fallback: unknown;
 }
 
 /** Persisted app settings (terminal theming + notifications). */
@@ -341,9 +346,9 @@ export interface DwApi {
   createRole(input: Pick<Role, 'name' | 'instructions'>): Promise<Role>;
   updateRole(id: string, input: Pick<Role, 'name' | 'instructions'>): Promise<Role | null>;
   deleteRole(id: string): Promise<boolean>;
-  listContracts(): Promise<ResponseContract[]>;
-  createContract(input: Omit<ResponseContract, 'id'>): Promise<ResponseContract>;
-  updateContract(id: string, input: Omit<ResponseContract, 'id'>): Promise<ResponseContract | null>;
+  listContracts(): Promise<Contract[]>;
+  createContract(input: Omit<Contract, 'id'>): Promise<Contract>;
+  updateContract(id: string, input: Omit<Contract, 'id'>): Promise<Contract | null>;
   deleteContract(id: string): Promise<boolean>;
   assignTerminalRole(id: string, roleId?: string): Promise<string>;
   /** A Walker recruited a teammate — the canvas adopts it near the Walker. */

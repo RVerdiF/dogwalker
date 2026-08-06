@@ -15,18 +15,15 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v0.8](#v08--release-engineering) | Release engineering (RC) | A stranger can install from an artifact, not from source |
 | [v1.0](#v10--launch) | Launch | PRODUCT.md is true, installers public, release tagged |
 | [v1.1.0](#v110--roles-presets--brand-polish) | Roles, Presets & brand polish | An agent can be launched or reassigned from reusable, persisted team configuration |
-| [v1.2.0](#v120--team-operations--response-contracts) | Team Operations & response contracts | An authorized team loop returns concise, contract-validated output |
+| [v1.2.0](#v120--team-operations--contracts) | Team Operations & contracts | An authorized team loop returns concise, contract-validated output |
 | [v1.2.1](#v121--contract-result-ergonomics--documentation-consolidation) | Contract result ergonomics & documentation consolidation | Contract results are loop-ready and public docs are coherent |
+| [v1.3.0](#v130--iconography--json-schema-contracts) | Iconography & JSON-Schema contracts | Chrome is all SVG; a contract loops until the answer matches its JSON Schema |
 
 ---
 
 ## v0.0.1 — Alpha: the spike
 
-**Status: PASSED (2026-07-19, Windows)** — results and one consciously
-accepted deviation (memory measured in dev mode) in
-[ARCHITECTURE.md §13](ARCHITECTURE.md#13-spike-findings-v001--passed-2026-07-19-windows-11).
-
-**Expectation:** falsify the architecture as cheaply as possible ([ARCHITECTURE.md §12](ARCHITECTURE.md#12-validation-order-the-spike)). Every risky bet — React Flow hosting live terminals, the renderer degradation ladder, the headless mirror — is exercised before any product feature exists. Code from this phase is allowed to be throwaway; the *conclusions* are the deliverable.
+**Expectation:** falsify the architecture as cheaply as possible. Every risky bet — React Flow hosting live terminals, the renderer degradation ladder, the headless mirror — is exercised before any product feature exists. Code from this phase is allowed to be throwaway; the *conclusions* are the deliverable.
 
 **Outputs**
 1. Electron + TypeScript (strict) scaffold with the main/renderer split of [ARCHITECTURE.md §2](ARCHITECTURE.md#2-process-model); one hardcoded workspace, no persistence.
@@ -224,7 +221,7 @@ accepted deviation (memory measured in dev mode) in
 
 ## v1.1.0 — Roles, Presets & brand polish
 
-**Status: complete (2026-08-01).** The first post-launch feature release completes the
+The first post-launch feature release completes the
 configuration layer that the v1.0 canvas already exposes: reusable agent launch
 presets and reusable role instructions. It does not add a provider integration:
 agents remain vendor-agnostic commands driven only through the PTY and the
@@ -285,9 +282,9 @@ meant to be.
 
 ---
 
-## v1.2.0 — Team Operations & response contracts
+## v1.2.0 — Team Operations & contracts
 
-**Status: complete (2026-08-01).** This version makes the existing connection graph useful
+This version makes the existing connection graph useful
 for deliberate multi-agent loops: fan a task out to authorized teammates, get
 machine-readable outcomes back, and let a Walker choose the next action without
 repeating or screen-scraping noisy transcripts. It remains entirely local and
@@ -305,7 +302,7 @@ CLI, roles, floors and message history.
 2. **Stable automation envelopes:** `--json` on `ask`, with documented `ok`,
    `data` and `error` fields. Broadcast output is deterministic
    and contains a result per target (name, stable id, status, output/error).
-3. **Response-contract library:** persisted local named contracts containing a
+3. **Contract library:** persisted local named contracts containing a
    description and a constrained object schema (required fields and scalar/array
    types). The Panel creates, adjusts required fields, duplicates and deletes
    entries with a readable
@@ -327,7 +324,7 @@ CLI, roles, floors and message history.
   target is denied even when another target in the same round succeeds.
 - A timed-out or malformed response leaves the valid results of other peers
   available in a deterministic JSON envelope.
-- A custom response contract survives restart, validates a live agent answer,
+- A custom contract survives restart, validates a live agent answer,
   and returns actionable errors for a malformed answer without hiding raw
   history.
 - A Walker can consume a contract-backed broadcast result without parsing
@@ -339,7 +336,7 @@ CLI, roles, floors and message history.
 
 ## v1.2.1 — Contract result ergonomics & documentation consolidation
 
-**Status: complete (2026-08-02).** A patch release that makes single contract
+A patch release that makes single contract
 results ready for the next orchestration step and consolidates Dogwalker's public
 documentation under `docs/`.
 
@@ -364,12 +361,53 @@ documentation under `docs/`.
 
 ---
 
+## v1.3.0 — Iconography & JSON-Schema contracts
+
+A polish-and-power release: the chrome drops every emoji/character glyph for a
+consistent line-style SVG icon set, and contracts graduate from a required-field
+list to a real JSON Schema with a bounded validate-until-valid loop.
+
+**Expectation:** the app reads as one designed surface, and a contract lets one
+agent hold another to an exact JSON shape without a human in the loop.
+
+**Outputs**
+1. **Iconography:** a single line-style SVG icon set (`src/app/icons.tsx`)
+   replaces emoji/character glyphs across the palette, sidebar, terminal/note/
+   portal/preview nodes, floors, composer, File Tree, and the config and align
+   menus. The sidebar carries the Dogwalker mark, and its wordmark when expanded.
+2. **Workspaces lose the icon field:** gone from the rail (collapsed rail shows
+   name initials), the workspace card, and the create/edit form.
+3. **Preset icons:** presets pick from a fixed set of built-in SVG glyphs instead
+   of a free-form emoji field, stored as an icon id; built-in presets can be
+   duplicated and deleted (hidden via a persisted set, never below one preset).
+4. **JSON-Schema contracts:** a contract holds a JSON Schema, a max-attempts
+   budget, a per-attempt timeout, a rejection prompt and a fallback value.
+   `ask --contract <name>` runs a bounded loop — validate the peer's JSON answer
+   with Ajv, re-ask with the rejection prompt and the errors on a miss, and return
+   the validated object or, once attempts run out, the fallback. Removes
+   `--strict`, the `instructions` field and the required-field model; renames
+   "response contracts" to "contracts" everywhere.
+5. **Contract CLI:** `dogwalker contract list|inspect|create|edit|delete` lets an
+   agent manage the workspace's contracts (schema/attempts/timeout/rejection/
+   fallback) itself; the agent skill documents it.
+6. **Test stack:** adopt Vitest (unit + component, colocated `*.test.ts[x]`, node
+   + jsdom with React Testing Library) and Playwright (`e2e/`), migrating the
+   in-app `DW_*TEST` harnesses to behavior tests on the files under test. Portal
+   automation stays an Electron integration check; the perf/scale probe stays a
+   probe. `npm test` gates CI.
+
+**Exit criteria**
+- No emoji or character glyph remains as a chrome icon.
+- A contract's JSON Schema validates a live agent answer and returns the
+  configured fallback when the attempt budget is exhausted — no hang, no error.
+- A single `ask --contract` prints just the value object, not an envelope.
+- `npm test`, `npm run typecheck` and `npm run lint` are green.
+
+---
+
 ## After v1 (parked, unscheduled)
 
-**Scheduling note:** Presets and roles are no longer parked; they are the
-v1.1.0 scope above. The remaining ideas follow.
-
 Recurring ideas deliberately not on the path: community preset/skill sharing,
-`--json` on every remaining verb, automatic contract-repair retries, and tier-4
-rendering if profiling demands it. New scope enters [PRODUCT.md](PRODUCT.md)
-first, then lands here — never the other way around.
+`--json` on every remaining verb, and tier-4 rendering if profiling demands it.
+New scope enters [PRODUCT.md](PRODUCT.md) first, then lands here — never the other
+way around.

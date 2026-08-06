@@ -9,7 +9,8 @@ import type { WorkspaceStore } from './workspaceStore';
 import type { PresetStore } from './presetStore';
 import type { RoleStore } from './roleStore';
 import type { ContractStore } from './contractStore';
-import type { ResponseContract } from '../shared/ipc';
+import type { Contract } from '../shared/ipc';
+import Ajv, { type ValidateFunction } from 'ajv';
 import {
   encode,
   type BrokerRequest,
@@ -22,6 +23,32 @@ const ASK_TIMEOUT_MIN_MS = 1_000;
 const ASK_TIMEOUT_MAX_MS = 3_600_000;
 
 /**
+ * Every top-level balanced `{…}` in `text` that parses as JSON. The injected
+ * prompt carries the JSON Schema (its own braces) and the peer may echo it, so
+ * the caller validates each candidate and keeps whichever one satisfies the
+ * contract rather than guessing which brace-run is the answer.
+ */
+export function extractJsonObjects(text: string): unknown[] {
+  const out: unknown[] = [];
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] !== '{') { i++; continue; }
+    let depth = 0, inStr = false, esc = false, end = -1;
+    for (let j = i; j < text.length; j++) {
+      const ch = text[j];
+      if (inStr) { if (esc) esc = false; else if (ch === '\\') esc = true; else if (ch === '"') inStr = false; }
+      else if (ch === '"') inStr = true;
+      else if (ch === '{') depth++;
+      else if (ch === '}') { depth--; if (depth === 0) { end = j; break; } }
+    }
+    if (end < 0) { i++; continue; }
+    try { out.push(JSON.parse(text.slice(i, end + 1))); } catch { /* not JSON */ }
+    i = end + 1;
+  }
+  return out;
+}
+
+/**
  * The single agent-facing authority (ARCHITECTURE.md §5). Every capability a
  * terminal's CLI can invoke lives here; the shim is a dumb pipe. Authorization
  * is strictly the connection graph — a terminal reaches only what it is wired
@@ -29,6 +56,7 @@ const ASK_TIMEOUT_MAX_MS = 3_600_000;
  */
 export class Broker {
   private server: net.Server;
+  private ajv = new Ajv({ allErrors: true, strict: false });
 
   constructor(
     private pipePath: string,
@@ -101,6 +129,8 @@ export class Broker {
       case 'portal':
         void this.handlePortal(socket, req);
         return;
+      case 'contract':
+        return this.handleContract(socket, req);
       case 'recruit':
       case 'dismiss':
       case 'assign':
@@ -133,18 +163,20 @@ export class Broker {
     const broadcast = req.all || requested.length > 1;
     const broadcastId = broadcast ? crypto.randomBytes(5).toString('hex') : undefined;
     const contract = req.contract ? this.contracts.list().find((c) => c.id === req.contract || c.name === req.contract) : null;
-    if (req.contract && !contract) return this.respond(socket, { ok: false, error: `no response contract named "${req.contract}"` });
-    const guidedBody = contract ? `${req.body}\n\nResponse contract (${contract.name}): ${contract.instructions}\nReturn exactly one JSON object with required fields: ${contract.schema.required.join(', ')}.` : req.body;
-    const results = await Promise.all(requested.map((target) => this.askOne(req.from, target, guidedBody, req.timeoutMs, broadcastId, contract)));
+    if (req.contract && !contract) return this.respond(socket, { ok: false, error: `no contract named "${req.contract}"` });
+    const results = await Promise.all(requested.map((target) =>
+      contract
+        ? this.askContract(req.from, target, req.body, contract, broadcastId)
+        : this.askOne(req.from, target, req.body, req.timeoutMs, broadcastId),
+    ));
     if (!broadcast) {
       const result = results[0];
       if (!result.ok) return this.respond(socket, { ok: false, error: result.error });
-      if (req.strict && result.valid === false) {
-        return this.respond(socket, { ok: false, error: 'response contract validation failed', data: result });
-      }
-      return this.respond(socket, { ok: true, data: result });
+      // A contract ask hands back just the value (validated JSON, or the
+      // contract's fallback once attempts run out); a plain ask hands back the
+      // whole capture.
+      return this.respond(socket, { ok: true, data: contract ? (result as { value?: unknown }).value : result });
     }
-    if (req.strict && results.some((result) => result.ok && result.valid === false)) return this.respond(socket, { ok: false, error: 'response contract validation failed', data: { broadcastId, results } });
     this.respond(socket, { ok: true, data: { broadcastId, results } });
   }
 
@@ -154,64 +186,143 @@ export class Broker {
     body: string,
     timeoutMs?: number,
     broadcastId?: string,
-    contract?: ResponseContract | null,
-  ): Promise<{ id?: string; name: string; ok: boolean; body?: string; error?: string; valid?: boolean; value?: unknown; errors?: string[] }> {
+  ): Promise<{ id?: string; name: string; ok: boolean; body?: string; error?: string }> {
     const to = this.graph.resolvePeer(from, target);
-    if (!to) {
-      return { name: target, ok: false, error: `no connected terminal named "${target}"` };
+    if (!to) return { name: target, ok: false, error: `no connected terminal named "${target}"` };
+    const response = await this.exchange(from, to, body, this.clampTimeout(timeoutMs), broadcastId);
+    return { id: to, name: this.graph.name(to), ok: true, body: response };
+  }
+
+  /**
+   * `ask --contract` (ARCHITECTURE.md §5.7): re-ask the peer until its captured
+   * JSON answer validates against the contract's JSON Schema, or until the
+   * contract's attempt budget runs out — in which case the asker receives the
+   * contract's configured fallback value. Each retry re-injects the contract's
+   * rejection prompt with the specific validation errors.
+   */
+  private async askContract(
+    from: string,
+    target: string,
+    message: string,
+    contract: Contract,
+    broadcastId?: string,
+  ): Promise<{ id?: string; name: string; ok: boolean; error?: string; valid?: boolean; value?: unknown; attempts?: number; errors?: string[] }> {
+    const to = this.graph.resolvePeer(from, target);
+    if (!to) return { name: target, ok: false, error: `no connected terminal named "${target}"` };
+    let validate: ValidateFunction;
+    try {
+      validate = this.ajv.compile(contract.schema);
+    } catch {
+      return { id: to, name: this.graph.name(to), ok: false, error: `contract "${contract.name}" has an invalid JSON Schema` };
     }
-    const timeout = Math.min(
-      ASK_TIMEOUT_MAX_MS,
-      Math.max(ASK_TIMEOUT_MIN_MS, timeoutMs ?? ASK_TIMEOUT_DEFAULT_MS),
-    );
+    const attempts = Math.max(1, Math.floor(contract.maxAttempts) || 1);
+    const timeout = this.clampTimeout(contract.timeoutMs);
+    const schemaText = JSON.stringify(contract.schema);
+    let lastErrors: string[] = [];
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      const body = attempt === 1
+        ? `${message}\n\nReturn exactly one JSON object matching this JSON Schema:\n${schemaText}`
+        : `${contract.rejectionPrompt.trim() || 'Your previous answer did not match the required shape.'}\n\nValidation errors: ${lastErrors.join('; ')}\nReturn exactly one JSON object matching this JSON Schema:\n${schemaText}`;
+      const response = await this.exchange(from, to, body, timeout, broadcastId);
+      const candidates = extractJsonObjects(response);
+      if (candidates.length === 0) { lastErrors = ['no JSON object found']; continue; }
+      const matched = candidates.find((c) => validate(c));
+      if (matched !== undefined) return { id: to, name: this.graph.name(to), ok: true, valid: true, value: matched, attempts: attempt };
+      // None matched — report the errors from validating the last candidate.
+      validate(candidates[candidates.length - 1]);
+      lastErrors = (validate.errors ?? []).map((e) => `${e.instancePath || '(root)'} ${e.message ?? 'invalid'}`.trim());
+    }
+    return { id: to, name: this.graph.name(to), ok: true, valid: false, value: contract.fallback, attempts, errors: lastErrors };
+  }
+
+  /** One inject → wait-for-quiet → capture cycle with the peer, logged to history. */
+  private async exchange(from: string, to: string, body: string, timeout: number, broadcastId?: string): Promise<string> {
     const msgId = crypto.randomBytes(3).toString('hex');
     this.history.append({ ts: Date.now(), kind: 'ask', from, to, msgId, body, broadcastId });
-
     const before = this.ptys.plainText(to);
     this.ptys.inject(to, body);
     await this.ptys.awaitQuiet(to, timeout);
     const after = this.ptys.plainText(to);
-
     // The response is the new output the target produced (echoed prompt + its
     // answer). Falls back to the whole screen if scrollback rolled over.
     const delta = after.startsWith(before) ? after.slice(before.length) : after;
     const response = delta.trim();
-    this.history.append({
-      ts: Date.now(),
-      kind: 'reply',
-      from: to,
-      to: from,
-      msgId,
-      body: response,
-      broadcastId,
-    });
-    if (!contract) return { id: to, name: this.graph.name(to), ok: true, body: response };
-    const match = response.match(/\{[\s\S]*\}/);
-    if (!match) return this.contractResult(to, response, contract, ['no JSON object found']);
-    try {
-      const value = JSON.parse(match[0]) as Record<string, unknown>;
-      const errors = contract.schema.required.flatMap((key) => {
-        const expected = contract.schema.fields[key];
-        const actual = Array.isArray(value[key]) ? 'array' : typeof value[key];
-        return value[key] === undefined ? [`missing required field "${key}"`] : expected && actual !== expected ? [`field "${key}" must be ${expected}`] : [];
-      });
-      if (errors.length > 0) return this.contractResult(to, response, contract, errors, value);
-      return { id: to, name: this.graph.name(to), ok: true, body: response, valid: true, value, errors };
-    } catch { return this.contractResult(to, response, contract, ['invalid JSON']); }
+    this.history.append({ ts: Date.now(), kind: 'reply', from: to, to: from, msgId, body: response, broadcastId });
+    return response;
   }
 
-  private contractResult(
-    to: string,
-    body: string,
-    contract: ResponseContract,
-    errors: string[],
-    value?: unknown,
-  ): { id: string; name: string; ok: true; body: string; valid: false; value?: unknown; errors: string[] } {
-    const prompt = contract.rejectionPrompt?.trim();
-    if (prompt) {
-      this.ptys.inject(to, `${prompt}\n\nContract validation errors: ${errors.join('; ')}`);
+  private clampTimeout(ms?: number): number {
+    return Math.min(ASK_TIMEOUT_MAX_MS, Math.max(ASK_TIMEOUT_MIN_MS, ms ?? ASK_TIMEOUT_DEFAULT_MS));
+  }
+
+  /**
+   * `dogwalker contract list|inspect|create|edit|delete` — manage the workspace's
+   * local contracts (§5.7). Contracts are shared config, not a graph node, so this
+   * needs no connection-graph authorization beyond the caller being a real
+   * terminal. All parsing/validation lives here; the shim just frames argv.
+   */
+  private handleContract(socket: net.Socket, req: Extract<BrokerRequest, { cmd: 'contract' }>): void {
+    const find = (n?: string) => (n ? this.contracts.list().find((c) => c.id === n || c.name === n) : undefined);
+    try {
+      switch (req.op) {
+        case 'list':
+          return this.respond(socket, { ok: true, data: { contracts: this.contracts.list().map((c) => c.name) } });
+        case 'inspect': {
+          const c = find(req.target);
+          if (!c) return this.respond(socket, { ok: false, error: `no contract named "${req.target}"` });
+          return this.respond(socket, { ok: true, data: { contract: c } });
+        }
+        case 'create': {
+          if (!req.target) return this.respond(socket, { ok: false, error: 'contract create needs a name' });
+          if (find(req.target)) return this.respond(socket, { ok: false, error: `a contract named "${req.target}" already exists` });
+          if (req.schema === undefined) return this.respond(socket, { ok: false, error: 'contract create needs --schema <json>' });
+          const created = this.contracts.create({
+            name: req.target,
+            schema: this.parseContractSchema(req.schema),
+            maxAttempts: req.attempts ?? 3,
+            timeoutMs: req.timeoutMs ?? 180_000,
+            rejectionPrompt: req.rejectionPrompt ?? '',
+            fallback: req.fallback !== undefined ? this.parseJsonArg(req.fallback, 'fallback') : null,
+          });
+          return this.respond(socket, { ok: true, data: { name: created.name } });
+        }
+        case 'edit': {
+          const c = find(req.target);
+          if (!c) return this.respond(socket, { ok: false, error: `no contract named "${req.target}"` });
+          const next = {
+            name: req.name?.trim() || c.name,
+            schema: req.schema !== undefined ? this.parseContractSchema(req.schema) : c.schema,
+            maxAttempts: req.attempts ?? c.maxAttempts,
+            timeoutMs: req.timeoutMs ?? c.timeoutMs,
+            rejectionPrompt: req.rejectionPrompt ?? c.rejectionPrompt,
+            fallback: req.fallback !== undefined ? this.parseJsonArg(req.fallback, 'fallback') : c.fallback,
+          };
+          const updated = this.contracts.update(c.id, next);
+          return this.respond(socket, { ok: true, data: { name: updated?.name } });
+        }
+        case 'delete': {
+          const c = find(req.target);
+          if (!c) return this.respond(socket, { ok: false, error: `no contract named "${req.target}"` });
+          this.contracts.remove(c.id);
+          return this.respond(socket, { ok: true, data: { deleted: true } });
+        }
+        default:
+          return this.respond(socket, { ok: false, error: 'unknown contract op' });
+      }
+    } catch (e) {
+      return this.respond(socket, { ok: false, error: e instanceof Error ? e.message : 'invalid contract input' });
     }
-    return { id: to, name: this.graph.name(to), ok: true, body, valid: false, value, errors };
+  }
+
+  private parseJsonArg(raw: string, label: string): unknown {
+    try { return JSON.parse(raw); } catch { throw new Error(`${label} is not valid JSON`); }
+  }
+
+  private parseContractSchema(raw: string): Record<string, unknown> {
+    const schema = this.parseJsonArg(raw, 'schema');
+    if (!schema || typeof schema !== 'object' || Array.isArray(schema)) throw new Error('schema must be a JSON object');
+    try { this.ajv.compile(schema); } catch { throw new Error('schema is not a valid JSON Schema'); }
+    return schema as Record<string, unknown>;
   }
 
   private handleCheck(socket: net.Socket, from: string, target: string): void {

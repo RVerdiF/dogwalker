@@ -36,7 +36,7 @@ export class WorkspaceStore {
     this.indexPath = path.join(this.dir, 'index.json');
     fs.mkdirSync(this.dir, { recursive: true });
     if (!fs.existsSync(this.indexPath)) {
-      const first = this.writeWorkspace(this.blank('My Workspace', '🐕'));
+      const first = this.writeWorkspace(this.blank('My Workspace', ''));
       this.writeIndex({
         active: first.id,
         entries: [{ kind: 'workspace', id: first.id }],
@@ -113,7 +113,7 @@ export class WorkspaceStore {
   }
 
   create(name: string, icon: string): WorkspaceMeta {
-    const ws = this.writeWorkspace(this.blank(name || 'Workspace', icon || '🐕'));
+    const ws = this.writeWorkspace(this.blank(name || 'Workspace', icon || ''));
     const index = this.readIndex();
     index.entries.push({ kind: 'workspace', id: ws.id });
     index.active = ws.id;

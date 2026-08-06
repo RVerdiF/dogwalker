@@ -1,7 +1,5 @@
 # Dogwalker 1.0 — an infinite canvas for AI coding agents
 
-*Draft launch post. Publish where you like (GitHub Release notes, HN, socials).*
-
 ---
 
 Running several AI coding agents today means a wall of terminal tabs: no spatial
@@ -14,8 +12,20 @@ message, waits for the reviewer to finish, and hands its answer straight back.
 No per-vendor integrations, no MCP config — any agent that runs in a terminal
 just works.
 
-What's in 1.0:
+Currently:
 
+- **Roles & presets** — reusable, persisted launch presets and Markdown
+  role instructions. Define a role once, pair it with a preset when recruiting,
+  and reassign a live terminal's role without dropping its leashes.
+- **Team operations & contracts** — ask every directly connected teammate at
+  once (`dogwalker ask --all`), each independently authorized, with results as a
+  stable JSON envelope. A **contract** binds an answer to a JSON Schema:
+  `ask --contract` re-asks the peer until its JSON validates (up to the contract's
+  attempt budget), then hands back just that object — or a configured fallback
+  once attempts run out. Machine-readable outcomes, no screen scraping.
+- **Refined interface** — one line-style SVG icon set across the whole canvas
+  chrome, the Dogwalker wordmark in the sidebar, and a built-in icon picker for
+  terminal presets.
 - **Canvas & terminals** — GPU-rendered xterm nodes with a degradation ladder so
   dozens stay smooth; attention dots when an agent needs you; groups, snapping,
   themes.

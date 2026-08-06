@@ -2,18 +2,9 @@
 
 You are working on **Dogwalker**: a free, cross-platform (macOS/Windows/Linux) Electron app that puts real terminals on an infinite canvas so AI coding agents can be orchestrated visually and talk to each other through a structured CLI protocol.
 
-## Read this first
-
-| Doc | What it covers | Read when |
-|---|---|---|
-| [PRODUCT.md](docs/PRODUCT.md) | What Dogwalker is: every feature in detail, core concepts (workspace, node, agent, connection, floor, portal, routine), compatibility targets, product principles, explicit non-goals. | Before designing or changing any user-facing behavior. |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How it's built: stack (Electron + React Flow + xterm.js/node-pty), process model (host daemon vs renderer), terminal subsystem, rendering degradation ladder, the IPC broker and `dogwalker` CLI protocol (`ask`/`check`), attention detection, floors, portals, persistence, security, build order. | Before writing or reviewing any code. |
-| [README.md](README.md) | Public-facing overview: pitch, features, install/quick start, compatibility tables, architecture summary with deep links. | To understand how the project presents itself; keep it in sync when features land. |
-| [ROADMAP.md](docs/ROADMAP.md) | The version path v0.0.1 (alpha spike) → v0.1–v0.6 (feature versions) → v0.7 (hardening) → v0.8 (release engineering) → v1.0 (launch): per-version expectations, outputs, and measurable exit criteria. | Before starting any work, to know what belongs in the current version — anything not listed for the version is deferred by default. |
-
 ## Project status
 
-v1.2.1 is in development.
+v1.3.0 is released.
 
 ## Invariants — do not violate without explicit human sign-off
 
@@ -21,7 +12,7 @@ These were deliberate decisions with reasoning behind them (see ARCHITECTURE.md 
 
 1. **Terminals are never static screenshots at working zoom levels.** The rendering degradation ladder (WebGL → throttled DOM renderer → suspended-offscreen) is the mechanism; per-terminal **renderer hot-swap at runtime** is a required capability of the terminal node component. ([§4](docs/ARCHITECTURE.md#4-terminal-rendering-the-degradation-ladder))
 2. **`ask` captures the target's output; it needs no cooperation from the target.** The broker injects the message, waits for the target to go quiet (the focus-independent quiescence detector, §6), and returns the plain-text output it produced. There is no `reply` command — requiring the target to run one was fragile (plain shells and uncooperative agents never replied; `--stdin` deadlocked) so it was removed. This reverses the earlier "screen is not transport" rule after real-world testing; capturing is robust and works with any agent, shell, or process. ([§5.2](docs/ARCHITECTURE.md#52-ask--structured-messaging-via-captured-output))
-3. **PTY injection is one atomic write**: bracketed-paste open + body + close + CR in a single `write()`. Never split it, never sleep between paste and Enter (splitting causes a visible flash in the target TUI). Wrap in bracketed paste only if the target has DEC mode 2004 active (tracked by the headless mirror). ([§5.2](docs/ARCHITECTURE.md#52-ask--structured-messaging-not-screen-scraping))
+3. **PTY injection is one atomic write**: bracketed-paste open + body + close + CR in a single `write()`. Never split it, never sleep between paste and Enter (splitting causes a visible flash in the target TUI). Wrap in bracketed paste only if the target has DEC mode 2004 active (tracked by the headless mirror). ([§5.2](docs/ARCHITECTURE.md#52-ask--structured-messaging-via-captured-output))
 4. **No logic in the CLI shim.** Authorization, routing, and state live in the host broker; the shim parses argv, sends one JSON request with `DOGWALKER_TERMINAL_ID`, streams the response. ([§5.1](docs/ARCHITECTURE.md#51-transport))
 5. **Authorization = the connection graph.** A terminal's CLI requests can only reach nodes it is wired to; Walker verbs additionally require the Walker flag. No ambient authority. ([§11](docs/ARCHITECTURE.md#11-security-posture))
 6. **Agents are vendor-agnostic launch configs.** Dogwalker talks to agents only via PTY writes and the CLI protocol. Never add per-vendor code paths, API calls to model providers, or TUI-specific parsing. Images go to agents as temp-file paths in the prompt — the single uniform mechanism.
@@ -35,8 +26,48 @@ These were deliberate decisions with reasoning behind them (see ARCHITECTURE.md 
 - **Language:** TypeScript throughout; strict mode.
 - **Naming:** the product/CLI/env-var prefix is `dogwalker` / `DOGWALKER_*`. Dogwalker is a clean-room product: never reference other products in this category — their names, branding, or documentation text — in code, UI, or docs.
 - **Process placement:** capability → main-process broker; presentation → renderer. If a feature is reachable by both the UI and the CLI, there is exactly one implementation (in the broker) and two thin callers.
-- **Docs stay truthful:** when behavior lands or changes, update PRODUCT.md (behavior), ARCHITECTURE.md (mechanism), and README.md (public surface) in the same change.
+- **Docs stay truthful:** when behavior lands or changes, update `docs\*.md` (just where necessary) in the same change.
+- **Tests are colocated and behavior-focused:** unit/component tests are Vitest, next to the file under test as `<name>.test.ts[x]` (node for `src/main`/`src/shared`, jsdom + Testing Library for `src/app`); app-level end-to-end tests are Playwright under `e2e/`. Test what a unit does, not how it does it — no separate ad-hoc test files.
 
-## Key vocabulary (full definitions in [PRODUCT.md §2](docs/PRODUCT.md#2-core-concepts))
+## Releasing a version
 
-Workspace · Canvas · Node · Terminal · Agent (a terminal launch config) · Connection · Role · Floor (git-worktree copy) · Portal (embedded automatable browser) · Routine (scheduled prompt) · Walker (manager agent) · Broker (host-side message/state authority) · Shim (`dogwalker` CLI binary) · Headless mirror (main-process xterm-headless per PTY).
+Dogwalker ships version-by-version ([ROADMAP.md](docs/ROADMAP.md)). Cut a release
+from `main`, once the version's work has landed and `npm run typecheck`,
+`npm run lint`, and the `DW_*TEST` harnesses the change touched are all green.
+Every file that must move, end to end:
+
+1. **`package.json`** — set `"version"` to the new `X.Y.Z` (SemVer: patch = fixes,
+   minor = features, major = breaking). It lags behind development and is bumped
+   here, at release time.
+2. **[AGENTS.md](AGENTS.md) → Project status** — update the line above (mark the
+   version released, or bump it to the next `vX.Y.Z is in development`).
+3. **[docs/CHANGELOG.md](docs/CHANGELOG.md)** — the newest section *is* the
+   release: retitle its top `## X.Y.Z — Unreleased` to `## X.Y.Z`, newest-first,
+   listing the user-facing changes. Add the section if it doesn't exist yet.
+4. **[docs/ROADMAP.md](docs/ROADMAP.md)** — add the version's row to the table and
+   its section (Expectation / Outputs / Exit criteria) in the standardized format.
+5. **[skills/dogwalker/SKILL.md](skills/dogwalker/SKILL.md)** — if the CLI/agent
+   contract changed, bump the `version:` in its frontmatter so installed skills
+   are flagged to re-read (`installSkill` warns on a version mismatch).
+6. **README** — the install table uses a `<version>` placeholder and links to
+   `/releases/latest`, so it needs no per-release edit; touch it only if the
+   public surface actually changed.
+7. **Commit** the bump (convention: `chore: set vX.Y.Z package version`) and get
+   it onto `main` (via PR — the `check` job gates every PR to `main`).
+
+**Trigger the release build.** Packaging is driven entirely by a `v*` **git tag**
+(`.github/workflows/build.yml`). Tag the release commit on `main` and push the tag:
+
+```bash
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+That fires the workflow's `make` matrix (macOS / Windows / Linux; tag-only), which
+runs `npm run make` on each runner and attaches every OS's installer to the tag's
+GitHub Release via `action-gh-release`. The `check` job (typecheck + lint) gates
+PRs to `main`; packaging never runs on a PR, only on the tag. Installers are
+unsigned (documented first-launch Gatekeeper/SmartScreen warnings).
+
+To redo a botched release, delete the tag both places
+(`git tag -d vX.Y.Z && git push origin :vX.Y.Z`), fix, then re-tag and push.

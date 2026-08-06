@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { TerminalIcon, NoteIcon, CrownIcon, SendIcon } from './icons';
 
 export interface ComposerTarget {
   id: string; // live terminal id
@@ -177,13 +178,15 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
                 }}
               >
                 <span className="dw-mention-icon">
-                  {it.kind === 'new' || it.kind === 'new-portal'
-                    ? '＋'
-                    : 'walker' in it && it.walker
-                      ? '👑'
-                      : it.kind === 'note'
-                        ? '📝'
-                        : '🖥'}
+                  {it.kind === 'new' || it.kind === 'new-portal' ? (
+                    '＋'
+                  ) : 'walker' in it && it.walker ? (
+                    <CrownIcon size={14} />
+                  ) : it.kind === 'note' ? (
+                    <NoteIcon size={14} />
+                  ) : (
+                    <TerminalIcon size={14} />
+                  )}
                 </span>
                 {it.name}
               </button>
@@ -202,7 +205,7 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
         />
       </div>
       <button className="dw-composer-send" onClick={send} title="Send (Enter)">
-        ➤
+        <SendIcon size={16} />
       </button>
     </div>
   );

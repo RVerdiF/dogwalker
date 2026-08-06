@@ -9,6 +9,7 @@ import {
 } from '@xyflow/react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { NoteIcon, ImageIcon } from './icons';
 
 export interface NoteNodeData extends Record<string, unknown> {
   name: string;
@@ -92,7 +93,7 @@ function NoteNodeInner({ id, data, selected }: NodeProps<NoteFlowNode>) {
       <Handle id="sink" type="target" position={Position.Left} className="dw-handle-sink" />
 
       <div className="dw-drag dw-note-header">
-        <span className="dw-note-emoji">📝</span>
+        <span className="dw-note-emoji"><NoteIcon size={14} /></span>
         {editingName ? (
           <input
             className="dw-note-name-input nodrag"
@@ -175,7 +176,7 @@ function NoteImage({ src, alt }: { src?: string; alt?: string }) {
   return data ? (
     <img className="dw-note-img" src={data} alt={alt ?? ''} />
   ) : (
-    <span className="dw-note-img-ph">🖼 {alt || 'image'}</span>
+    <span className="dw-note-img-ph"><ImageIcon size={14} /> {alt || 'image'}</span>
   );
 }
 

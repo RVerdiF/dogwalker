@@ -6,7 +6,7 @@ import type { PortalManager } from './portalManager';
 import type { BrokerRequest, BrokerResponse } from '../shared/protocol';
 
 /**
- * Portal automation over the real broker (DW_PORTALCLITEST=1). A terminal wired
+ * Portal automation over the real broker (DW_PORTALCLI=1). A terminal wired
  * to a portal drives it through the `portal` verb — navigate, dom, type, click,
  * js, screenshot, console — plus a graph-authorization denial and one pass
  * through the actual `dogwalker` shim in a shell. Prints one result line.
@@ -30,7 +30,7 @@ function rpc(sock: string, req: BrokerRequest): Promise<BrokerResponse> {
   });
 }
 
-export async function runPortalCliTest(
+export async function runPortalCli(
   ptys: PtyManager,
   graph: GraphStore,
   portals: PortalManager,
@@ -123,7 +123,7 @@ export async function runPortalCliTest(
   await wait(2000);
   r.shimShell = ptys.serialize(agent).includes('4');
 
-  console.log('PORTALCLITEST RESULT ' + JSON.stringify(r));
+  console.log('PORTALCLI RESULT ' + JSON.stringify(r));
 
   portals.destroy(pid);
   graph.removeNode(pid);
@@ -132,12 +132,12 @@ export async function runPortalCliTest(
 }
 
 /**
- * Linked portals + agent-created portals (DW_PORTALLINKTEST=1). Two portals on
+ * Linked portals + agent-created portals (DW_PORTALLINK=1). Two portals on
  * one partition share cookies (multi-account: same login in two views); a third
  * on its own partition is isolated. Then a terminal creates a portal over the
  * CLI and finds it wired to itself.
  */
-export async function runPortalLinkTest(
+export async function runPortalLink(
   ptys: PtyManager,
   graph: GraphStore,
   portals: PortalManager,
@@ -179,7 +179,7 @@ export async function runPortalLinkTest(
   r.agentPortalExists = portals.has(newId) && graph.kindOf(newId) === 'portal';
   r.agentPortalWired = graph.areConnected(agent, newId);
 
-  console.log('PORTALLINKTEST RESULT ' + JSON.stringify(r));
+  console.log('PORTALLINK RESULT ' + JSON.stringify(r));
 
   // Let the renderer finish materializing the agent-created node (its
   // portal:created handler runs once) before removing it, so cleanup doesn't

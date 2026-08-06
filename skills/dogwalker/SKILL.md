@@ -1,6 +1,6 @@
 ---
 name: dogwalker
-version: 2
+version: 5
 description: Talk to other agents and read their terminals from inside a Dogwalker canvas. Use whenever you need to ask a connected teammate to do something, check what another terminal is doing, read or write a shared note, drive a connected browser portal, or list who you are connected to.
 ---
 
@@ -28,11 +28,8 @@ You can only reach terminals you are wired to. Run `dogwalker list` to see them.
 - `dogwalker ask --all <message> [--exclude <name>] --json` — ask every directly
   connected terminal and receive an ordered JSON result envelope. Each target is
   authorized independently, so one failure does not discard other results.
-- `dogwalker ask <name> <message> --contract <name> [--strict]` — ask with a
-  saved response contract. A single contract ask prints only one result object
-  with `valid`, `value`, `errors`, and `body`; `--strict` exits non-zero when the
-  result is invalid. If the contract has a post-rejection prompt, Dogwalker
-  delivers it to the target with the validation errors but does not retry for you.
+- `dogwalker ask <name> <message> --contract <name>` — ask under a saved contract
+  and get back schema-validated JSON instead of prose. See **Contracts** below.
 - `dogwalker check <name>` — print a connected terminal's current screen without
   interrupting it. Works on any terminal — another agent, a build, a dev server,
   a log tail.
@@ -44,6 +41,43 @@ You can only reach terminals you are wired to. Run `dogwalker list` to see them.
   that persists across sessions; use them to leave findings, specs, or TODOs the
   user and other agents can see.
 - `dogwalker connect <name>` / `dogwalker disconnect <name>` — manage leashes.
+
+## Contracts (schema-checked answers)
+
+A **contract** is a saved JSON Schema plus a retry budget, per-attempt timeout,
+rejection prompt and fallback value — all configured by the user, not by you. Add
+`--contract <name>` to an `ask` when you need the peer's answer as **structured
+data you can parse and act on**, not free prose: a decision, a score, a list of
+findings, a status object.
+
+How it behaves: Dogwalker delivers your message, reads the peer's answer, and
+validates its JSON against the contract's schema. If it doesn't match, it re-asks
+the peer with the validation errors and tries again — up to the contract's attempt
+budget. You always get back exactly one JSON object: the validated answer, or the
+contract's fallback value if the peer never produced a valid one within the budget.
+There is no error to handle and nothing to retry yourself.
+
+- `dogwalker ask reviewer "does auth.ts handle token expiry safely?" --contract verdict`
+  → prints e.g. `{"decision":"approve","risks":[]}` — ready to parse and branch on.
+
+When to reach for it: you're going to consume the answer programmatically — gate a
+step, drive a loop, or aggregate results across teammates. For a conversational
+reply, use a plain `ask`. You pass only the message, the peer, and the contract
+name; everything else lives on the contract.
+
+You can create and manage contracts yourself (they're shared, local config):
+
+- `dogwalker contract list` — names of all saved contracts.
+- `dogwalker contract inspect <name>` — show a contract's schema, attempts,
+  timeout, rejection prompt and fallback.
+- `dogwalker contract create <name> --schema '<json-schema>' [--attempts <n>] [--timeout <seconds>] [--rejection '<text>'] [--fallback '<json>']`
+  — create one. `--schema` is required and must be a valid JSON Schema (as a JSON
+  string); `--fallback` is a JSON value; attempts default to 3 and timeout to 180s.
+- `dogwalker contract edit <name> [--schema …] [--attempts …] [--timeout …] [--rejection …] [--fallback …] [--name <newname>]`
+  — change only the fields you pass.
+- `dogwalker contract delete <name>` — remove one.
+
+Example: `dogwalker contract create verdict --schema '{"type":"object","required":["decision"],"properties":{"decision":{"type":"string"}}}' --fallback '{"decision":"unknown"}'`
 
 ## Walker mode (managing a team)
 

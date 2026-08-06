@@ -1,7 +1,7 @@
 {
   "name": "dogwalker",
   "productName": "Dogwalker",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Walk all your agents at once — an infinite canvas for AI coding agents.",
   "main": ".vite/build/main.js",
   "private": true,
@@ -11,7 +11,10 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
   },
   "keywords": [],
   "author": {
@@ -31,17 +34,23 @@
     "@electron-forge/plugin-vite": "^7.11.2",
     "@electron/fuses": "^1.8.0",
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
     "@reforged/maker-appimage": "^5.2.0",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^4.7.0",
     "electron": "43.1.1",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "jsdom": "^30.0.1",
     "typescript": "^5.6.3",
     "typescript-eslint": "^8.65.0",
-    "vite": "^5.4.21"
+    "vite": "^5.4.21",
+    "vitest": "^4.1.10"
   },
   "dependencies": {
     "@codemirror/lang-css": "^6.3.1",
@@ -60,6 +69,7 @@
     "@xterm/headless": "^6.0.0",
     "@xterm/xterm": "^6.0.0",
     "@xyflow/react": "^12.11.2",
+    "ajv": "^8.20.0",
     "codemirror": "^6.0.2",
     "electron-squirrel-startup": "^1.0.1",
     "node-pty": "^1.1.0",

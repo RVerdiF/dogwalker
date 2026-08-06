@@ -7,7 +7,6 @@ import { History } from './main/history';
 import { Broker } from './main/broker';
 import { createShimDir } from './main/shimDir';
 import { installSkill } from './main/skillInstall';
-import { runBrokerTest } from './main/brokerTest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import crypto from 'node:crypto';
@@ -19,25 +18,13 @@ import { PresetStore } from './main/presetStore';
 import { RoleStore } from './main/roleStore';
 import { ContractStore } from './main/contractStore';
 import { seedFirstRun } from './main/firstRun';
-import { runMemTest } from './main/memTest';
 import { FsService } from './main/fsService';
-import { runFsTest } from './main/fsTest';
 import { GitService } from './main/gitService';
-import { runGitTest } from './main/gitTest';
-import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
-import { runCrossFloorTest } from './main/crossFloorTest';
-import { runWalkerTest } from './main/walkerTest';
-import { runRolePresetTest } from './main/rolePresetTest';
-import { runV06Bdd } from './main/v06BddTest';
-import { runRecoveryTest } from './main/recoveryTest';
-import { runDocSyncTest } from './main/docSyncTest';
-import { runSkillVerTest } from './main/skillVerTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { AgentDocsSync } from './main/agentDocsSync';
 import { RoutineService } from './main/routineService';
-import { runRoutineTest } from './main/routineTest';
-import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
+import { runPortalCli, runPortalLink } from './main/portalIntegration';
 import type { AppSettings } from './shared/ipc';
 import type {
   FloorRecord,
@@ -612,72 +599,15 @@ const createWindow = () => {
     );
   }
 
-  if (process.env.DW_MEMTEST && ptys) {
-    void runMemTest(ptys, workspaces);
+
+
+
+  if (process.env.DW_PORTALCLI) {
+    void runPortalCli(ptys, graph, portals, socketPath);
   }
 
-  if (process.env.DW_FSTEST) {
-    void runFsTest(fsService);
-  }
-
-  if (process.env.DW_GITTEST) {
-    void runGitTest(git);
-  }
-
-  if (process.env.DW_FLOORTEST) {
-    void runFloorTest(workspaces, git);
-  }
-
-  if (process.env.DW_LANDTEST) {
-    void runLandTest(git);
-  }
-
-  if (process.env.DW_HOOKTEST) {
-    void runHookTest(hooks, git);
-  }
-
-  if (process.env.DW_CROSSFLOORTEST) {
-    void runCrossFloorTest(ptys, graph, git, socketPath);
-  }
-
-  if (process.env.DW_ROUTINETEST) {
-    void runRoutineTest(ptys, routines);
-  }
-
-  if (process.env.DW_WALKERTEST) {
-    void runWalkerTest(ptys, graph, socketPath);
-  }
-
-  if (process.env.DW_ROLEPRESETTEST) {
-    void runRolePresetTest(ptys, graph, presets, roles, socketPath).finally(() => app.quit());
-  }
-
-  if (process.env.DW_V06BDD) {
-    void runV06Bdd(ptys, graph, notes, routines, workspaces, git, socketPath);
-  }
-
-  if (process.env.DW_RECOVERYTEST) {
-    void runRecoveryTest(ptys, graph, workspaces, git, socketPath);
-  }
-
-  if (process.env.DW_DOCSYNCTEST) {
-    void runDocSyncTest();
-  }
-
-  if (process.env.DW_SKILLVERTEST) {
-    runSkillVerTest();
-  }
-
-  if (process.env.DW_BROKERTEST) {
-    void runBrokerTest(ptys, graph, contracts, socketPath);
-  }
-
-  if (process.env.DW_PORTALCLITEST) {
-    void runPortalCliTest(ptys, graph, portals, socketPath);
-  }
-
-  if (process.env.DW_PORTALLINKTEST) {
-    void runPortalLinkTest(ptys, graph, portals, socketPath);
+  if (process.env.DW_PORTALLINK) {
+    void runPortalLink(ptys, graph, portals, socketPath);
   }
 };
 

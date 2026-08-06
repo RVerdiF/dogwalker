@@ -5,6 +5,7 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
+import { ImageIcon, DocIcon, WarningIcon } from './icons';
 
 export interface PreviewNodeData extends Record<string, unknown> {
   name: string;
@@ -71,7 +72,7 @@ function PreviewNodeInner({ id, data, selected }: NodeProps<PreviewFlowNode>) {
     <div className={`dw-preview ${selected ? 'dw-node-selected' : ''}`}>
       <NodeResizer isVisible={selected} minWidth={200} minHeight={160} />
       <div className="dw-drag dw-preview-header">
-        <span className="dw-preview-icon">{isImage ? '🖼' : '📄'}</span>
+        <span className="dw-preview-icon">{isImage ? <ImageIcon size={14} /> : <DocIcon size={14} />}</span>
         <span className="dw-preview-name" title={data.filePath}>
           {data.name}
         </span>
@@ -88,7 +89,7 @@ function PreviewNodeInner({ id, data, selected }: NodeProps<PreviewFlowNode>) {
       </div>
       <div className="dw-preview-body nowheel nodrag">
         {error ? (
-          <div className="dw-preview-error">⚠ {error}</div>
+          <div className="dw-preview-error"><WarningIcon size={13} /> {error}</div>
         ) : isImage ? (
           image && <img className="dw-preview-img" src={image} alt={data.name} />
         ) : (

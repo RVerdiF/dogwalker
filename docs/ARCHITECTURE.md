@@ -15,6 +15,7 @@ How Dogwalker is built. For what it is and why, see [PRODUCT.md](PRODUCT.md).
 | Git | Shell out to system `git` | Diff/graph/branch ops and worktrees without reimplementing git. |
 | Portals | Electron `WebContentsView` + **Chrome DevTools Protocol** | Navigation, clicks, screenshots, JS eval, DOM/console access with zero external dependencies. |
 | Persistence | JSON files per workspace + markdown notes on disk | Open formats, greppable, syncable. No database. |
+| Contract validation | **Ajv** | Validates a peer's captured JSON answer against a contract's JSON Schema (`ask --contract`, §5.7). |
 
 ## 2. Process model
 
@@ -131,20 +132,34 @@ injection path to direct the live agent to it. The renderer persists ids, shows
 missing configurations without blocking workspace recovery, and lets users pick
 a replacement (preset changes apply on restart).
 
-### 5.7 Team asks and response contracts
+### 5.7 Team asks and contracts
 
 The broker expands `ask --all` only from the caller's direct terminal neighbors;
 each recipient still takes the normal `resolvePeer` authorization path. It runs
 the ordinary atomic injection/capture cycle per target and returns a deterministic
 result array with a shared broadcast id; history retains that id on each leash
-entry. `ContractStore` persists local response contracts. For a contract ask,
-the broker appends output guidance, extracts one JSON object from the captured
-text, validates required typed fields, and returns the parsed value or errors.
-For a single contract ask, the shim prints that result object directly; strict
-validation failures print the same object and exit non-zero. If configured, the
-broker atomically injects the contract's post-rejection prompt with validation
-errors, without awaiting or capturing a retry. The shim only forwards flags and
-formats output; it has no validation or authorization logic.
+entry.
+
+`ContractStore` persists local contracts. A contract holds a **JSON Schema**, a
+**max-attempts** budget, a per-attempt **timeout**, a **rejection prompt**, and a
+**fallback value** — the CLI passes only the message, peer, and contract name.
+When `ask` carries `--contract`, the broker runs a bounded validate-until-valid
+loop per target: inject the message (plus the schema) → capture → pull every
+balanced JSON object out of the output and validate each with **Ajv** → return the
+first that satisfies the schema. On a miss it re-injects the contract's rejection
+prompt with the specific validation errors and tries again, up to the attempt
+budget; when the budget is exhausted the asker receives the contract's fallback
+value (no error, no hang). Because the injected prompt contains the schema (its
+own braces) and a peer may echo it, the broker validates *every* candidate object
+rather than guessing which brace-run is the answer. Every attempt is logged to
+history like any ask.
+
+**Bounded retry is deliberate.** This reverses the earlier "no silent retry"
+stance: the loop is capped by the contract's own attempt budget and per-attempt
+timeout, and it always terminates in a value (validated or fallback), so it can
+neither hang nor burn tokens unbounded. A single contract ask prints just that
+value; the shim only frames the request and formats output — validation lives in
+the broker.
 
 ## 6. Attention detection
 
@@ -162,99 +177,58 @@ formats output; it has no validation or authorization logic.
 
 ## 8. Floors (git worktrees)
 
-- Create: `git worktree add <floors-dir>/<name> <branch>` (new or existing branch). Near-instant; cross-platform; no filesystem CoW dependency.
-- Each floor: own canvas layer (create dialog offers cloning the ground layout or starting empty), own terminals rooted in the worktree path.
-- Land: verify clean tree → merge floor branch into chosen target → `git worktree remove` → branch delete (a checkbox in the Land dialog). Conflicts surface with stats; resolution is delegated to the user's tools.
-- Hooks (setup / run / teardown) run in the floor dir with env: `DOGWALKER_FLOOR_NAME`, `DOGWALKER_BRANCH_NAME`, `DOGWALKER_FLOOR_PATH`, `DOGWALKER_ROOT_PATH`, `DOGWALKER_PROJECT_NAME`.
-- Known, documented constraints (surfaced in UI, not worked around): one checkout per branch across worktrees; untracked files (deps, `.env`) require setup hooks.
-
-**Built — floor model + create/switch/delete (v0.5 block 1)**
 - A floor is a **layer** of a workspace: the workspace's own `layout`/`cwd` is the
-  implicit "ground"; each floor (`FloorRecord` in the workspace file) has its own
+  implicit "ground"; each floor (a `FloorRecord` in the workspace file) has its own
   `layout`, its own `branch`, and a worktree `path` under
-  `<parent>/.dogwalker-floors/<workspaceId>/<name>` (outside the repo tree).
-  `GitService` gained the worktree verbs (`worktreeAdd/Remove/List`, `isClean`,
-  `deleteBranch`, `diffStat`); `WorkspaceStore` the floor CRUD + `loadLayer`/
-  `saveLayer` (ground routes to the workspace layout).
-- The renderer keys everything on a **layer id** — `workspaceId` for ground,
-  the floor id otherwise — passed to the PTY manager as the grouping id, so a
-  floor's terminals are separate and survive backgrounding (ground and a floor
-  can each run a dev server). The `Canvas` loads/saves via the layer, the
-  `FloorBar` switches/creates/deletes, and "clone ground" copies the arrangement
-  with regenerated stableIds so layers never share a graph node or note file.
-
-**Built — Land flow (v0.5 block 2)**
-- Land merges a floor's branch into a chosen target and removes the worktree.
-  The Land dialog (`landInfo`) shows the target branch picker, a `diff --stat`
-  preview, and blocks when either tree is dirty. `land` runs the safe sequence:
-  clean-check floor + ground → check out the target in the ground if needed →
-  `git merge <floorBranch>`. On success it kills the layer's terminals, drops
-  the worktree and (optionally) the branch. **On conflict it `git merge --abort`s
-  and surfaces git's message** — the tree is never left half-merged and the
-  worktree stays put for the user to resolve.
-
-**Built — floor hooks (v0.5 block 3)**
-- Hooks live in the project's `.dogwalker/hooks.json` at the ground root
-  (versionable): `{ setup, run, teardown }` shell strings. `HookService` runs a
-  hook in the floor's worktree with the `DOGWALKER_*` env
-  (`FLOOR_NAME`/`BRANCH_NAME`/`FLOOR_PATH`/`ROOT_PATH`/`PROJECT_NAME`), so setup
-  can install deps or copy an `.env` that worktrees don't inherit. `setup`
-  auto-runs on create, `run` on demand (a chip button, output shown), `teardown`
-  before the worktree is removed on delete or land. A missing hook is a no-op.
-
-**Built — floor-aware broker/CLI + constraints (v0.5 block 4)**
-- Every terminal carries its floor label (`floorName` on the PTY entry). The
-  broker's `list` annotates each peer with `[floor]`, so an agent sees which
-  layer a teammate works on. Because the graph is global and terminals outlive
-  layer switches, `ask`/`check` reach a **cross-floor** target the moment it's
-  wired (e.g. via `dogwalker connect <name>`) — no floor-specific routing.
-- Worktree constraints are surfaced, not worked around: the create dialog spells
-  out one-checkout-per-branch and untracked-files-need-setup, and git's own
-  "branch already checked out" error is shown when it happens.
+  `<parent>/.dogwalker-floors/<workspaceId>/<name>` (outside the repo tree). The
+  renderer keys terminals and layout on a **layer id** — `workspaceId` for ground,
+  the floor id otherwise — so a floor's terminals are separate and survive
+  backgrounding (ground and a floor can each run their own dev server).
+- **Create:** `git worktree add` on a new or existing branch — near-instant,
+  cross-platform, no filesystem CoW dependency. The create dialog offers cloning
+  the ground layout (stableIds regenerated so layers never share a graph node or
+  note file) or starting empty.
+- **Land:** clean-tree check (floor + ground) → check out the target branch in the
+  ground if needed → `git merge <floorBranch>` → kill the layer's terminals →
+  `git worktree remove` → optional branch delete. The Land dialog shows the target
+  picker and a `diff --stat` preview and blocks when either tree is dirty. **On
+  conflict it `git merge --abort`s and surfaces git's message** — never left
+  half-merged; resolution stays in the user's tools.
+- **Hooks:** `.dogwalker/hooks.json` at the ground root (versionable) holds
+  `{ setup, run, teardown }` shell strings, run in the floor's worktree with env
+  `DOGWALKER_FLOOR_NAME` / `BRANCH_NAME` / `FLOOR_PATH` / `ROOT_PATH` /
+  `PROJECT_NAME`. `setup` auto-runs on create (e.g. install deps, copy an `.env`
+  that worktrees don't inherit), `run` on demand, `teardown` before removal; a
+  missing hook is a no-op.
+- **Floor-aware broker/CLI:** each terminal carries its floor label; the broker's
+  `list` annotates each peer with `[floor]`. Because the graph is global and
+  terminals outlive layer switches, `ask`/`check` reach a **cross-floor** target
+  the moment it's wired — no floor-specific routing.
+- **Constraints** (surfaced in UI, not worked around): one checkout per branch
+  across worktrees; untracked files (deps, `.env`) require setup hooks.
 
 ## 9. Portals
 
-- One `WebContentsView` per portal with an isolated `session` partition; linked portals share a partition (multi-account testing).
-- Automation via CDP attached by the portal controller in main; exposed to agents only through `dogwalker portal ...` (broker-gated by connection).
-- Screenshot returns a temp-file path (so agents ingest it the same way as composer images). JS eval and DOM reads return JSON. Console messages are ring-buffered per portal.
-
-**Built — portal plumbing (v0.4 block 1)**
-- **PortalManager** (`src/main/portalManager.ts`) owns a `WebContentsView` per
-  portal in a `persist:dw-portal-<partition>` session (isolated by default, so
-  logins survive and don't leak). Main owns the browser lifecycle + navigation
-  (`create`/`navigate`/`back`/`forward`/`reload`/`destroy`), a per-portal console
-  ring buffer, and pushes `portal:nav` state to the renderer. Geometry lives in
-  the renderer: `PortalNode` (kind `portal`, persisted with `url`+`partition`)
-  reports its body's on-screen rect and the canvas zoom (`setBounds`) on every
-  pan/zoom/move/resize, so the native view stays glued to the node and scales
-  with zoom via `setZoomFactor`. Mount creates the view, unmount destroys it;
-  the persistent partition keeps sessions across recreation. Linking attaches
-  here in block 3.
-
-**Built — portal automation (v0.4 block 2)**
-- Portals are graph nodes (kind `portal`, registered on create), so a terminal
-  leashed to one can drive it — and only it — through the `portal` verb; the
-  broker gates every op with `graph.resolvePeer(from, target, 'portal')`, the
-  same connection-graph authorization as `ask`/`note`. No ambient reach.
-- The `portal` CLI (shim + broker + `PortalManager`): `navigate`, `click`,
-  `type`, `scroll`, `js`, `dom`, `console`, `screenshot`. Interaction runs
-  through `executeJavaScript` (selector-based, value-setter-safe typing); DOM
-  reads return capped outer HTML; `console` drains the per-portal ring buffer;
-  `screenshot` uses CDP `Page.captureScreenshot` (works offscreen) and returns a
-  temp-file path so agents ingest it like a composer image. Results cross the
-  wire as JSON.
-
-**Built — linked + agent-created portals (v0.4 block 3)**
-- Linking is a shared session partition: a portal's "link" button creates a
-  sibling with the same `persist:` partition (so both hold the same login —
-  multi-account testing across two views), leashed to it. Unlinked portals keep
-  their own partition, so accounts never leak.
-- Agents create portals themselves: `portal new [url]` (broker makes the view +
-  graph node, wires it to the caller, and tells the renderer to materialize a
-  canvas node) and `@New Portal` in the composer. The canvas reconciles portal
-  nodes against the graph, so a portal an agent or peer destroys disappears.
-- The agent skill (`skills/dogwalker/SKILL.md`) documents the whole `portal`
-  contract so agents discover and use it.
+- One `WebContentsView` per portal in an isolated `persist:dw-portal-<partition>`
+  session, so logins survive and don't leak. Main owns the browser lifecycle
+  (`create`/`navigate`/`back`/`forward`/`reload`/`destroy`) and a per-portal
+  console ring buffer. Geometry lives in the renderer: `PortalNode` reports its
+  on-screen rect and the canvas zoom on every pan/zoom/move/resize, so the native
+  view stays glued to the node and scales with zoom.
+- Portals are **graph nodes**: a terminal leashed to one can drive it — and only
+  it — through `dogwalker portal ...`, gated by `graph.resolvePeer`, the same
+  connection-graph authorization as `ask`/`note`. No ambient reach.
+- Verbs (via CDP attached by the portal controller in main): `navigate`, `click`,
+  `type`, `scroll`, `js`, `dom`, `console`, `screenshot`. Interaction runs through
+  `executeJavaScript` (selector-based, value-setter-safe typing); DOM reads return
+  capped outer HTML; `console` drains the ring buffer; `screenshot` uses CDP
+  `Page.captureScreenshot` (works offscreen) and returns a temp-file path so agents
+  ingest it like a composer image. Results cross the wire as JSON.
+- **Linking** creates a sibling portal on the same `persist:` partition (both hold
+  the same login — multi-account testing across two views), leashed to it; unlinked
+  portals keep their own partition so accounts never leak. Agents create portals
+  themselves (`portal new [url]` / `@New Portal`); the canvas reconciles portal
+  nodes against the graph, so a portal a peer destroys disappears.
 
 ## 10. Persistence & hibernation
 
@@ -269,335 +243,3 @@ formats output; it has no validation or authorization logic.
 - Socket/pipe created with user-only permissions; every CLI request carries the caller terminal id, and the broker authorizes strictly by the connection graph (no ambient authority — a terminal can only reach what it's wired to).
 - Walker verbs additionally require the terminal's Walker flag.
 - No network services, no telemetry, no cloud. Portals are ordinary web browsing surfaces and inherit Chromium's sandbox.
-
-## 12. Validation order (the spike)
-
-Build order is risk-ordered; the first milestone exists to falsify the architecture cheaply:
-
-1. **Spike:** Electron + React Flow + xterm.js/node-pty; 15 terminals running real agents; pan/zoom fluid; renderer hot-swap (tier 1 ↔ 2 ↔ 3) working. If this isn't smooth, revisit before building features.
-2. Broker + shim + `ask`/`check` + skill (the product's core).
-3. Workspaces/persistence, notes, composer, connections UI.
-4. File tree, portals, floors, routines, Walker verbs.
-
-Open questions tracked as they arise; none currently block the spike.
-
-## 13. Spike findings (v0.0.1 — PASSED, 2026-07-19, Windows 11)
-
-Automated smoke run (`DW_SMOKE=1 npm start`): 15 terminals — 5 running an
-output-flooding stress preset, 10 shells — across five phases (working zoom,
-overview zoom, flown-away, return, continuous 20-step pan sweep).
-
-**Validated**
-- **60 fps in every phase**, including 8 WebGL terminals under flood and a
-  continuous pan across the grid. Typing input path untested by automation.
-- Degradation ladder + per-terminal hot-swap works: tier "waves" roll across
-  the grid during pans; overview zoom demotes all 15 to DOM renderer; flying
-  away suspends all (tier 3). WebGL budget never exceeded 8/8, **zero context
-  losses**.
-- Headless mirror: 79 KB serialized from main while the renderer instance was
-  suspended; tier-3 overflow resync (reset + replay from mirror) works.
-- node-pty 1.1.0 is N-API with bundled prebuilds — Forge rebuild skipped via
-  `rebuildConfig: { onlyModules: [] }`; no native toolchain needed on dev
-  machines.
-
-**Surprises & fixes**
-- tldraw license and xterm v6 canvas-renderer removal — already recorded in §1.
-- `@xterm/headless` 6.0.0 ships a broken `module` field (points at a
-  nonexistent file); worked around with a Vite alias in `vite.main.config.ts`.
-- Chromium throttles rAF to ~0 in occluded windows: harmless for the product
-  (hidden windows need no frames) but it corrupts fps measurements — smoke
-  mode disables `backgroundThrottling`. Early "1 fps" readings were this, not
-  rendering cost.
-- Terminals promoted to tier 1 before their DOM attach never claimed WebGL;
-  `attach()` now claims the entitled context.
-- `onMove` recomputes could be swallowed by the rAF guard mid-transition,
-  leaving the final viewport unclassified; a 500 ms no-op-when-unchanged
-  safety tick self-heals this.
-
-**Author-validated (2026-07-19)**: real agents running in preset terminals —
-performance OK; typing echo in the focused terminal — feels immediate.
-
-**Decided**: macOS/Linux verification deferred to the v0.7 cross-OS QA matrix
-(Windows is the dev platform).
-
-**Soak results (30 min, 5 flooding + 10 quiet)**: fps 57–60 throughout; app
-memory plateaued at ~785 MB with zero monotonic growth; JS heap a healthy
-29–52 MB GC sawtooth; **zero context losses over the full session**. A second
-run with 15 quiet shells: **615 MB, flat across samples** (fps 60, 0 losses).
-
-**Deviation, consciously accepted**: the ≤ ~500 MB exit criterion was measured
-at 615 MB — but in dev mode (React dev build, Vite dev server, HMR). The
-architecture signal is the flat plateau and the small marginal cost per
-terminal (~170 MB for 5 continuously-flooding terminals), not the fixed
-dev-tooling overhead. Packaged-build measurement moves to v0.7 hardening.
-
-**Verdict: spike PASSED (2026-07-19).** The stack holds; v0.1 may begin.
-
-## 14. v0.1 progress — the core loop (in progress, branch `v0.1-core-loop`)
-
-All v0.1 outputs are built and validated: the messaging core (broker/CLI/skill/
-connections), workspace persistence, the app shell, notes, the prompt composer,
-terminal themes, and attention detection.
-
-**Built — messaging core**
-- **GraphStore** (`src/main/graphStore.ts`) — authoritative terminals + leashes;
-  the broker authorizes strictly against it.
-- **Broker** (`src/main/broker.ts`) — net server on a named pipe (Windows) /
-  unix socket; `ask` / `check` / `list` / `note` / `connect` / `disconnect`;
-  `ask` injects the message and returns the target's captured output after it
-  goes quiet (§5.2), so nothing waits on the target running a reply command.
-- **Shim** (`src/shim/shim.mjs` + `src/main/shimDir.ts`) — standalone `dogwalker`
-  /`walk` CLI materialized into a per-app shim dir prepended to each PTY's PATH;
-  no logic, just framing.
-- **Injection** — `PtyManager.inject()` does the one-write bracketed-paste
-  (gated on the mirror's DEC mode 2004), the sole PTY writer.
-- **History** (`src/main/history.ts`) — append-only JSONL per node pair; the UI
-  renders it when a leash is clicked.
-- **Connections UI** — React Flow loose-mode handles create leashes; edges are
-  derived from the graph; clicking a leash opens the message-history panel.
-- **Skill** (`skills/dogwalker/SKILL.md`) — teaches agents the CLI and that
-  answering an `ask` is just responding normally in their terminal. **Installed
-  on startup** (`src/main/skillInstall.ts`) into `~/.claude/skills/dogwalker/` so
-  agents actually discover the CLI — without it the shim is on PATH but no agent
-  knows it exists. Other agents' skill conventions come with their presets.
-
-**Validated** (`DW_BROKERTEST=1 npm start`, Windows): `ask` injects a message,
-waits for the target to go quiet, and returns its captured output; `check` and
-`list` work; an **unwired terminal is denied** (connection-graph auth); and the
-**real shim** run through a shell (`dogwalker list`) resolves via PATH and
-returns the peer — proving the CLI exists only inside canvas terminals.
-
-**Built — persistence & app shell**
-- **WorkspaceStore** (`src/main/workspaceStore.ts`) — workspaces as plain JSON
-  under `userData/workspaces` (metadata + layout: node specs with geometry +
-  connections as stable-id pairs), an `index.json` holding the active id and the
-  sidebar rail — a flat ordered list of workspace and named-divider entries that
-  partitions the rail into sections (migrated from the pre-divider `order`
-  array). Node identity is a persistent `stableId` distinct from the ephemeral
-  live PTY id.
-- **FsService** (`src/main/fsService.ts`) — the File Tree node's disk access
-  (PRODUCT.md §8). The sandboxed renderer never touches the filesystem directly;
-  `readDir`/`readFile`/`writeFile`/`create`/`rename`/`remove`/`stat` all cross
-  IPC to here. Listings sort folders-first and degrade a read failure to an
-  `error` field rather than throwing across the bridge. File Tree nodes are pure
-  layout (kind `filetree`, a `rootPath`), never graph/CLI nodes. File rows are
-  native HTML5 drags (`src/app/dnd.ts` carries the path): dropped on a terminal
-  they type the path into its PTY; dropped on the canvas a folder opens a File
-  Tree rooted there and a file becomes a read-only `preview` node (images via a
-  base64 `readImage`, text as a head).
-- **GitService** (`src/main/gitService.ts`) — shells out to the system `git`
-  (ARCHITECTURE.md §1) scoped to a File Tree's directory: status, branches, log,
-  diff, and the branch-menu operations (commit, checkout, branch, merge, stash,
-  fetch/pull/push). Reads degrade to empty/`isRepo:false`; operations return
-  `{ ok, output }` so the UI shows git's own message on a conflict or missing
-  upstream. Two pure renderer helpers keep the hard parts testable: `gitGraph.ts`
-  (`computeLanes` — column + segment layout for the graph view) and `diffParse.ts`
-  (`parseDiff` — unified diff → side-by-side rows).
-- **CodeEditor** (`src/app/CodeEditor.tsx`) — one CodeMirror 6 instance per open
-  file (§1). `basicSetup` supplies highlighting, find & replace and multi-cursor;
-  Ctrl+S saves through `writeFile`; a text selection can be handed to one of the
-  workspace's terminals with a `path:line` reference (written into its PTY, not
-  auto-submitted, like a file drag). Opened from a File Tree row (double-click).
-- **Search** — a File Tree's search bar does fuzzy filename matching against a
-  cached recursive index (`fsService.searchFiles`, heavy dirs like `.git`/
-  `node_modules` skipped; scored by the pure `fuzzy.ts`) and, when the query
-  starts with `>`, case-insensitive content search (`fsService.grepFiles`,
-  binaries/large files skipped). A content hit opens the file in the editor at
-  its line (`CodeEditor` `gotoLine`).
-- **Note image paste** (`NoteStore.saveImage`) — pasting an image into a note
-  writes it to a `<id>.assets/` dir beside the note file and embeds a markdown
-  link to its absolute path (PRODUCT.md §6). The formatted view resolves that
-  path through `readImage` into a data URI (the CSP blocks `file://`); a
-  connected agent reading the note gets the on-disk path and can open it.
-  Deleting the note removes its assets.
-- **Restore/persist** (`src/app/Canvas.tsx`) — opening a workspace spawns
-  terminals from its specs, places them at saved geometry, and re-wires leashes;
-  layout is saved (debounced) on move/resize/add/remove/connect/disconnect.
-  Switching kills+respawns (keep-alive is v0.2). A `tearingDown` guard stops
-  persistence before teardown so killing terminals (which empties the graph)
-  can't clobber the stored layout with nodes-minus-edges.
-- **App shell** (`src/app/{App,Sidebar,Panel,DevBar}.tsx`) — a workspace rail
-  plus a glass, sectioned menu (Workspaces live; Agents/Presets/Roles/Settings
-  as placeholders for later versions). The old test toolbar is now `DevBar`,
-  rendered only under `import.meta.env.DEV`.
-
-**Validated** (`DW_PERSISTTEST=1`, two launches, Windows, 2026-07-19): launch 1
-saves 2 nodes + 1 leash (geometry, names, edge stable-id integrity all OK) and
-the layout **survives teardown** on disk; launch 2 restores 2 live terminals +
-1 live leash matching the saved specs.
-
-**Built — notes**
-- **GraphStore generalized** — nodes carry a `kind` (terminal|note); a note's
-  graph id is its stableId (no process). The broker authorizes note access the
-  same way — only a wired-up note is reachable.
-- **NoteStore** (`src/main/noteStore.ts`) — markdown files under
-  `userData/notes/<stableId>.md`, the single writer for both the editor and the
-  CLI; emits `update` so an open editor refreshes after an agent writes.
-- **`note` verb** (broker + shim) — `dogwalker note read|append|write <name>`,
-  gated by the connection graph. `note read --chain` follows note↔note leashes
-  (BFS, cycle-safe) and concatenates the connected note cluster — the mind-map
-  chain, reachable from an agent wired only to the entry note.
-- **NoteNode** (`src/app/NoteNode.tsx`) — a markdown sticky with raw/formatted
-  modes (react-markdown + remark-gfm), inline rename, delete-with-file; refreshes
-  on `note:update`. Notes are excluded from the terminal render ladder. Added to
-  the palette; image paste stays deferred to v0.3.
-
-**Validated** (`DW_NOTETEST=1`, Windows, 2026-07-19): an agent `note read`s a
-connected note's content off its own terminal and `note write`s it (file
-reflects the change via the single writer); `note read --chain` from an entry
-note pulls a downstream note the terminal is not directly wired to; the notes
-and the terminal↔note leash persist in the layout and restore.
-
-**Built — prompt composer**
-- **Composer** (`src/app/Composer.tsx`) — a floating editor bound to the selected
-  terminal. Enter submits via `sendPrompt` (atomic bracketed-paste inject, the
-  same path as ask delivery), Shift+Enter newlines. `@` opens a menu of the
-  terminal's connected terminals/notes plus "New note" (creates + wires + inserts
-  the reference). Pasted images are written to `tmp/dogwalker-drops` and the path
-  inserted — the uniform file-path mechanism every agent CLI reads.
-- **DraftStore** (`src/main/draftStore.ts`) — per-terminal drafts keyed by
-  stableId, persisted to `drafts.json`, so a draft survives workspace switches
-  and restarts.
-- Deferred to their features / v0.2: `@Walker` and portal mentions, nav-key
-  pass-through on an empty composer.
-
-**Validated** (`DW_COMPOSERTEST=1`, Windows, 2026-07-22): the composer shows for
-the selected terminal; `@` lists the connected note; a composed message reaches
-the terminal; the draft round-trips through disk; a pasted image yields a temp
-path.
-
-**Built — terminal themes**
-- **Theme model** (`src/shared/themes.ts`) — `ThemeSpec` (xterm ITheme + light/
-  dark appearance); 7 built-ins; a validator so a malformed custom theme can't
-  break the gallery.
-- **SettingsStore** (`src/main/settingsStore.ts`) — persists `{themeName,
-  lightThemeName, followSystem}` to `settings.json`; reads custom themes from
-  `userData/terminal-themes/*.json`.
-- **Apply** — `terminalService.setTheme` recolors every live terminal and any
-  spawned afterwards (`term.options.theme`). App resolves the active theme
-  (follow-system via `matchMedia`) and applies it globally, surviving the keyed
-  Canvas remounts.
-- **UI** — the Panel's Settings section: theme swatch gallery, follow-system
-  toggle, light-theme picker.
-
-**Validated** (`DW_THEMETEST=1`, Windows, 2026-07-22): 7 built-in themes;
-selecting Dracula recolors a live terminal and a newly spawned one; the choice
-persists; custom-theme listing works.
-
-**Built — attention detection**
-- **Detection** (`src/main/ptyManager.ts`, ARCHITECTURE.md §6) — on the headless
-  mirror, so it is focus-independent (invariant #8). OSC 133 refines it when
-  shell integration is present (C clears, D raises); the always-on fallback is
-  output quiescence: once a terminal has been *engaged* (input ran), going quiet
-  for 2.5 s after output raises attention. Input (`write`/`inject`) engages and
-  clears. Emits `pty:attention {id,value}`.
-- **UI** — a pulsing red dot in the terminal header (`data.attention`); **Shift+A**
-  cycles selection + viewport through terminals needing attention.
-- **Notification** — on rise, if the terminal isn't selected and the setting is
-  on, the renderer fires an Electron notification; focus suppresses only the
-  notification, never the dot. Toggle in the Panel's Settings section.
-
-**Validated** (`DW_ATTENTIONTEST=1`, Windows, 2026-07-22): a fresh shell does not
-nag; a run command raises attention after it goes quiet and the node shows the
-dot; a keystroke clears both.
-
-**v0.1 status: feature-complete on branch `v0.1-core-loop`.** Remaining before
-tagging v0.1 proper: exit-criteria dogfooding (the app used to build itself) and
-a pass over the README quick start — tracked in [ROADMAP.md](ROADMAP.md).
-
-**Built — routines (v0.6 block 1)**
-- **RoutineService** (`src/main/routineService.ts`, PRODUCT.md §11) — a routine
-  is a scheduled prompt aimed at an agent (by `targetStableId`). Its `&&`/newline
-  steps run one at a time, each injected then awaited to quiescence (the same
-  `ptyManager.awaitQuiet` signal `ask` uses) before the next — so multi-step
-  chains respect agent turns. A tick landing while a run is in flight is dropped
-  (a `running` guard), so a slow agent never overlaps or leaves zombie state; a
-  routine whose target isn't live skips quietly. Persisted to `routines.json`
-  (never resurrecting a `running` status); status changes emit `routine:update`.
-  The renderer's Panel → Routines section creates/pauses/runs/deletes them with a
-  live status dot.
-
-**Built — Walker mode (v0.6 block 2)**
-- A terminal can be flagged a **Walker** (crown toggle in its header; `walker` on
-  the PTY entry + persisted in the spec). Only a Walker may call the manager
-  verbs, broker-gated by `ptys.isWalker(from)`: `recruit --agent <preset> --role
-  <role>` spawns a teammate on the Walker's own layer, inheriting its cwd and
-  wired to it; `dismiss <recruit>` kills the recruit (its graph node + edges go
-  with it); `assign <recruit> --role <role>` relabels it. The broker spawns the
-  PTY directly (so the recruit is automatable at once) and announces it to the
-  renderer, which adopts the node beside the Walker (`terminal:recruited`); a
-  recruit on another layer is alive and wired but its node appears when that layer
-  is opened. The composer marks Walkers among mentions (👑). `recruit --floor
-  <name>` places the recruit on a sibling floor's layer + worktree cwd (resolved
-  by `WorkspaceStore.resolveFloorTarget`); it stays wired to the Walker, so a
-  cross-floor `ask` round-trips.
-
-**Validated — v0.6 dogfooding (`DW_V06BDD=1`)** — the exit-criteria user
-scenarios end to end over the real broker: a Walker assembles a coder+reviewer+
-tester team all wired to it and reading a shared SPEC note; a routine chain
-`echo BUILD_OK && echo TEST_OK && dogwalker note append SUMMARY …` writes the
-result to a note and returns to idle (no zombie); dismissing the reviewer
-removes its terminal, graph node and every edge; and a `recruit --floor feat`
-teammate answers its Walker's `ask` across the floor boundary.
-
-**Built — failure recovery (v0.7 block 1)**
-- **Orphaned worktrees**: on opening a workspace the renderer runs
-  `floor:reconcile` — floor records whose worktree directory was deleted outside
-  Dogwalker are dropped and `git worktree prune` clears git's stale metadata. It
-  never touches a worktree that still exists.
-- **Dead targets**: a terminal that exits removes its own graph node
-  (`graph.removeNode` on PTY exit), so an `ask`/`check`/`portal`/Walker verb to it
-  resolves to "not connected" **instantly** rather than blocking on the `ask`
-  timeout — no hangs.
-- **Terminal restart**: an exited terminal shows a ↻ that respawns it in place —
-  fresh PTY, same stableId + geometry (leashes re-form from the saved layout).
-- **Portal renderer crash**: a `render-process-gone` reloads the portal in place.
-- Validated by `DW_RECOVERYTEST` (orphan reconcile + fast-fail to dead targets).
-
-**Built — CLAUDE.md ↔ AGENTS.md sync (v0.7 block 2, the last deferred feature)**
-- **AgentDocsSync** (`src/main/agentDocsSync.ts`, PRODUCT.md §12) — a per-workspace
-  toggle (`syncAgentDocs`, persisted; armed on startup for enabled workspaces).
-  When on, it watches the workspace cwd and mirrors edits between `CLAUDE.md` and
-  `AGENTS.md` so mixed-agent projects share one set of instructions. Enabling
-  reconciles first (the newer file wins; a missing counterpart is seeded); a
-  content-equality guard makes the mirror write a no-op on the echo, so there's
-  no watch loop. Toggle lives on each workspace card. `DW_DOCSYNCTEST` covers
-  seed / mirror-both-ways / newer-wins / live-watch.
-
-**Built — release engineering (v0.8)**
-- Installers via electron-forge makers per OS (Squirrel `.exe`, DMG, ZIP,
-  Deb/Rpm, AppImage); `npm run make` builds the host OS's artifact. MIT LICENSE;
-  README install instructions; version 0.8.0 (RC line).
-- CI (`.github/workflows/build.yml`): a `check` job (typecheck + lint) on every
-  PR, and a tag-triggered `make` matrix (macOS/Windows/Linux) that builds +
-  uploads each OS's installer. Dogfooding note: the first CI run on the v0.8 PR
-  **caught a real gap** — the `lint` script called eslint, which had never been a
-  dependency; it now has a lean flat `eslint.config.mjs` (typecheck stays the
-  correctness gate) and runs clean. Signing/notarization + `.msi` and off-Windows
-  fresh-install QA are deferred (no certs/machines here), documented in README.
-
-**Built — versioned skill (v0.8 block 2)**
-- The agent skill carries a `version:` in its frontmatter. `installSkill` (main,
-  on startup) compares the shipped version against the already-installed copy
-  before overwriting; a change logs a mismatch warning (`skill contract changed
-  v<old> → v<new>`) so an agent that learned the CLI before an upgrade is flagged
-  to re-read it. Logic is a pure `parseSkillVersion` + `installSkillTo(src, dest)`
-  returning `{version, previousVersion, upgraded}`; `DW_SKILLVERTEST` covers
-  parse / fresh / upgrade / same-version.
-
-**v0.7 hardening — status (2026-07-30, Windows)**
-- **Invariant audit**: all ten AGENTS.md invariants audited against the code and
-  holding (see AGENTS.md → "Invariant audit — v0.7").
-- **Failure recovery** (§ above) + **doc-sync** shipped and tested.
-- **Scale**: the `DW_SMOKE`/`DW_SOAK` harness (from the spike) remains the scale
-  probe; the spike met its fps/context-budget criteria at 15 terminals and
-  **tier-4 snapshot rendering was intentionally not built** because profiling did
-  not demand it — that decision stands for v0.7. `DW_SMOKE` on Windows
-  (15 terminals): 60 fps near / 60 fps panning / 47 fps at static overview,
-  ≤8 live WebGL contexts, 0 context losses — within the spike budget.
-- **Cross-OS QA matrix**: exercised on **Windows** only in this environment;
-  macOS + Linux (X11/Wayland) execution is **deferred and documented as pending**
-  — it needs those machines. No OS-specific hacks are in the code (worktrees,
-  paths, and shells are handled portably), so the matrix is expected to pass, but
-  it is not yet *verified* off-Windows. This is the one v0.7 exit criterion that
-  remains open by environment, not by code.

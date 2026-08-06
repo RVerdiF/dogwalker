@@ -1,5 +1,17 @@
 import { useEffect } from 'react';
+import type { ComponentType } from 'react';
 import type { AlignKind, DistributeKind } from './layoutOps';
+import {
+  AlignLeftIcon,
+  AlignCenterHIcon,
+  AlignRightIcon,
+  AlignTopIcon,
+  AlignMiddleVIcon,
+  AlignBottomIcon,
+  DistributeHIcon,
+  DistributeVIcon,
+  TidyIcon,
+} from './icons';
 
 interface Props {
   x: number;
@@ -16,13 +28,13 @@ interface Props {
 
 const LIMITS = [0, 512, 1024, 2048, 4096];
 
-const ALIGN: Array<{ kind: AlignKind; label: string; icon: string }> = [
-  { kind: 'left', label: 'Align left', icon: '⇤' },
-  { kind: 'hcenter', label: 'Align center', icon: '↔' },
-  { kind: 'right', label: 'Align right', icon: '⇥' },
-  { kind: 'top', label: 'Align top', icon: '⤒' },
-  { kind: 'vcenter', label: 'Align middle', icon: '↕' },
-  { kind: 'bottom', label: 'Align bottom', icon: '⤓' },
+const ALIGN: Array<{ kind: AlignKind; label: string; icon: ComponentType<{ size?: number }> }> = [
+  { kind: 'left', label: 'Align left', icon: AlignLeftIcon },
+  { kind: 'hcenter', label: 'Align center', icon: AlignCenterHIcon },
+  { kind: 'right', label: 'Align right', icon: AlignRightIcon },
+  { kind: 'top', label: 'Align top', icon: AlignTopIcon },
+  { kind: 'vcenter', label: 'Align middle', icon: AlignMiddleVIcon },
+  { kind: 'bottom', label: 'Align bottom', icon: AlignBottomIcon },
 ];
 
 /** Right-click menu for arranging a multi-node selection (PRODUCT.md §3.3). */
@@ -53,7 +65,7 @@ export function CanvasMenu({
       <div className="dw-ctxmenu-head">{count} selected</div>
       {ALIGN.map((a) => (
         <button key={a.kind} className="dw-ctxmenu-item" onClick={() => onAlign(a.kind)}>
-          <span className="dw-ctxmenu-icon">{a.icon}</span>
+          <span className="dw-ctxmenu-icon"><a.icon size={14} /></span>
           {a.label}
         </button>
       ))}
@@ -63,7 +75,7 @@ export function CanvasMenu({
         onClick={() => onDistribute('horizontal')}
         disabled={count < 3}
       >
-        <span className="dw-ctxmenu-icon">⋯</span>
+        <span className="dw-ctxmenu-icon"><DistributeHIcon size={14} /></span>
         Distribute horizontally
       </button>
       <button
@@ -71,12 +83,12 @@ export function CanvasMenu({
         onClick={() => onDistribute('vertical')}
         disabled={count < 3}
       >
-        <span className="dw-ctxmenu-icon">⋮</span>
+        <span className="dw-ctxmenu-icon"><DistributeVIcon size={14} /></span>
         Distribute vertically
       </button>
       <div className="dw-ctxmenu-sep" />
       <button className="dw-ctxmenu-item" onClick={onTidy}>
-        <span className="dw-ctxmenu-icon">▦</span>
+        <span className="dw-ctxmenu-icon"><TidyIcon size={14} /></span>
         Tidy
         <span className="dw-ctxmenu-key">⇧T</span>
       </button>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { FloorMeta, HookResult } from '../shared/ipc';
+import { GroundIcon, FloorIcon, CheckIcon, CrossIcon } from './icons';
 
 interface Props {
   workspaceId: string;
@@ -37,7 +38,7 @@ export function FloorBar({ workspaceId, floors, activeFloor, onSwitch, onChanged
         onClick={() => onSwitch('ground')}
         title="The ground floor — the workspace's main working copy"
       >
-        🏛 Ground
+        <GroundIcon size={13} /> Ground
       </button>
       {floors.map((f) => (
         <span key={f.id} className={`dw-floor-chip-wrap ${activeFloor === f.id ? 'active' : ''}`}>
@@ -46,7 +47,7 @@ export function FloorBar({ workspaceId, floors, activeFloor, onSwitch, onChanged
             onClick={() => onSwitch(f.id)}
             title={`${f.path}  ·  branch ${f.branch}`}
           >
-            🧱 {f.name}
+            <FloorIcon size={13} /> {f.name}
             <span className="dw-floor-branch">{f.branch}</span>
           </button>
           <button
@@ -100,7 +101,7 @@ export function FloorBar({ workspaceId, floors, activeFloor, onSwitch, onChanged
             <h3>
               {hookOut.title}{' '}
               <span className={hookOut.result.ok ? 'dw-hook-ok' : 'dw-hook-err'}>
-                {hookOut.result.ok ? '✓' : '✗'}
+                {hookOut.result.ok ? <CheckIcon size={14} /> : <CrossIcon size={14} />}
               </span>
             </h3>
             <pre className="dw-land-diffstat">
