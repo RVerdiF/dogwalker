@@ -98,4 +98,15 @@ describe('GitService', () => {
 
     fs.rmSync(wtRoot, { recursive: true, force: true });
   });
+
+  it('prunes worktree records whose directory was deleted outside git', async () => {
+    await git.commit(repo, 'init');
+    const wtRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-prune-'));
+    const wt = path.join(wtRoot, 'gone');
+    await git.worktreeAdd(repo, wt, 'feat-r', true);
+    fs.rmSync(wt, { recursive: true, force: true }); // vanished outside Dogwalker
+    expect((await git.worktreePrune(repo)).ok).toBe(true);
+    expect((await git.worktreeList(repo)).some((w) => w.branch === 'feat-r')).toBe(false);
+    fs.rmSync(wtRoot, { recursive: true, force: true });
+  });
 });

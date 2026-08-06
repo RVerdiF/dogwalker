@@ -23,7 +23,6 @@ import { FsService } from './main/fsService';
 import { GitService } from './main/gitService';
 import { runCrossFloorTest } from './main/crossFloorTest';
 import { runV06Bdd } from './main/v06BddTest';
-import { runRecoveryTest } from './main/recoveryTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { AgentDocsSync } from './main/agentDocsSync';
@@ -619,9 +618,6 @@ const createWindow = () => {
     void runV06Bdd(ptys, graph, notes, routines, workspaces, git, socketPath);
   }
 
-  if (process.env.DW_RECOVERYTEST) {
-    void runRecoveryTest(ptys, graph, workspaces, git, socketPath);
-  }
 
 
 

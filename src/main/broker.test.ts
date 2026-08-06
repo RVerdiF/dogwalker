@@ -172,4 +172,15 @@ describe('Broker (integration, real PTYs)', () => {
     const res = await rpc(sock, { cmd: 'recruit', from: grunt, agent: 'shell', role: 'scout' });
     expect(res.ok).toBe(false);
   }, 30_000);
+
+  it('fails fast (not hang) when the target terminal has died', async () => {
+    const victim = ptys.spawn({ preset: 'shell', cols: 80, rows: 24, workspaceId: 'test', cwd: '', name: 'victim', stableId: 'victim' }).id;
+    graph.connect(lead, victim);
+    ptys.kill(victim);
+    await wait(600); // let onExit drop its graph node
+    const t0 = Date.now();
+    const res = await rpc(sock, { cmd: 'ask', from: lead, target: 'victim', body: 'echo hi' });
+    expect(res.ok).toBe(false);
+    expect(Date.now() - t0).toBeLessThan(3000); // instant, not the ask timeout
+  }, 30_000);
 });
