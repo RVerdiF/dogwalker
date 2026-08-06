@@ -136,6 +136,7 @@ Core verbs:
 dogwalker ask <node> "message"          # inject a message and return captured target output
 dogwalker ask --all "message"            # ask every directly connected terminal
 dogwalker ask <node> "message" --contract <name>  # loop until the answer matches the contract's JSON Schema
+dogwalker contract list|inspect|create|edit|delete # manage saved contracts (schema, attempts, fallback)
 dogwalker check <node>                  # read-only snapshot of a connected terminal's screen
 dogwalker note read|append|write <note> # operate on a connected note
 dogwalker portal <verb> ...             # drive a connected portal (navigate/click/type/screenshot/js/dom/console)
@@ -175,9 +176,10 @@ run out, the asker receives the contract's **fallback value** instead (no error,
 no hang). Every attempt is logged to the leash's history.
 
 Contracts are created, edited (schema, attempts, timeout, rejection prompt,
-fallback), duplicated and deleted locally from the Panel. Deleting one never
-breaks history or a running terminal; a later command simply reports that the
-requested contract no longer exists.
+fallback), duplicated and deleted locally from the Panel — or by an agent from
+the CLI with `dogwalker contract list|inspect|create|edit|delete`. Deleting one
+never breaks history or a running terminal; a later command simply reports that
+the requested contract no longer exists.
 
 ### 5.5 Walker mode (manager agents)
 A terminal flagged as **Walker** gains extra CLI verbs to manage a team:

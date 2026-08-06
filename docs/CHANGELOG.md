@@ -13,11 +13,18 @@ canvas for AI coding agents.
   rejection prompt and fallback all live on the contract; the CLI passes only the
   message, peer, and contract name. Removes `--strict` and the old required-fields
   model. Renamed "response contracts" to "contracts" throughout.
+- New CLI verb: `dogwalker contract list|inspect|create|edit|delete`, so agents
+  can manage the workspace's contracts (schema, attempts, timeout, rejection
+  prompt, fallback) themselves. The agent skill is bumped accordingly.
 - UI: the sidebar shows the Dogwalker wordmark; every emoji/character glyph in the
   chrome is now a line-style SVG icon (nodes, floors, composer, file tree, config
   menu, align menu). Presets pick from a set of built-in SVG icons instead of a
   free-form emoji field, and built-in presets can be deleted. Workspaces no longer
   carry an icon.
+- Testing: adopt Vitest (unit + component, colocated `*.test.ts[x]`, node + jsdom
+  with React Testing Library) and Playwright (`e2e/`), replacing the in-app
+  `DW_*TEST` harnesses with behavior-focused tests on the files under test. `npm
+  test` runs in CI.
 
 ## 1.2.1
 

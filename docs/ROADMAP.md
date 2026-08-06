@@ -387,14 +387,21 @@ agent hold another to an exact JSON shape without a human in the loop.
    the validated object or, once attempts run out, the fallback. Removes
    `--strict`, the `instructions` field and the required-field model; renames
    "response contracts" to "contracts" everywhere.
-5. **Validation:** `DW_BROKERTEST` covers the contract loop (validated answer,
-   fallback on exhaustion, bare-value shim output); typecheck and lint stay green.
+5. **Contract CLI:** `dogwalker contract list|inspect|create|edit|delete` lets an
+   agent manage the workspace's contracts (schema/attempts/timeout/rejection/
+   fallback) itself; the agent skill documents it.
+6. **Test stack:** adopt Vitest (unit + component, colocated `*.test.ts[x]`, node
+   + jsdom with React Testing Library) and Playwright (`e2e/`), migrating the
+   in-app `DW_*TEST` harnesses to behavior tests on the files under test. Portal
+   automation stays an Electron integration check; the perf/scale probe stays a
+   probe. `npm test` gates CI.
 
 **Exit criteria**
 - No emoji or character glyph remains as a chrome icon.
 - A contract's JSON Schema validates a live agent answer and returns the
   configured fallback when the attempt budget is exhausted — no hang, no error.
 - A single `ask --contract` prints just the value object, not an envelope.
+- `npm test`, `npm run typecheck` and `npm run lint` are green.
 
 ---
 
