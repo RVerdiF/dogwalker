@@ -24,7 +24,7 @@ import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { AgentDocsSync } from './main/agentDocsSync';
 import { RoutineService } from './main/routineService';
-import { runPortalCliTest, runPortalLinkTest } from './main/portalCliTest';
+import { runPortalCli, runPortalLink } from './main/portalIntegration';
 import type { AppSettings } from './shared/ipc';
 import type {
   FloorRecord,
@@ -602,12 +602,12 @@ const createWindow = () => {
 
 
 
-  if (process.env.DW_PORTALCLITEST) {
-    void runPortalCliTest(ptys, graph, portals, socketPath);
+  if (process.env.DW_PORTALCLI) {
+    void runPortalCli(ptys, graph, portals, socketPath);
   }
 
-  if (process.env.DW_PORTALLINKTEST) {
-    void runPortalLinkTest(ptys, graph, portals, socketPath);
+  if (process.env.DW_PORTALLINK) {
+    void runPortalLink(ptys, graph, portals, socketPath);
   }
 };
 

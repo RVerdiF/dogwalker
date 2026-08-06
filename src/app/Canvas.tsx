@@ -51,7 +51,7 @@ import {
   type DistributeKind,
 } from './layoutOps';
 import { snapMove, type Guide, type SnapBox } from './snapping';
-import { runSmoke } from './smoke';
+import { runPerfProbe } from '../../tools/perf-probe';
 
 type DwNode =
   | TerminalFlowNode
@@ -792,7 +792,7 @@ export function Canvas({
     if (harnessRan.current) return;
     if (params.has('smoke')) {
       harnessRan.current = true;
-      void runSmoke({ spawn: spawnNew, setViewport, getViewport });
+      void runPerfProbe({ spawn: spawnNew, setViewport, getViewport });
     }
   }, [spawnNew, setViewport, getViewport]);
 

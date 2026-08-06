@@ -1,5 +1,5 @@
-import type { PresetId } from '../shared/ipc';
-import { terminals } from './terminalService';
+import type { PresetId } from '../src/shared/ipc';
+import { terminals } from '../src/app/terminalService';
 
 /**
  * Automated spike self-check, enabled with DW_SMOKE=1 (dev only).
@@ -33,14 +33,14 @@ function sampleFps(ms: number): Promise<number> {
 
 let ran = false;
 
-export async function runSmoke(deps: SmokeDeps): Promise<void> {
+export async function runPerfProbe(deps: SmokeDeps): Promise<void> {
   // Module-level guard: survives HMR remounts of App, which reset refs.
   if (ran) return;
   ran = true;
   const params = new URLSearchParams(window.location.search);
   const quiet = params.has('quiet');
   console.log(
-    `[smoke] start — 15 terminals (${quiet ? '15 quiet shells' : '5 stress + 10 shell'})`,
+    `[perf-probe] start — 15 terminals (${quiet ? '15 quiet shells' : '5 stress + 10 shell'})`,
   );
   const ids: string[] = [];
   for (let i = 0; i < 15; i++) {

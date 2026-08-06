@@ -23,6 +23,19 @@ this guide only has to add what's specific to contributing:
   Electron app (broker over its socket, real PTYs, portals). Build first
   (`npm run package`), then `npm run test:e2e`. This is where the app-level
   scenarios the older `DW_*TEST` in-app harnesses covered are being migrated.
+- **Electron integration checks (not unit tests).** Portal automation drives a
+  real `WebContentsView` over CDP and real browser sessions, which neither Vitest
+  (no Electron) nor a UI e2e (results only reach the WebGL terminal) can exercise
+  cleanly. `src/main/portalIntegration.ts` runs inside the app, gated by an env
+  flag, and prints a result line: `DW_PORTALCLI=1 npm start` (portal verbs +
+  authorization) and `DW_PORTALLINK=1 npm start` (linked-session cookies +
+  agent-created portals).
+
+**Not a test:** `tools/perf-probe.ts` is a scale/performance probe, not an
+assertion-based test. Gated by `DW_SMOKE=1 npm start` (15 terminals across zoom
+phases; `DW_SOAK` for a 30-minute soak), it prints fps / memory / WebGL-context
+metrics for manual inspection — hence it is deliberately outside the `*.test`
+convention.
 
 `npm run typecheck`, `npm run lint` and `npm test` are the standing correctness
 gates.
