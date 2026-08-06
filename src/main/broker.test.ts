@@ -7,6 +7,9 @@ import { extractJsonObjects, Broker } from './broker';
 import { GraphStore } from './graphStore';
 import { History } from './history';
 import { ContractStore } from './contractStore';
+import { PresetStore } from './presetStore';
+import { RoleStore } from './roleStore';
+import { WorkspaceStore } from './workspaceStore';
 import { PtyManager } from './ptyManager';
 import type { BrokerRequest, BrokerResponse } from '../shared/protocol';
 
@@ -31,8 +34,8 @@ describe('extractJsonObjects', () => {
 });
 
 // ── integration: the real broker over a real socket, driving real PTYs, exactly
-// as the CLI shim would (this replaces the old DW_BROKERTEST harness). The shim
-// shell-PATH round-trip is left to an e2e test, since it needs the packaged app.
+// as the CLI shim would (this replaces the DW_BROKERTEST and DW_WALKERTEST
+// harnesses). The shim shell-PATH round-trip is left to an e2e test.
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function rpc(socketPath: string, req: BrokerRequest): Promise<BrokerResponse> {
@@ -57,8 +60,12 @@ describe('Broker (integration, real PTYs)', () => {
   let sock: string;
   let broker: Broker;
   let ptys: PtyManager;
+  let graph: GraphStore;
   let lead = '';
   let reviewer = '';
+  let tester = '';
+  let boss = '';
+  let grunt = '';
 
   const stub = <T>() => ({}) as unknown as T;
 
@@ -67,7 +74,7 @@ describe('Broker (integration, real PTYs)', () => {
     sock = process.platform === 'win32'
       ? `\\\\.\\pipe\\dogwalker-test-${Math.random().toString(36).slice(2)}`
       : path.join(dir, 'broker.sock');
-    const graph = new GraphStore();
+    graph = new GraphStore();
     const history = new History(path.join(dir, 'history'));
     const contracts = new ContractStore(dir);
     contracts.create({
@@ -78,23 +85,30 @@ describe('Broker (integration, real PTYs)', () => {
       rejectionPrompt: 'echo RETRY_PLEASE',
       fallback: { decision: 'FALLBACK' },
     });
+    const presets = new PresetStore(dir);
+    const roles = new RoleStore(dir);
+    roles.create({ name: 'scout', instructions: 'Scout ahead.' });
+    roles.create({ name: 'sentry', instructions: 'Stand guard.' });
+    const workspaces = new WorkspaceStore(dir);
     const webContents = { send: () => {}, isDestroyed: () => false } as unknown as ConstructorParameters<typeof PtyManager>[0];
     ptys = new PtyManager(webContents, graph, { socketPath: sock, shimDir: dir });
-    broker = new Broker(sock, graph, ptys, history, stub(), stub(), stub(), stub(), stub(), contracts);
+    broker = new Broker(sock, graph, ptys, history, stub(), stub(), workspaces, presets, roles, contracts);
     broker.listen();
     await wait(500);
 
     const base = { preset: 'shell' as const, cols: 80, rows: 24, workspaceId: 'test', cwd: '' };
     lead = ptys.spawn({ ...base, name: 'lead', stableId: 'lead' }).id;
     reviewer = ptys.spawn({ ...base, name: 'reviewer', stableId: 'reviewer' }).id;
-    const tester = ptys.spawn({ ...base, name: 'tester', stableId: 'tester' }).id;
+    tester = ptys.spawn({ ...base, name: 'tester', stableId: 'tester' }).id;
+    boss = ptys.spawn({ ...base, name: 'boss', stableId: 'boss', walker: true, cwd: dir }).id;
+    grunt = ptys.spawn({ ...base, name: 'grunt', stableId: 'grunt' }).id;
     graph.connect(lead, reviewer);
     graph.connect(lead, tester);
     await wait(3000); // let the shells finish initializing
   }, 30_000);
 
   afterAll(() => {
-    for (const id of [lead, reviewer]) ptys?.kill(id);
+    for (const id of [lead, reviewer, tester, boss, grunt]) ptys?.kill(id);
     broker?.close();
     fs.rmSync(dir, { recursive: true, force: true });
   });
@@ -112,8 +126,6 @@ describe('Broker (integration, real PTYs)', () => {
   }, 30_000);
 
   it('denies an ask from an unwired terminal', async () => {
-    const graph = new GraphStore();
-    void graph; // stranger is simply never connected to reviewer
     const res = await rpc(sock, { cmd: 'ask', from: 'nope', target: 'reviewer', body: 'hi' });
     expect(res.ok).toBe(false);
   }, 30_000);
@@ -135,5 +147,29 @@ describe('Broker (integration, real PTYs)', () => {
     const res = await rpc(sock, { cmd: 'ask', from: lead, target: 'reviewer', body: 'echo {"decision":7}', contract: 'verdict' });
     expect(res.ok).toBe(true);
     expect((res.data as { decision?: string }).decision).toBe('FALLBACK');
+  }, 30_000);
+
+  it('lets a Walker recruit, reassign and dismiss a teammate', async () => {
+    const rec = await rpc(sock, { cmd: 'recruit', from: boss, agent: 'shell', role: 'scout' });
+    expect(rec.ok).toBe(true);
+    const recId = (rec.data as { id?: string }).id ?? '';
+    expect(recId).toBeTruthy();
+    expect(graph.areConnected(boss, recId)).toBe(true);
+    expect(graph.name(recId)).toBe('scout');
+
+    const assigned = await rpc(sock, { cmd: 'assign', from: boss, target: 'scout', role: 'sentry' });
+    expect(assigned.ok).toBe(true);
+    expect(graph.name(recId)).toBe('sentry');
+
+    const dis = await rpc(sock, { cmd: 'dismiss', from: boss, target: 'sentry' });
+    await wait(400);
+    expect(dis.ok).toBe(true);
+    expect(ptys.has(recId)).toBe(false);
+    expect(graph.kindOf(recId)).toBeNull();
+  }, 30_000);
+
+  it('denies Walker verbs from a non-Walker terminal', async () => {
+    const res = await rpc(sock, { cmd: 'recruit', from: grunt, agent: 'shell', role: 'scout' });
+    expect(res.ok).toBe(false);
   }, 30_000);
 });

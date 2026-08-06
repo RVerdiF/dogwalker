@@ -22,8 +22,6 @@ import { runMemTest } from './main/memTest';
 import { FsService } from './main/fsService';
 import { GitService } from './main/gitService';
 import { runCrossFloorTest } from './main/crossFloorTest';
-import { runWalkerTest } from './main/walkerTest';
-import { runRolePresetTest } from './main/rolePresetTest';
 import { runV06Bdd } from './main/v06BddTest';
 import { runRecoveryTest } from './main/recoveryTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
@@ -620,13 +618,6 @@ const createWindow = () => {
     void runRoutineTest(ptys, routines);
   }
 
-  if (process.env.DW_WALKERTEST) {
-    void runWalkerTest(ptys, graph, socketPath);
-  }
-
-  if (process.env.DW_ROLEPRESETTEST) {
-    void runRolePresetTest(ptys, graph, presets, roles, socketPath).finally(() => app.quit());
-  }
 
   if (process.env.DW_V06BDD) {
     void runV06Bdd(ptys, graph, notes, routines, workspaces, git, socketPath);
