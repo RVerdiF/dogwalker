@@ -21,9 +21,7 @@ import { ContractStore } from './main/contractStore';
 import { seedFirstRun } from './main/firstRun';
 import { runMemTest } from './main/memTest';
 import { FsService } from './main/fsService';
-import { runFsTest } from './main/fsTest';
 import { GitService } from './main/gitService';
-import { runGitTest } from './main/gitTest';
 import { runFloorTest, runLandTest, runHookTest } from './main/floorTest';
 import { runCrossFloorTest } from './main/crossFloorTest';
 import { runWalkerTest } from './main/walkerTest';
@@ -615,13 +613,6 @@ const createWindow = () => {
     void runMemTest(ptys, workspaces);
   }
 
-  if (process.env.DW_FSTEST) {
-    void runFsTest(fsService);
-  }
-
-  if (process.env.DW_GITTEST) {
-    void runGitTest(git);
-  }
 
   if (process.env.DW_FLOORTEST) {
     void runFloorTest(workspaces, git);
