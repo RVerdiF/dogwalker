@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
@@ -9,6 +10,12 @@ import react from '@vitejs/plugin-react';
  */
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      // Main-process modules import 'electron' at load; swap in a node stub.
+      electron: fileURLToPath(new URL('./src/test/electron.mock.ts', import.meta.url)),
+    },
+  },
   test: {
     globals: true,
     projects: [

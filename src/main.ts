@@ -31,7 +31,6 @@ import { runRolePresetTest } from './main/rolePresetTest';
 import { runV06Bdd } from './main/v06BddTest';
 import { runRecoveryTest } from './main/recoveryTest';
 import { runDocSyncTest } from './main/docSyncTest';
-import { runSkillVerTest } from './main/skillVerTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
 import { AgentDocsSync } from './main/agentDocsSync';
@@ -664,9 +663,6 @@ const createWindow = () => {
     void runDocSyncTest();
   }
 
-  if (process.env.DW_SKILLVERTEST) {
-    runSkillVerTest();
-  }
 
   if (process.env.DW_BROKERTEST) {
     void runBrokerTest(ptys, graph, contracts, socketPath);
