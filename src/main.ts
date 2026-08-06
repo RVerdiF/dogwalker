@@ -7,7 +7,6 @@ import { History } from './main/history';
 import { Broker } from './main/broker';
 import { createShimDir } from './main/shimDir';
 import { installSkill } from './main/skillInstall';
-import { runBrokerTest } from './main/brokerTest';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import crypto from 'node:crypto';
@@ -639,9 +638,6 @@ const createWindow = () => {
 
 
 
-  if (process.env.DW_BROKERTEST) {
-    void runBrokerTest(ptys, graph, contracts, socketPath);
-  }
 
   if (process.env.DW_PORTALCLITEST) {
     void runPortalCliTest(ptys, graph, portals, socketPath);
