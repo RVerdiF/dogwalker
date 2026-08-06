@@ -7,6 +7,7 @@ import { Panel } from './Panel';
 const settings = { themeName: 'a', lightThemeName: 'b', followSystem: false, notifyOnAttention: false } as unknown as AppSettings;
 
 function renderPanel() {
+  const onUpdateSettings = vi.fn();
   render(
     <Panel
       open
@@ -21,14 +22,16 @@ function renderPanel() {
       themes={[]}
       settings={settings}
       activeThemeName="a"
-      onUpdateSettings={vi.fn()}
+      onUpdateSettings={onUpdateSettings}
     />,
   );
+  return { onUpdateSettings };
 }
 
 const goTo = async (section: string) => {
-  renderPanel();
+  const handlers = renderPanel();
   await userEvent.click(screen.getByRole('button', { name: section }));
+  return handlers;
 };
 
 describe('Panel', () => {
@@ -90,6 +93,16 @@ describe('Panel', () => {
       await userEvent.type(screen.getByPlaceholderText(/Instructions for this role/), 'Review carefully.');
       await userEvent.click(screen.getByRole('button', { name: /Add role/ }));
       expect(window.dw.createRole).toHaveBeenCalledWith({ name: 'Reviewer', instructions: 'Review carefully.' });
+    });
+  });
+
+  describe('Settings', () => {
+    it('toggles follow-system and attention notifications', async () => {
+      const { onUpdateSettings } = await goTo('Settings');
+      await userEvent.click(screen.getByRole('checkbox', { name: /Follow system/ }));
+      expect(onUpdateSettings).toHaveBeenCalledWith({ followSystem: true });
+      await userEvent.click(screen.getByRole('checkbox', { name: /Notify when a terminal needs attention/ }));
+      expect(onUpdateSettings).toHaveBeenCalledWith({ notifyOnAttention: true });
     });
   });
 });
