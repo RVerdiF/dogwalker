@@ -26,37 +26,70 @@ function renderPanel() {
   );
 }
 
-describe('Panel — Contracts form', () => {
+const goTo = async (section: string) => {
+  renderPanel();
+  await userEvent.click(screen.getByRole('button', { name: section }));
+};
+
+describe('Panel', () => {
   beforeEach(() => {
     window.dw = {
+      listPresets: vi.fn().mockResolvedValue([
+        { id: 'claude', name: 'Claude Code', icon: 'sparkle', command: 'claude', builtin: true },
+        { id: 'p1', name: 'My Agent', icon: 'robot', command: 'go' },
+      ]),
+      createPreset: vi.fn().mockResolvedValue({ id: 'p2' }),
+      updatePreset: vi.fn().mockResolvedValue({}),
+      deletePreset: vi.fn().mockResolvedValue(true),
+      listRoles: vi.fn().mockResolvedValue([]),
+      createRole: vi.fn().mockResolvedValue({ id: 'r1' }),
+      updateRole: vi.fn().mockResolvedValue({}),
+      deleteRole: vi.fn().mockResolvedValue(true),
       listContracts: vi.fn().mockResolvedValue([]),
       createContract: vi.fn().mockResolvedValue({ id: 'c1' }),
     } as unknown as typeof window.dw;
   });
 
-  const openContracts = async () => {
-    renderPanel();
-    await userEvent.click(screen.getByRole('button', { name: 'Contracts' }));
-    return screen.getByPlaceholderText('Contract name');
-  };
+  describe('Contracts', () => {
+    it('rejects a schema that is not a JSON object', async () => {
+      await goTo('Contracts');
+      await userEvent.type(screen.getByPlaceholderText('Contract name'), 'c1');
+      fireEvent.change(screen.getByDisplayValue(/"type": "object"/), { target: { value: '[1, 2, 3]' } });
+      await userEvent.click(screen.getByRole('button', { name: /Add contract/ }));
+      expect(window.dw.createContract).not.toHaveBeenCalled();
+      expect(screen.getByText(/Schema must be a JSON object/i)).toBeInTheDocument();
+    });
 
-  it('rejects a schema that is not a JSON object', async () => {
-    const name = await openContracts();
-    await userEvent.type(name, 'c1');
-    const schema = screen.getByDisplayValue(/"type": "object"/);
-    fireEvent.change(schema, { target: { value: '[1, 2, 3]' } });
-    await userEvent.click(screen.getByRole('button', { name: /Add contract/ }));
-    expect(window.dw.createContract).not.toHaveBeenCalled();
-    expect(screen.getByText(/Schema must be a JSON object/i)).toBeInTheDocument();
+    it('creates a contract from a valid JSON Schema', async () => {
+      await goTo('Contracts');
+      await userEvent.type(screen.getByPlaceholderText('Contract name'), 'verdict');
+      await userEvent.click(screen.getByRole('button', { name: /Add contract/ }));
+      await waitFor(() => expect(window.dw.createContract).toHaveBeenCalledTimes(1));
+      const arg = (window.dw.createContract as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(arg).toMatchObject({ name: 'verdict', maxAttempts: 3 });
+      expect(typeof arg.schema).toBe('object');
+    });
   });
 
-  it('creates a contract from a valid JSON Schema', async () => {
-    const name = await openContracts();
-    await userEvent.type(name, 'verdict');
-    await userEvent.click(screen.getByRole('button', { name: /Add contract/ }));
-    await waitFor(() => expect(window.dw.createContract).toHaveBeenCalledTimes(1));
-    const arg = (window.dw.createContract as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(arg).toMatchObject({ name: 'verdict', maxAttempts: 3 });
-    expect(typeof arg.schema).toBe('object');
+  describe('Presets', () => {
+    it('lists the presets and creates a new one', async () => {
+      await goTo('Presets');
+      expect(await screen.findByText(/My Agent/)).toBeInTheDocument();
+      expect(screen.getByText(/Claude Code/)).toBeInTheDocument();
+      await userEvent.type(screen.getByPlaceholderText('Name'), 'Aider');
+      await userEvent.type(screen.getByPlaceholderText('Command'), 'aider');
+      await userEvent.click(screen.getByRole('button', { name: /Add preset/ }));
+      expect(window.dw.createPreset).toHaveBeenCalledWith(expect.objectContaining({ name: 'Aider', command: 'aider' }));
+    });
+  });
+
+  describe('Roles', () => {
+    it('creates a role from the form', async () => {
+      await goTo('Roles');
+      await userEvent.type(screen.getByPlaceholderText('Role name'), 'Reviewer');
+      await userEvent.type(screen.getByPlaceholderText(/Instructions for this role/), 'Review carefully.');
+      await userEvent.click(screen.getByRole('button', { name: /Add role/ }));
+      expect(window.dw.createRole).toHaveBeenCalledWith({ name: 'Reviewer', instructions: 'Review carefully.' });
+    });
   });
 });
