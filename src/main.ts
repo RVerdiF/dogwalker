@@ -21,7 +21,6 @@ import { seedFirstRun } from './main/firstRun';
 import { runMemTest } from './main/memTest';
 import { FsService } from './main/fsService';
 import { GitService } from './main/gitService';
-import { runCrossFloorTest } from './main/crossFloorTest';
 import { runV06Bdd } from './main/v06BddTest';
 import { PortalManager, type PortalBounds } from './main/portalManager';
 import { HookService } from './main/hookService';
@@ -608,9 +607,6 @@ const createWindow = () => {
 
 
 
-  if (process.env.DW_CROSSFLOORTEST) {
-    void runCrossFloorTest(ptys, graph, git, socketPath);
-  }
 
 
 

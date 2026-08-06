@@ -109,4 +109,14 @@ describe('GitService', () => {
     expect((await git.worktreeList(repo)).some((w) => w.branch === 'feat-r')).toBe(false);
     fs.rmSync(wtRoot, { recursive: true, force: true });
   });
+
+  it('rejects a second worktree on an already-checked-out branch', async () => {
+    await git.commit(repo, 'init');
+    const branch = (await git.status(repo)).branch; // checked out at the repo root
+    const wtRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'dw-dup-'));
+    const dup = await git.worktreeAdd(repo, path.join(wtRoot, 'dup'), branch, false);
+    expect(dup.ok).toBe(false);
+    expect(dup.output).toMatch(/already/i);
+    fs.rmSync(wtRoot, { recursive: true, force: true });
+  });
 });

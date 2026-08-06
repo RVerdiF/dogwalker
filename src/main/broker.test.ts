@@ -173,6 +173,21 @@ describe('Broker (integration, real PTYs)', () => {
     expect(res.ok).toBe(false);
   }, 30_000);
 
+  it('lists a peer’s floor and reaches it across the floor boundary', async () => {
+    const cfLead = ptys.spawn({ preset: 'shell', cols: 80, rows: 24, cwd: '', name: 'cf-lead', stableId: 'cf-lead', workspaceId: 'cf-ws', floorName: 'ground' }).id;
+    const cfWorker = ptys.spawn({ preset: 'shell', cols: 80, rows: 24, cwd: '', name: 'cf-worker', stableId: 'cf-worker', workspaceId: 'cf-floor', floorName: 'featX' }).id;
+    graph.connect(cfLead, cfWorker);
+    await wait(3000);
+    const listRes = await rpc(sock, { cmd: 'list', from: cfLead });
+    const peers = (listRes.data as { peers?: Array<{ name: string; floor?: string }> }).peers ?? [];
+    expect(peers).toContainEqual(expect.objectContaining({ name: 'cf-worker', floor: 'featX' }));
+    const askRes = await rpc(sock, { cmd: 'ask', from: cfLead, target: 'cf-worker', body: 'echo CROSSFLOOR_OK' });
+    expect(askRes.ok).toBe(true);
+    expect((askRes.data as { body?: string }).body).toContain('CROSSFLOOR_OK');
+    ptys.kill(cfLead);
+    ptys.kill(cfWorker);
+  }, 30_000);
+
   it('fails fast (not hang) when the target terminal has died', async () => {
     const victim = ptys.spawn({ preset: 'shell', cols: 80, rows: 24, workspaceId: 'test', cwd: '', name: 'victim', stableId: 'victim' }).id;
     graph.connect(lead, victim);
