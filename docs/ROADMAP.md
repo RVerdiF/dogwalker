@@ -19,6 +19,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v1.2.1](#v121--contract-result-ergonomics--documentation-consolidation) | Contract result ergonomics & documentation consolidation | Contract results are loop-ready and public docs are coherent |
 | [v1.3.0](#v130--iconography--json-schema-contracts) | Iconography & JSON-Schema contracts | Chrome is all SVG; a contract loops until the answer matches its JSON Schema |
 | [v1.3.1](#v131--ci-node-bump) | CI Node bump | The release build runs on Node 24 and installs cleanly |
+| [v1.3.2](#v132--spawn-time-role-ordering) | Spawn-time role ordering | A terminal's preset agent starts before its role is injected |
 
 ---
 
@@ -416,6 +417,22 @@ on Node 24 (was 20) so `npm ci`, `npm test` and `npm run make` match local and C
 **Exit criteria**
 - The tag build workflow completes green and attaches each OS's installer to the
   GitHub Release.
+
+---
+
+## v1.3.2 — Spawn-time role ordering
+
+A bug-fix patch. Creating a terminal with both a preset and a role injected the
+role immediately, but the preset command only auto-runs after the shell has had a
+moment to initialize — so the role prompt landed in the bare shell before the
+agent launched. A spawn-time role is now deferred: the preset command starts the
+agent first, and the role is injected only after the agent has booted and gone
+quiet, so it reads its role rather than the shell swallowing it. Runtime role
+(re)assignment to an already-running agent is unchanged.
+
+**Exit criteria**
+- A terminal spawned with a preset and a role shows the agent starting first, then
+  the role prompt — verified by a real-PTY ordering test.
 
 ---
 
