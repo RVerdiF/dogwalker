@@ -18,6 +18,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v1.2.0](#v120--team-operations--contracts) | Team Operations & contracts | An authorized team loop returns concise, contract-validated output |
 | [v1.2.1](#v121--contract-result-ergonomics--documentation-consolidation) | Contract result ergonomics & documentation consolidation | Contract results are loop-ready and public docs are coherent |
 | [v1.3.0](#v130--iconography--json-schema-contracts) | Iconography & JSON-Schema contracts | Chrome is all SVG; a contract loops until the answer matches its JSON Schema |
+| [v1.3.1](#v131--ci-node-bump) | CI Node bump | The release build runs on Node 24 and installs cleanly |
 
 ---
 
@@ -402,6 +403,19 @@ agent hold another to an exact JSON shape without a human in the loop.
   configured fallback when the attempt budget is exhausted — no hang, no error.
 - A single `ask --contract` prints just the value object, not an envelope.
 - `npm test`, `npm run typecheck` and `npm run lint` are green.
+
+---
+
+## v1.3.1 — CI Node bump
+
+A release-engineering patch: v1.3.0's test/build dependencies (Vitest, jsdom,
+`@testing-library/jest-dom`, Electron 43) require Node 22+, and the lockfile is
+generated with the npm that ships with Node 24. The CI `build` workflow now runs
+on Node 24 (was 20) so `npm ci`, `npm test` and `npm run make` match local and CI.
+
+**Exit criteria**
+- The tag build workflow completes green and attaches each OS's installer to the
+  GitHub Release.
 
 ---
 
