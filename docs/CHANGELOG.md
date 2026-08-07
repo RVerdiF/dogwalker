@@ -3,6 +3,13 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.3.2
+
+- Fix: opening a terminal that has both a preset and a role no longer injects the
+  role before the agent launches. The preset command now starts the agent first,
+  and the role is delivered only once the agent has booted and gone quiet — so it
+  reads its role instead of the role landing in the bare shell.
+
 ## 1.3.1
 
 - Release engineering: run CI on Node 24 (was 20). The v1.3.0 test/build

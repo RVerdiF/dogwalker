@@ -39,6 +39,10 @@ interface Entry {
   quietWaiters: Array<() => void>;
   /** Runaway guard: MB the child processes may use before the biggest is killed. */
   memoryLimitMB: number;
+  /** A preset command is scheduled to auto-run on spawn but hasn't yet. */
+  autoexecPending: boolean;
+  /** Role file to inject once the preset command's agent has started (spawn ordering). */
+  pendingRoleFile: string | null;
 }
 
 interface PtyEnv {
@@ -50,6 +54,8 @@ const SCROLLBACK = 2000;
 const FLUSH_MS = 16;
 /** Delay before auto-executing the preset command, letting the shell init. */
 const AUTOEXEC_DELAY_MS = 600;
+/** Cap on how long a spawn-time role waits for its agent to boot before injecting anyway. */
+const ROLE_AFTER_PRESET_TIMEOUT_MS = 15000;
 /** Idle-after-output window that flags a terminal as needing attention. */
 const QUIESCENCE_MS = 2500;
 /** How often to sample process memory while any terminal has a limit. */
@@ -143,16 +149,31 @@ export class PtyManager {
       quiesce: null,
       quietWaiters: [],
       memoryLimitMB: opts.memoryLimitMB ?? 0,
+      autoexecPending: false,
+      pendingRoleFile: null,
     });
     this.syncMemoryPoller();
     this.graph.addNode(id, opts.name, 'terminal', opts.preset);
 
     const command = this.resolvePreset(opts.preset);
     if (command) {
+      const started = this.entries.get(id);
+      if (started) started.autoexecPending = true;
       setTimeout(() => {
-        if (this.entries.has(id)) {
-          this.engage(id);
-          this.entries.get(id)?.proc.write(command + '\r');
+        const e = this.entries.get(id);
+        if (!e) return;
+        this.engage(id);
+        e.proc.write(command + '\r');
+        e.autoexecPending = false;
+        // A role assigned during spawn was deferred: the preset command starts
+        // the agent first, then — once it has booted and gone quiet — the role
+        // is injected, so the agent reads it instead of the bare shell (v1.3.2).
+        if (e.pendingRoleFile) {
+          const file = e.pendingRoleFile;
+          e.pendingRoleFile = null;
+          void this.awaitQuiet(id, ROLE_AFTER_PRESET_TIMEOUT_MS).then(() =>
+            this.injectRolePrompt(id, file),
+          );
         }
       }, AUTOEXEC_DELAY_MS);
     }
@@ -168,8 +189,20 @@ export class PtyManager {
     fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, entry.stableId + '.md');
     fs.writeFileSync(file, '# ' + role.name + '\n\n' + role.instructions);
-    this.inject(id, 'Your Dogwalker role was updated. Read ' + file + ' before continuing.');
+    if (entry.autoexecPending) {
+      // Spawning with both a preset and a role: defer the injection so the
+      // preset command starts the agent first (consumed by spawn once it goes
+      // quiet). Injecting now would land the role in the bare shell (v1.3.2).
+      entry.pendingRoleFile = file;
+    } else {
+      this.injectRolePrompt(id, file);
+    }
     return file;
+  }
+
+  /** Tell a live agent to read its (re)assigned role file. */
+  private injectRolePrompt(id: string, file: string): void {
+    this.inject(id, 'Your Dogwalker role was updated. Read ' + file + ' before continuing.');
   }
 
   // ---- attention (ARCHITECTURE.md §6) --------------------------------------
