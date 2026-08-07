@@ -3,6 +3,13 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.3.1
+
+- Release engineering: run CI on Node 24 (was 20). The v1.3.0 test/build
+  dependencies (Vitest, jsdom, `@testing-library/jest-dom`, Electron 43) require
+  Node 22+, and the lockfile is generated with the npm that ships with Node 24,
+  so `npm ci` and `npm test`/`npm run make` now match locally and in CI.
+
 ## 1.3.0
 
 - Contracts are now driven by a full **JSON Schema** (validated with Ajv). Using
