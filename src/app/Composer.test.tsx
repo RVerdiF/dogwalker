@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Composer, type Mention } from './Composer';
 
@@ -38,6 +38,26 @@ describe('Composer', () => {
     await userEvent.keyboard('{Enter}');
     expect(window.dw.sendPrompt).toHaveBeenCalledWith('t1', 'ship it');
     expect(box).toHaveValue('');
+  });
+
+  it('does not resurrect the just-sent text as a draft (pending debounce is cancelled)', () => {
+    vi.useFakeTimers();
+    try {
+      renderComposer();
+      const box = screen.getByRole('textbox') as HTMLTextAreaElement;
+      // A keystroke schedules a debounced setDraft('hello')…
+      fireEvent.change(box, { target: { value: 'hello' } });
+      // …then Enter sends before the debounce elapses.
+      fireEvent.keyDown(box, { key: 'Enter' });
+      // Let any still-pending debounce timer fire.
+      vi.advanceTimersByTime(1000);
+      const calls = (window.dw.setDraft as unknown as { mock: { calls: unknown[][] } }).mock.calls;
+      // The final draft state must be empty, never the sent text.
+      expect(calls.at(-1)).toEqual(['s1', '']);
+      expect(box.value).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does not submit on Shift+Enter', async () => {

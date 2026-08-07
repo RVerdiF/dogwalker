@@ -3,6 +3,19 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.3.3
+
+- Fix: the composer now clears after sending. A pending debounced draft write
+  could fire just after the message was sent and restore the sent text as the
+  draft, so it reappeared the next time the terminal was selected; the pending
+  write is now cancelled on send.
+- Fix: portals respect the visual layering. Because a portal is a native view
+  painted above the DOM, it used to cover the minimap, floating menus and modals.
+  Each portal's bounds are now clipped to the largest rectangle that avoids every
+  on-screen overlay, and a portal fully covered by a modal scrim is hidden.
+- Connections can be removed: hovering a leash's midpoint (or selecting it) shows
+  a remove control that deletes the connection and disconnects the pair.
+
 ## 1.3.2
 
 - Fix: opening a terminal that has both a preset and a role no longer injects the
