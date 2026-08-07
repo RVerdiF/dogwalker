@@ -71,8 +71,15 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
 
   if (!target) return null;
 
+  const cancelDraftSave = () => {
+    if (draftTimer.current !== null) {
+      window.clearTimeout(draftTimer.current);
+      draftTimer.current = null;
+    }
+  };
+
   const saveDraft = (next: string) => {
-    if (draftTimer.current !== null) window.clearTimeout(draftTimer.current);
+    cancelDraftSave();
     draftTimer.current = window.setTimeout(() => {
       window.dw.setDraft(target.stableId, next);
     }, DRAFT_DEBOUNCE_MS);
@@ -115,6 +122,10 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
     if (!body) return;
     window.dw.sendPrompt(target.id, body);
     setText('');
+    // Cancel any pending debounced draft write first: otherwise a keystroke's
+    // stale timer fires after this and resurrects the just-sent text as the
+    // draft, so it reappears the next time this terminal is selected.
+    cancelDraftSave();
     window.dw.setDraft(target.stableId, '');
   };
 

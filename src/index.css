@@ -1075,6 +1075,39 @@ body,
   stroke-width: 20;
 }
 
+/* Remove-connection control at a leash's midpoint (EdgeLabelRenderer layer).
+   Hidden until the midpoint is hovered or the leash is selected, so it stays
+   out of the way but is always reachable. */
+.dw-leash-delete {
+  position: absolute;
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--dw-leash);
+  border-radius: 50%;
+  background: var(--dw-bg);
+  color: var(--dw-leash);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.dw-leash-delete.visible,
+.dw-leash-delete:hover {
+  opacity: 1;
+}
+
+.dw-leash-delete:hover {
+  background: var(--dw-leash);
+  color: #fff;
+}
+
 /* History panel */
 .dw-history {
   position: fixed;

@@ -8,6 +8,7 @@ import {
   type Node,
   type NodeProps,
 } from '@xyflow/react';
+import { clipToOccluders, observeOcclusion, type Rect } from './portalOcclusion';
 
 export interface PortalNodeData extends Record<string, unknown> {
   name: string;
@@ -34,6 +35,10 @@ function PortalNodeInner({ id, data, selected }: NodeProps<PortalFlowNode>) {
   const { deleteElements } = useReactFlow();
   // Re-render on pan/zoom so the sync effect re-measures.
   const transform = useStore((s) => s.transform);
+  // Latest overlay rectangles the native view must not paint over, and a handle
+  // to re-run the bounds sync when they change (see portalOcclusion.ts).
+  const occludersRef = useRef<Rect[]>([]);
+  const syncRef = useRef<() => void>(() => {});
 
   // Create the browser on mount; destroy it on unmount.
   useEffect(() => {
@@ -52,23 +57,35 @@ function PortalNodeInner({ id, data, selected }: NodeProps<PortalFlowNode>) {
   }, [data.stableId]);
 
   // Keep the native view aligned with the body rect; zoom scales its content.
+  // Clip the bounds to the largest rectangle that avoids every overlay so the
+  // native view never paints over the minimap, menus or modals; a full cover
+  // (e.g. a modal scrim) collapses the clip and hides the view.
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
     const sync = () => {
-      const r = el.getBoundingClientRect();
-      window.dw.portalSetBounds(
-        data.stableId,
-        { x: r.left, y: r.top, width: r.width, height: r.height },
-        transform[2],
-        true,
-      );
+      const node = bodyRef.current;
+      if (!node) return;
+      const r = node.getBoundingClientRect();
+      const body: Rect = { x: r.left, y: r.top, width: r.width, height: r.height };
+      const clip = clipToOccluders(body, occludersRef.current);
+      const visible = clip.width > 1 && clip.height > 1;
+      window.dw.portalSetBounds(data.stableId, clip, transform[2], visible);
     };
+    syncRef.current = sync;
     sync();
     const ro = new ResizeObserver(sync);
     ro.observe(el);
     return () => ro.disconnect();
   }, [data.stableId, transform]);
+
+  // Re-clip whenever an overlay opens, closes or moves.
+  useEffect(() => {
+    return observeOcclusion((holes) => {
+      occludersRef.current = holes;
+      syncRef.current();
+    });
+  }, []);
 
   const go = (url: string) => {
     const u = url.trim();

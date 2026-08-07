@@ -20,6 +20,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v1.3.0](#v130--iconography--json-schema-contracts) | Iconography & JSON-Schema contracts | Chrome is all SVG; a contract loops until the answer matches its JSON Schema |
 | [v1.3.1](#v131--ci-node-bump) | CI Node bump | The release build runs on Node 24 and installs cleanly |
 | [v1.3.2](#v132--spawn-time-role-ordering) | Spawn-time role ordering | A terminal's preset agent starts before its role is injected |
+| [v1.3.3](#v133--composer-portal--leash-fixes) | Composer, portal & leash fixes | Composer clears on send, portals respect layering, connections are removable |
 
 ---
 
@@ -433,6 +434,30 @@ quiet, so it reads its role rather than the shell swallowing it. Runtime role
 **Exit criteria**
 - A terminal spawned with a preset and a role shows the agent starting first, then
   the role prompt — verified by a real-PTY ordering test.
+
+---
+
+## v1.3.3 — Composer, portal & leash fixes
+
+A bug-fix patch covering three canvas interactions:
+
+- **Composer clears on send.** A keystroke schedules a debounced draft write; if
+  the message was sent before it fired, the stale timer resurrected the sent text
+  as the draft, so it reappeared when the terminal was next selected. The pending
+  write is now cancelled on send.
+- **Portals respect layering.** A portal is a native `WebContentsView` painted
+  above the whole DOM, so it covered the minimap, floating menus and modals. Each
+  portal's native bounds are now clipped to the largest rectangle that avoids every
+  on-screen overlay (`portalOcclusion.ts`), and a portal fully covered by a modal
+  scrim is hidden — the DOM chrome always stays on top.
+- **Connections are removable.** A leash now shows a remove control at its midpoint
+  (on hover or when selected); deleting routes through `onEdgesDelete`, which
+  disconnects the pair in the broker.
+
+**Exit criteria**
+- Sending clears the box and leaves no draft behind (unit test).
+- A portal never paints over the minimap, an open menu or a modal.
+- A leash can be removed from the canvas without the keyboard.
 
 ---
 
