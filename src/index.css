@@ -527,6 +527,8 @@ body,
   align-items: center;
   justify-content: center;
   margin-bottom: 6px;
+  /* The wordmark text is currentColor, so it tracks the app theme. */
+  color: var(--dw-text);
 }
 
 .dw-rail-list {
@@ -841,6 +843,164 @@ body,
 
 .dw-routine-form textarea.dw-mono {
   font-family: var(--dw-mono, ui-monospace, "Cascadia Code", monospace);
+}
+
+/* ---- JSON Schema tree editor (contracts) ------------------------------- */
+.dw-contract-schemahead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dw-json-tree {
+  font-family: var(--dw-mono);
+  font-size: 12px;
+  background: var(--dw-surface-1);
+  border: 1px solid var(--dw-border);
+  border-radius: var(--dw-r-md);
+  padding: 8px 10px;
+  overflow-x: auto;
+}
+
+.dw-json-node {
+  min-width: 0;
+}
+
+.dw-json-branchhead,
+.dw-json-leaf {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dw-json-leaf {
+  flex: 1;
+  min-width: 0;
+}
+
+.dw-json-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--dw-text-muted);
+  cursor: pointer;
+}
+
+.dw-json-collapse svg {
+  transition: transform 0.12s ease;
+}
+
+.dw-json-collapse svg.open {
+  transform: rotate(90deg);
+}
+
+.dw-json-type {
+  background: var(--dw-surface-3);
+  color: var(--dw-text-dim);
+  border: 1px solid var(--dw-border);
+  border-radius: var(--dw-r-sm);
+  font-size: 11px;
+  padding: 1px 4px;
+  cursor: pointer;
+}
+
+.dw-json-meta {
+  color: var(--dw-text-faint);
+  font-size: 11px;
+}
+
+.dw-json-children {
+  margin-left: 12px;
+  padding-left: 8px;
+  border-left: 1px solid var(--dw-border);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 3px;
+}
+
+.dw-json-entry {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dw-json-key,
+.dw-json-value {
+  background: var(--dw-surface-2);
+  color: var(--dw-text);
+  border: 1px solid var(--dw-border);
+  border-radius: var(--dw-r-sm);
+  padding: 2px 6px;
+  font-family: var(--dw-mono);
+  font-size: 12px;
+  min-width: 0;
+}
+
+.dw-json-key {
+  color: var(--dw-accent);
+  max-width: 140px;
+}
+
+.dw-json-value {
+  flex: 1;
+}
+
+.dw-json-colon {
+  color: var(--dw-text-faint);
+}
+
+.dw-json-index {
+  color: var(--dw-text-faint);
+  min-width: 16px;
+  text-align: right;
+}
+
+.dw-json-null {
+  color: var(--dw-text-faint);
+  font-style: italic;
+}
+
+.dw-json-remove {
+  border: none;
+  background: none;
+  color: var(--dw-text-faint);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.dw-json-remove:hover {
+  color: var(--dw-leash);
+}
+
+.dw-json-add {
+  align-self: flex-start;
+  margin-top: 2px;
+  border: 1px dashed var(--dw-border-strong);
+  background: none;
+  color: var(--dw-text-muted);
+  border-radius: var(--dw-r-sm);
+  padding: 1px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.dw-json-add:hover {
+  color: var(--dw-accent);
+  border-color: var(--dw-accent);
+}
+
+.dw-json-parseerr {
+  color: var(--dw-warn);
+  font-size: 11px;
 }
 
 /* ---- Dev toolbar (dev only) --------------------------------------------- */
@@ -2388,13 +2548,21 @@ body,
 
 .dw-composer-target {
   align-self: center;
-  color: var(--dw-accent);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  max-width: 140px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dw-composer-to {
+  color: var(--dw-accent);
+}
+
+.dw-composer-hint {
+  color: var(--dw-text-faint);
+  font-weight: 500;
 }
 
 .dw-composer-input {
@@ -2409,7 +2577,7 @@ body,
   border: none;
   outline: none;
   background: transparent;
-  color: #eaeaf0;
+  color: var(--dw-text);
   font-family: inherit;
   font-size: 14px;
   line-height: 1.4;
@@ -2417,7 +2585,7 @@ body,
 }
 
 .dw-composer-textarea::placeholder {
-  color: #7a7a88;
+  color: var(--dw-text-faint);
 }
 
 .dw-composer-send {
@@ -2434,7 +2602,12 @@ body,
 }
 
 .dw-composer-send:hover {
-  background: #a3c4ff;
+  background: var(--dw-brand-1);
+}
+
+.dw-composer-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Mention menu */
@@ -2532,6 +2705,17 @@ body,
   font-family: Consolas, monospace;
   font-size: 15px;
   font-weight: 600;
+  position: relative;
+}
+
+/* App-theme swatch: a little inset "chrome" bar to preview surface + border. */
+.dw-swatch-chrome {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  border-bottom: 1px solid;
 }
 
 .dw-swatch-dots {

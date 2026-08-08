@@ -1,41 +1,45 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { TerminalIcon, NoteIcon, CrownIcon, SendIcon } from './icons';
+import { TerminalIcon, CrownIcon, SendIcon } from './icons';
 
-export interface ComposerTarget {
-  id: string; // live terminal id
+export interface ComposerTerminal {
+  id: string; // live terminal id (routing)
   stableId: string;
   name: string;
-}
-
-export interface Mention {
-  name: string;
-  kind: 'terminal' | 'note';
   /** A Walker (manager agent, §5.4) — marked in the mention menu. */
   walker?: boolean;
 }
 
 interface Props {
-  target: ComposerTarget | null;
-  mentions: Mention[];
-  /** Create a note wired to the target; resolves to its name to insert. */
-  onNewNote: () => Promise<string>;
-  /** Create a portal wired to the target; resolves to its name to insert. */
-  onNewPortal: () => Promise<string>;
+  /** Every live terminal, so any can be @mentioned as a recipient. */
+  terminals: ComposerTerminal[];
   focusSignal: number;
 }
 
 const DRAFT_DEBOUNCE_MS = 300;
+/** One shared draft: the composer is a single open chat, not bound to a node. */
+const DRAFT_KEY = '__composer__';
+
+const escapeRegExp = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /**
- * Floating prompt composer bound to the selected terminal (PRODUCT.md §7).
- * Enter submits (atomic inject), Shift+Enter makes a newline. Typing @ opens a
- * menu of connected terminals/notes plus "New note". Pasted images are written
- * to a temp file and their path inserted, which every agent CLI can read.
- * Drafts persist per terminal. "New portal" creates a browser wired to the
- * target (§9); @Walker mentions and nav-key pass-through arrive with their
- * features.
+ * Which terminals a message is addressed to: those whose `@name` appears in the
+ * text (case-insensitive, with a trailing boundary so `@shell` doesn't also hit
+ * `@shell-2`). Recipients are derived from the text itself — the `@mention` is
+ * both the routing marker and part of the verbatim message.
  */
-export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal }: Props) {
+export function recipientsOf(text: string, terminals: ComposerTerminal[]): ComposerTerminal[] {
+  return terminals.filter((t) => new RegExp('@' + escapeRegExp(t.name) + '(?![\\w-])', 'i').test(text));
+}
+
+/**
+ * Floating prompt composer (PRODUCT.md §7): an open chat, not bound to a
+ * selected terminal. Type @ to mention one or more live terminals — the message
+ * is delivered verbatim (mentions included, never split) to each mentioned
+ * terminal, so addressing several at once lets each agent see what the others
+ * were told. Enter submits, Shift+Enter makes a newline. Pasted images are
+ * written to a temp file and their path inserted. The draft persists.
+ */
+export function Composer({ terminals, focusSignal }: Props) {
   const [text, setText] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -43,17 +47,16 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
   const ref = useRef<HTMLTextAreaElement>(null);
   const draftTimer = useRef<number | null>(null);
 
-  // Load the draft when the target changes.
+  // Load the shared draft once.
   useEffect(() => {
-    if (!target) return;
     let alive = true;
-    void window.dw.getDraft(target.stableId).then((d) => {
+    void window.dw.getDraft(DRAFT_KEY).then((d) => {
       if (alive) setText(d);
     });
     return () => {
       alive = false;
     };
-  }, [target?.stableId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (focusSignal > 0) ref.current?.focus();
@@ -61,15 +64,10 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
 
   const items = useMemo(() => {
     const q = query.toLowerCase();
-    const matches = mentions.filter((m) => m.name.toLowerCase().includes(q));
-    return [
-      { name: 'New note', kind: 'new' as const },
-      { name: 'New portal', kind: 'new-portal' as const },
-      ...matches,
-    ];
-  }, [mentions, query]);
+    return terminals.filter((t) => t.name.toLowerCase().includes(q));
+  }, [terminals, query]);
 
-  if (!target) return null;
+  const recipients = useMemo(() => recipientsOf(text, terminals), [text, terminals]);
 
   const cancelDraftSave = () => {
     if (draftTimer.current !== null) {
@@ -81,7 +79,7 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
   const saveDraft = (next: string) => {
     cancelDraftSave();
     draftTimer.current = window.setTimeout(() => {
-      window.dw.setDraft(target.stableId, next);
+      window.dw.setDraft(DRAFT_KEY, next);
     }, DRAFT_DEBOUNCE_MS);
   };
 
@@ -91,7 +89,7 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
     // Detect an @-token immediately before the caret.
     const caret = ref.current?.selectionStart ?? next.length;
     const before = next.slice(0, caret);
-    const m = /(?:^|\s)@(\w*)$/.exec(before);
+    const m = /(?:^|\s)@([\w-]*)$/.exec(before);
     if (m) {
       setQuery(m[1]);
       setIndex(0);
@@ -101,15 +99,9 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
     }
   };
 
-  const insertMention = async (item: (typeof items)[number]) => {
-    const name =
-      item.kind === 'new'
-        ? await onNewNote()
-        : item.kind === 'new-portal'
-          ? await onNewPortal()
-          : item.name;
+  const insertMention = (t: ComposerTerminal) => {
     const caret = ref.current?.selectionStart ?? text.length;
-    const before = text.slice(0, caret).replace(/@(\w*)$/, `@${name} `);
+    const before = text.slice(0, caret).replace(/@([\w-]*)$/, `@${t.name} `);
     const next = before + text.slice(caret);
     setMenuOpen(false);
     setText(next);
@@ -119,18 +111,16 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
 
   const send = () => {
     const body = text.trim();
-    if (!body) return;
-    window.dw.sendPrompt(target.id, body);
+    if (!body || recipients.length === 0) return;
+    // The full text — mentions included — goes to each recipient verbatim.
+    for (const r of recipients) window.dw.sendPrompt(r.id, body);
     setText('');
-    // Cancel any pending debounced draft write first: otherwise a keystroke's
-    // stale timer fires after this and resurrects the just-sent text as the
-    // draft, so it reappears the next time this terminal is selected.
     cancelDraftSave();
-    window.dw.setDraft(target.stableId, '');
+    window.dw.setDraft(DRAFT_KEY, '');
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (menuOpen) {
+    if (menuOpen && items.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setIndex((i) => (i + 1) % items.length);
@@ -143,7 +133,7 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        void insertMention(items[index]);
+        insertMention(items[index]);
         return;
       }
       if (e.key === 'Escape') {
@@ -171,35 +161,35 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
     update(next);
   };
 
+  if (terminals.length === 0) return null;
+
   return (
     <div className="dw-composer">
-      <div className="dw-composer-target">→ {target.name}</div>
+      <div className="dw-composer-target">
+        {recipients.length === 0 ? (
+          <span className="dw-composer-hint">@mention a terminal to address it</span>
+        ) : (
+          <span className="dw-composer-to">
+            → {recipients.map((r) => r.name).join(', ')}
+          </span>
+        )}
+      </div>
       <div className="dw-composer-input">
-        {menuOpen && (
+        {menuOpen && items.length > 0 && (
           <div className="dw-mention-menu">
-            {items.map((it, i) => (
+            {items.map((t, i) => (
               <button
-                key={it.name + i}
-                className={`dw-mention-item ${i === index ? 'active' : ''} ${
-                  it.kind === 'new' ? 'new' : ''
-                }`}
+                key={t.id}
+                className={`dw-mention-item ${i === index ? 'active' : ''}`}
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  void insertMention(it);
+                  insertMention(t);
                 }}
               >
                 <span className="dw-mention-icon">
-                  {it.kind === 'new' || it.kind === 'new-portal' ? (
-                    '＋'
-                  ) : 'walker' in it && it.walker ? (
-                    <CrownIcon size={14} />
-                  ) : it.kind === 'note' ? (
-                    <NoteIcon size={14} />
-                  ) : (
-                    <TerminalIcon size={14} />
-                  )}
+                  {t.walker ? <CrownIcon size={14} /> : <TerminalIcon size={14} />}
                 </span>
-                {it.name}
+                {t.name}
               </button>
             ))}
           </div>
@@ -208,14 +198,19 @@ export function Composer({ target, mentions, onNewNote, onNewPortal, focusSignal
           ref={ref}
           className="dw-composer-textarea"
           value={text}
-          placeholder={`Message ${target.name}…  (@ to mention, Enter to send)`}
+          placeholder="Message terminals…  (@ to mention, Enter to send)"
           onChange={(e) => update(e.target.value)}
           onKeyDown={onKeyDown}
           onPaste={(e) => void onPaste(e)}
           rows={2}
         />
       </div>
-      <button className="dw-composer-send" onClick={send} title="Send (Enter)">
+      <button
+        className="dw-composer-send"
+        onClick={send}
+        disabled={recipients.length === 0}
+        title={recipients.length === 0 ? 'Mention a terminal first' : 'Send (Enter)'}
+      >
         <SendIcon size={16} />
       </button>
     </div>

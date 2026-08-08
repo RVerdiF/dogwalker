@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { AppSettings, FloorMeta, SidebarEntry, WorkspaceMeta } from '../shared/ipc';
 import { BUILTIN_THEMES, type ThemeSpec } from '../shared/themes';
+import { applyAppTheme, DEFAULT_APP_THEME } from '../shared/appThemes';
 import { terminals } from './terminalService';
 import { Canvas } from './Canvas';
 import { Sidebar } from './Sidebar';
@@ -17,6 +18,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   followSystem: false,
   notifyOnAttention: true,
   miniSidebar: false,
+  appTheme: DEFAULT_APP_THEME,
 };
 
 function findTheme(themes: ThemeSpec[], name: string): ThemeSpec | undefined {
@@ -97,6 +99,11 @@ export function App() {
   useEffect(() => {
     terminals.setTheme((activeTheme ?? BUILTIN_THEMES[0]).theme);
   }, [activeTheme]);
+
+  // Recolor the whole UI chrome when the app theme changes.
+  useEffect(() => {
+    applyAppTheme(settings.appTheme);
+  }, [settings.appTheme]);
 
   const updateSettings = useCallback(async (partial: Partial<AppSettings>) => {
     const next = await window.dw.setSettings(partial);

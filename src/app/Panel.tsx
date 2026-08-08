@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
 import type { AppSettings, LiveTerminal, Contract, Routine, WorkspaceMeta } from '../shared/ipc';
 import type { ThemeSpec } from '../shared/themes';
+import { APP_THEMES } from '../shared/appThemes';
+import { JsonTreeEditor, type JsonValue } from './JsonTreeEditor';
 import {
   WorkspacesIcon,
   RoutinesIcon,
@@ -281,6 +283,7 @@ function ContractForm({ initial, submitLabel, onSubmit, onCancel }: {
   const [rejectionPrompt, setRejectionPrompt] = useState(initial?.rejectionPrompt ?? '');
   const [fallbackText, setFallbackText] = useState(initial?.fallbackText ?? '');
   const [error, setError] = useState('');
+  const [rawSchema, setRawSchema] = useState(false);
   const submit = () => {
     try {
       const input = draftToInput({ name, schemaText, attempts, timeoutSec, rejectionPrompt, fallbackText });
@@ -290,11 +293,32 @@ function ContractForm({ initial, submitLabel, onSubmit, onCancel }: {
       setError(e instanceof Error ? e.message : 'Invalid JSON');
     }
   };
+  // The tree edits parsed JSON; a parse failure falls back to the raw textarea.
+  let parsedSchema: JsonValue | null = null;
+  let schemaBroken = false;
+  try {
+    parsedSchema = JSON.parse(schemaText) as JsonValue;
+  } catch {
+    schemaBroken = true;
+  }
+  const showRaw = rawSchema || schemaBroken;
   return (
     <div className="dw-routine-form" style={{ width: '100%' }}>
       <input placeholder="Contract name" value={name} onChange={(e) => setName(e.target.value)} />
-      <label className="dw-contract-label">JSON Schema the peer's answer must match</label>
-      <textarea className="dw-mono" rows={7} value={schemaText} onChange={(e) => setSchemaText(e.target.value)} />
+      <div className="dw-contract-schemahead">
+        <label className="dw-contract-label">JSON Schema the peer's answer must match</label>
+        <button type="button" className="dw-btn-small" onClick={() => setRawSchema((r) => !r)} disabled={schemaBroken}>
+          {showRaw ? 'Tree editor' : 'Raw JSON'}
+        </button>
+      </div>
+      {showRaw ? (
+        <>
+          <textarea className="dw-mono" rows={7} value={schemaText} onChange={(e) => setSchemaText(e.target.value)} />
+          {schemaBroken && <div className="dw-json-parseerr">Invalid JSON — fix it here to return to the tree editor.</div>}
+        </>
+      ) : (
+        <JsonTreeEditor value={parsedSchema as JsonValue} onChange={(v) => setSchemaText(JSON.stringify(v, null, 2))} />
+      )}
       <div className="dw-routine-row">
         <label className="dw-routine-every">attempts<input type="number" min={1} value={attempts} onChange={(e) => setAttempts(Number(e.target.value))} /></label>
         <label className="dw-routine-every">timeout<input type="number" min={1} value={timeoutSec} onChange={(e) => setTimeoutSec(Number(e.target.value))} />s</label>
@@ -528,6 +552,28 @@ function SettingsSection({ themes, settings, activeThemeName, onUpdateSettings }
   return (
     <div className="dw-section">
       <div className="dw-section-head">
+        <h2>App theme</h2>
+        <span className="dw-active-theme">active: {settings.appTheme}</span>
+      </div>
+      <p className="dw-settings-hint">
+        Recolors the whole interface — background, sidebar, menus, notes, leashes,
+        buttons and icons.
+      </p>
+      <div className="dw-theme-grid">
+        {APP_THEMES.map((t) => (
+          <button
+            key={t.name}
+            className={`dw-theme-card ${settings.appTheme === t.name ? 'active' : ''}`}
+            onClick={() => onUpdateSettings({ appTheme: t.name })}
+            title={t.name}
+          >
+            <AppThemeSwatch tokens={t.tokens} />
+            <span className="dw-theme-name">{t.name}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="dw-section-head" style={{ marginTop: 8 }}>
         <h2>Terminal theme</h2>
         <span className="dw-active-theme">active: {activeThemeName}</span>
       </div>
@@ -592,6 +638,20 @@ function SettingsSection({ themes, settings, activeThemeName, onUpdateSettings }
         Drop custom <code>.json</code> themes in the app's{' '}
         <code>terminal-themes</code> folder; they appear here after a restart.
       </p>
+    </div>
+  );
+}
+
+function AppThemeSwatch({ tokens }: { tokens: Record<string, string> }) {
+  return (
+    <div className="dw-swatch" style={{ background: tokens['--dw-bg'] }}>
+      <span className="dw-swatch-chrome" style={{ background: tokens['--dw-surface-2'], borderColor: tokens['--dw-border'] }} />
+      <span className="dw-swatch-text" style={{ color: tokens['--dw-text'] }}>Aa</span>
+      <div className="dw-swatch-dots">
+        {['--dw-accent', '--dw-leash', '--dw-note', '--dw-success'].map((k) => (
+          <span key={k} style={{ background: tokens[k] }} />
+        ))}
+      </div>
     </div>
   );
 }

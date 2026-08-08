@@ -80,7 +80,7 @@ Terminals on the canvas are never replaced by static screenshots at normal worki
 ### 4.1 Terminals
 - Real local PTYs (zsh/bash/fish on macOS & Linux, PowerShell/WSL via ConPTY on Windows).
 - Named, with icons, for quick identification.
-- Themeable: built-in color schemes + user-supplied custom themes, with a follow-system light/dark toggle.
+- Themeable: built-in color schemes + user-supplied custom themes, with a follow-system light/dark toggle. Separately, named **app themes** (Dogwalker Dark, Dim, Dogwalker Light) recolor the whole interface chrome.
 - Per-terminal memory limit (a per-terminal setting, off by default): if the foreground process tree exceeds it, Dogwalker kills the offender and preserves the shell.
 - Number badges (hold modifier) for quick jump to terminals 1–9.
 
@@ -212,12 +212,11 @@ Markdown files on disk, rendered as sticky notes on the canvas.
 
 ## 7. Prompt Composer
 
-A floating rich-text input that overlays the focused terminal.
+A floating input that is an open chat, not bound to the selected terminal.
 
-- **@-mentions:** connected resources — terminals, notes, portals, `@Walker` — plus `@New Note` / `@New Portal` to create-and-wire in one step.
+- **@-mentions address recipients:** type `@<name>` to mention one or more live terminals. On send, the full text — mentions included, never split — is delivered verbatim to each mentioned terminal, so addressing several at once lets each agent see what the others were told. Send is disabled until at least one terminal is mentioned.
 - **Images:** paste screenshots/files; delivered to agents as a temp-file path injected into the prompt (uniform across Claude Code, Codex, Gemini CLI — anything that reads image paths). Temp files are cleaned up on session end.
-- **Drafts:** per-terminal, persisted across workspace/floor switches and app restarts.
-- **Key passthrough:** with an empty composer, navigation keys pass through to the terminal so TUI dialogs stay usable.
+- **Draft:** a single shared draft, persisted across workspace/floor switches and app restarts.
 
 ## 8. File Tree
 

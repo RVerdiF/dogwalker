@@ -40,7 +40,7 @@ import { HistoryPanel } from './HistoryPanel';
 import { DevBar } from './DevBar';
 import { TerminalPalette } from './TerminalPalette';
 import { DogwalkerLogo } from './icons';
-import { Composer, type ComposerTarget, type Mention } from './Composer';
+import { Composer, type ComposerTerminal } from './Composer';
 import { CanvasMenu } from './CanvasMenu';
 import {
   align,
@@ -1105,45 +1105,18 @@ export function Canvas({
   }, [setNodes]);
 
   // ---- prompt composer -----------------------------------------------------
-  // The composer follows the single selected terminal.
-  const composerTarget = useMemo<ComposerTarget | null>(() => {
-    const sel = nodes.filter((n) => n.selected && n.type === 'terminal');
-    if (sel.length !== 1) return null;
-    const n = sel[0];
-    return { id: n.id, stableId: n.data.stableId, name: n.data.name };
-  }, [nodes]);
-
-  // Mentions = the target terminal's connected terminals and notes.
-  const composerMentions = useMemo<Mention[]>(() => {
-    if (!composerTarget) return [];
-    const peers = new Set<string>();
-    for (const e of graph.edges) {
-      if (e.a === composerTarget.id) peers.add(e.b);
-      else if (e.b === composerTarget.id) peers.add(e.a);
-    }
-    const walkerIds = new Set(
-      nodesRef.current.filter((n) => n.type === 'terminal' && n.data.walker).map((n) => n.id),
-    );
-    return graph.nodes
-      .filter((n) => peers.has(n.id) && (n.kind === 'terminal' || n.kind === 'note'))
+  // The composer is an open chat: any live terminal can be @mentioned as a
+  // recipient, so it lists them all rather than following the selection.
+  const composerTerminals = useMemo<ComposerTerminal[]>(() => {
+    return nodes
+      .filter((n): n is TerminalFlowNode => n.type === 'terminal')
       .map((n) => ({
-        name: n.name,
-        kind: n.kind as 'terminal' | 'note',
-        walker: walkerIds.has(n.id),
+        id: n.id,
+        stableId: n.data.stableId,
+        name: n.data.name,
+        walker: n.data.walker,
       }));
-  }, [composerTarget, graph]);
-
-  const onComposerNewNote = useCallback(async () => {
-    const { id, name } = await addNote();
-    if (composerTarget) await window.dw.connect(composerTarget.id, id);
-    return name;
-  }, [addNote, composerTarget]);
-
-  const onComposerNewPortal = useCallback(async () => {
-    const { id, name } = await addPortal();
-    if (composerTarget) await window.dw.connect(composerTarget.id, id);
-    return name;
-  }, [addPortal, composerTarget]);
+  }, [nodes]);
 
   // ---- selection layout ops (PRODUCT.md §3.3) ------------------------------
   const selectedBoxes = useCallback((): Box[] => {
@@ -2170,13 +2143,7 @@ export function Canvas({
       </ReactFlow>
       {isDev && showHud && <Hud />}
       <HistoryPanel pair={historyPair} onClose={() => setHistoryPair(null)} />
-      <Composer
-        target={composerTarget}
-        mentions={composerMentions}
-        onNewNote={onComposerNewNote}
-        onNewPortal={onComposerNewPortal}
-        focusSignal={focusSignal}
-      />
+      <Composer terminals={composerTerminals} focusSignal={focusSignal} />
       {menu && (
         <CanvasMenu
           x={menu.x}
