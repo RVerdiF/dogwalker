@@ -2132,10 +2132,13 @@ export function Canvas({
             pannable
             zoomable
             className="dw-minimap"
-            maskColor="rgba(10, 10, 14, 0.7)"
-            nodeColor={(n) => (n.type === 'note' ? '#3a3726' : '#2e2e3a')}
+            nodeColor={(n) => (n.type === 'note' ? 'var(--dw-note-bg)' : 'var(--dw-surface-3)')}
             nodeStrokeColor={(n) =>
-              n.type === 'note' ? '#e0cf7a' : n.data?.attention ? '#e6533c' : '#e8b565'
+              n.type === 'note'
+                ? 'var(--dw-note)'
+                : n.data?.attention
+                  ? 'var(--dw-leash)'
+                  : 'var(--dw-accent)'
             }
             nodeStrokeWidth={3}
           />

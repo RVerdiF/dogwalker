@@ -39,6 +39,14 @@
   --dw-success-bg: #16351f;
   --dw-danger-bg: #2a1618;
   --dw-on-accent: #15151b;
+  /* categorical branch-lane colors (git graph) */
+  --dw-lane-1: #8ab4ff;
+  --dw-lane-2: #b98aff;
+  --dw-lane-3: #7fd79a;
+  --dw-lane-4: #e0cf7a;
+  --dw-lane-5: #7ad6d6;
+  --dw-lane-6: #ff7a7a;
+  --dw-lane-7: #a3c4ff;
   /* type */
   --dw-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
   --dw-mono: ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
@@ -130,7 +138,7 @@ body,
 
 .dw-floor-chip.active {
   border-color: var(--dw-accent);
-  box-shadow: 0 0 0 2px rgba(232, 181, 101, 0.18);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dw-accent) 18%, transparent);
 }
 
 .dw-floor-branch {
@@ -256,7 +264,7 @@ body,
 
 .dw-routine-dot.running {
   background: var(--dw-accent);
-  box-shadow: 0 0 0 3px rgba(232, 181, 101, 0.25);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dw-accent) 25%, transparent);
   animation: dw-routine-pulse 1.1s ease-in-out infinite;
 }
 
@@ -609,7 +617,7 @@ body,
 
 .dw-rail-ws.active {
   border-color: var(--dw-accent);
-  box-shadow: 0 0 0 2px rgba(232, 181, 101, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dw-accent) 20%, transparent);
 }
 
 .dw-rail-ws.dragging,
@@ -744,8 +752,8 @@ body,
 }
 
 .dw-palette-chip:hover {
-  background: rgba(232, 181, 101, 0.16);
-  border-color: rgba(232, 181, 101, 0.5);
+  background: color-mix(in srgb, var(--dw-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--dw-accent) 50%, transparent);
   color: var(--dw-accent);
   transform: translateY(-1px);
 }
@@ -1104,15 +1112,15 @@ body,
   height: 9px;
   border-radius: 50%;
   background: var(--dw-danger);
-  box-shadow: 0 0 0 0 rgba(255, 85, 85, 0.6);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--dw-leash) 60%, transparent);
   animation: dw-attention-pulse 1.6s ease-out infinite;
   flex-shrink: 0;
 }
 
 @keyframes dw-attention-pulse {
-  0% { box-shadow: 0 0 0 0 rgba(255, 85, 85, 0.55); }
-  70% { box-shadow: 0 0 0 7px rgba(255, 85, 85, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(255, 85, 85, 0); }
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dw-leash) 55%, transparent); }
+  70% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--dw-leash) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--dw-leash) 0%, transparent); }
 }
 
 .dw-tier {
@@ -1423,7 +1431,7 @@ body,
 }
 
 .dw-panel-navitem.active {
-  background: rgba(232, 181, 101, 0.16);
+  background: color-mix(in srgb, var(--dw-accent) 16%, transparent);
   color: #fff;
 }
 
@@ -1473,7 +1481,7 @@ body,
 }
 
 .dw-panel-close:hover {
-  background: rgba(255, 122, 122, 0.2);
+  background: color-mix(in srgb, var(--dw-leash) 20%, transparent);
   color: var(--dw-danger);
 }
 
@@ -1505,8 +1513,8 @@ body,
 }
 
 .dw-ws-card.active {
-  border-color: rgba(232, 181, 101, 0.6);
-  background: rgba(232, 181, 101, 0.08);
+  border-color: color-mix(in srgb, var(--dw-accent) 60%, transparent);
+  background: color-mix(in srgb, var(--dw-accent) 8%, transparent);
 }
 
 .dw-ws-open {
@@ -1618,9 +1626,9 @@ body,
 }
 
 .dw-btn-danger:hover {
-  background: rgba(255, 122, 122, 0.2);
+  background: color-mix(in srgb, var(--dw-leash) 20%, transparent);
   color: var(--dw-danger);
-  border-color: rgba(255, 122, 122, 0.4);
+  border-color: color-mix(in srgb, var(--dw-leash) 40%, transparent);
 }
 
 /* ---- Note node ---------------------------------------------------------- */
@@ -1650,7 +1658,7 @@ body,
 
 .dw-ft.dw-node-selected {
   border-color: var(--dw-accent);
-  box-shadow: 0 0 0 2px rgba(232, 181, 101, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dw-accent) 20%, transparent);
 }
 
 .dw-ft-header {
@@ -2246,7 +2254,7 @@ body,
 
 .dw-preview.dw-node-selected {
   border-color: var(--dw-accent);
-  box-shadow: 0 0 0 2px rgba(232, 181, 101, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dw-accent) 20%, transparent);
 }
 
 .dw-preview-header {
@@ -2313,7 +2321,7 @@ body,
 
 .dw-portal.dw-node-selected {
   border-color: var(--dw-accent);
-  box-shadow: 0 0 0 2px rgba(232, 181, 101, 0.2);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dw-accent) 20%, transparent);
 }
 
 .dw-portal-bar {
@@ -2662,7 +2670,7 @@ body,
 
 .dw-mention-item:hover,
 .dw-mention-item.active {
-  background: rgba(232, 181, 101, 0.18);
+  background: color-mix(in srgb, var(--dw-accent) 18%, transparent);
 }
 
 .dw-mention-item.new {
@@ -2705,8 +2713,8 @@ body,
 }
 
 .dw-theme-card.active {
-  border-color: rgba(232, 181, 101, 0.7);
-  background: rgba(232, 181, 101, 0.1);
+  border-color: color-mix(in srgb, var(--dw-accent) 70%, transparent);
+  background: color-mix(in srgb, var(--dw-accent) 10%, transparent);
 }
 
 .dw-swatch {
@@ -2763,7 +2771,7 @@ body,
   font-size: 9px;
   text-transform: uppercase;
   color: var(--dw-success);
-  border: 1px solid rgba(127, 215, 154, 0.4);
+  border: 1px solid color-mix(in srgb, var(--dw-success) 40%, transparent);
   border-radius: 4px;
   padding: 0 4px;
 }
@@ -2819,7 +2827,7 @@ body,
 }
 
 .dw-minimap .react-flow__minimap-mask {
-  fill: rgba(10, 10, 14, 0.6);
+  fill: color-mix(in srgb, var(--dw-bg) 55%, transparent);
 }
 
 /* ---- Canvas context menu ------------------------------------------------ */
@@ -2859,7 +2867,7 @@ body,
 }
 
 .dw-ctxmenu-item:hover:not(:disabled) {
-  background: rgba(232, 181, 101, 0.18);
+  background: color-mix(in srgb, var(--dw-accent) 18%, transparent);
 }
 
 .dw-ctxmenu-item:disabled {
@@ -3026,11 +3034,11 @@ body,
 }
 
 .dw-limit-chip:hover {
-  background: rgba(232, 181, 101, 0.18);
+  background: color-mix(in srgb, var(--dw-accent) 18%, transparent);
 }
 
 .dw-limit-chip.active {
-  background: rgba(232, 181, 101, 0.28);
+  background: color-mix(in srgb, var(--dw-accent) 28%, transparent);
   border-color: var(--dw-accent);
   color: #fff;
 }
@@ -3041,14 +3049,14 @@ body,
   height: 100%;
   border: 1px dashed var(--dw-border-strong);
   border-radius: 12px;
-  background: rgba(232, 181, 101, 0.05);
+  background: color-mix(in srgb, var(--dw-accent) 5%, transparent);
   /* Click-through so members stay interactive; only the header grabs. */
   pointer-events: none;
 }
 
 .dw-group-selected {
   border-color: var(--dw-accent);
-  background: rgba(232, 181, 101, 0.1);
+  background: color-mix(in srgb, var(--dw-accent) 10%, transparent);
 }
 
 .dw-group-header {

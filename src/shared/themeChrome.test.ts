@@ -31,7 +31,7 @@ describe('chromeTokensFromTheme', () => {
   it('derives every core token for both dark and light themes', () => {
     for (const spec of [dark, light]) {
       const tk = chromeTokensFromTheme(spec);
-      for (const key of ['--dw-surface-1', '--dw-border', '--dw-text-muted', '--dw-accent', '--dw-note-bg', '--dw-on-accent', '--dw-success-bg']) {
+      for (const key of ['--dw-surface-1', '--dw-border', '--dw-text-muted', '--dw-accent', '--dw-note-bg', '--dw-on-accent', '--dw-success-bg', '--dw-lane-1', '--dw-lane-7']) {
         expect(tk[key], `${spec.name} ${key}`).toBeTruthy();
       }
     }

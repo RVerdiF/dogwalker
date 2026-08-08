@@ -16,6 +16,9 @@ canvas for AI coding agents.
 - Composer: the left-hand recipient indicator (and its "@mention a terminal" hint)
   is gone. Instead, each `@mention` is tinted in the accent color inline as you
   type, via a highlight overlay — theme-aware like the rest of the UI.
+- The sidebar logo, the minimap, git-graph branch lanes and the remaining accent
+  glows now follow the theme too — the brand mark tints from the theme, lanes use
+  the palette's ANSI hues, and inline code chips stay legible on light themes.
 
 ## 1.4.0
 

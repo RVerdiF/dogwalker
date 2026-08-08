@@ -5,14 +5,16 @@ import { computeLanes, type GraphRow } from './gitGraph';
 const LANE_W = 14;
 const ROW_H = 26;
 const DOT_R = 4;
+// The theme's own ANSI hues (via CSS vars) so lanes stay distinct and legible
+// on any theme's background.
 const LANE_COLORS = [
-  '#8ab4ff',
-  '#ff8db4',
-  '#7ee0a8',
-  '#e0c26a',
-  '#c99bff',
-  '#6ad0d0',
-  '#ff9e6a',
+  'var(--dw-lane-1)',
+  'var(--dw-lane-2)',
+  'var(--dw-lane-3)',
+  'var(--dw-lane-4)',
+  'var(--dw-lane-5)',
+  'var(--dw-lane-6)',
+  'var(--dw-lane-7)',
 ];
 
 function color(i: number): string {
@@ -52,7 +54,7 @@ export function GitGraphView({ cwd }: { cwd: string }) {
                 <path
                   key={si}
                   d={`M ${x1} 0 C ${x1} ${ROW_H / 2}, ${x2} ${ROW_H / 2}, ${x2} ${ROW_H}`}
-                  stroke={color(s.color)}
+                  style={{ stroke: color(s.color) }}
                   strokeWidth={1.5}
                   fill="none"
                 />
@@ -62,8 +64,7 @@ export function GitGraphView({ cwd }: { cwd: string }) {
               cx={row.col * LANE_W + LANE_W}
               cy={ROW_H / 2}
               r={DOT_R}
-              fill={color(row.color)}
-              stroke="#0e1013"
+              style={{ fill: color(row.color), stroke: 'var(--dw-bg)' }}
               strokeWidth={1}
             />
           </svg>

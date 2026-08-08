@@ -88,6 +88,15 @@ export function chromeTokensFromTheme(spec: ThemeSpec): Record<string, string> {
     '--dw-success-bg': mix(bg, green, 0.16),
     '--dw-danger-bg': mix(bg, red, 0.16),
     '--dw-on-accent': ink(accent),
+    // Categorical branch-lane colors (git graph) — the palette's own ANSI hues,
+    // so lanes stay distinct AND legible on the theme's background.
+    '--dw-lane-1': t.blue,
+    '--dw-lane-2': t.magenta,
+    '--dw-lane-3': t.green,
+    '--dw-lane-4': t.yellow,
+    '--dw-lane-5': t.cyan,
+    '--dw-lane-6': t.red,
+    '--dw-lane-7': t.brightBlue || t.blue,
   };
 }
 
