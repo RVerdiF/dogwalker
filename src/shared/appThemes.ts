@@ -36,6 +36,11 @@ const DARK_TOKENS: Record<string, string> = {
   '--dw-note': '#e0cf7a',
   '--dw-shadow': '0 10px 30px rgba(0, 0, 0, 0.45)',
   '--dw-ring': '0 0 0 2px rgba(232, 181, 101, 0.28)',
+  // Floating "glass" surfaces (panel, menus, composer) and note nodes.
+  '--dw-glass': 'rgba(22, 24, 31, 0.86)',
+  '--dw-glass-border': 'rgba(255, 255, 255, 0.12)',
+  '--dw-note-bg': '#201f17',
+  '--dw-note-border': '#3a3726',
 };
 
 const DIM_TOKENS: Record<string, string> = {
@@ -51,6 +56,10 @@ const DIM_TOKENS: Record<string, string> = {
   '--dw-text-muted': '#8890a0',
   '--dw-text-faint': '#6b7284',
   '--dw-shadow': '0 10px 30px rgba(0, 0, 0, 0.40)',
+  '--dw-glass': 'rgba(30, 34, 43, 0.88)',
+  '--dw-glass-border': 'rgba(255, 255, 255, 0.10)',
+  '--dw-note-bg': '#26251b',
+  '--dw-note-border': '#43402c',
 };
 
 const LIGHT_TOKENS: Record<string, string> = {
@@ -75,6 +84,10 @@ const LIGHT_TOKENS: Record<string, string> = {
   '--dw-note': '#a5801d',
   '--dw-shadow': '0 10px 30px rgba(30, 35, 45, 0.14)',
   '--dw-ring': '0 0 0 2px rgba(189, 122, 44, 0.30)',
+  '--dw-glass': 'rgba(255, 255, 255, 0.92)',
+  '--dw-glass-border': 'rgba(0, 0, 0, 0.12)',
+  '--dw-note-bg': '#fbf3d6',
+  '--dw-note-border': '#e4d296',
 };
 
 export const APP_THEMES: AppThemeSpec[] = [

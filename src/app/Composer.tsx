@@ -32,6 +32,32 @@ export function recipientsOf(text: string, terminals: ComposerTerminal[]): Compo
 }
 
 /**
+ * Split the text into plain runs and highlighted `@mention` spans (matching a
+ * live terminal's name). Rendered in an overlay behind a transparent textarea so
+ * mentions are tinted in the accent color as you type.
+ */
+function highlightSegments(text: string, terminals: ComposerTerminal[]): React.ReactNode[] {
+  if (terminals.length === 0) return [text];
+  const names = terminals.map((t) => t.name).sort((a, b) => b.length - a.length);
+  const re = new RegExp('@(?:' + names.map(escapeRegExp).join('|') + ')(?![\\w-])', 'g');
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(
+      <span key={key++} className="dw-mention-hl">
+        {m[0]}
+      </span>,
+    );
+    last = m.index + m[0].length;
+  }
+  out.push(text.slice(last));
+  return out;
+}
+
+/**
  * Floating prompt composer (PRODUCT.md §7): an open chat, not bound to a
  * selected terminal. Type @ to mention one or more live terminals — the message
  * is delivered verbatim (mentions included, never split) to each mentioned
@@ -45,6 +71,7 @@ export function Composer({ terminals, focusSignal }: Props) {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
   const ref = useRef<HTMLTextAreaElement>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
   const draftTimer = useRef<number | null>(null);
 
   // Load the shared draft once.
@@ -163,17 +190,17 @@ export function Composer({ terminals, focusSignal }: Props) {
 
   if (terminals.length === 0) return null;
 
+  const syncScroll = () => {
+    const ta = ref.current;
+    const hl = highlightRef.current;
+    if (ta && hl) {
+      hl.scrollTop = ta.scrollTop;
+      hl.scrollLeft = ta.scrollLeft;
+    }
+  };
+
   return (
     <div className="dw-composer">
-      <div className="dw-composer-target">
-        {recipients.length === 0 ? (
-          <span className="dw-composer-hint">@mention a terminal to address it</span>
-        ) : (
-          <span className="dw-composer-to">
-            → {recipients.map((r) => r.name).join(', ')}
-          </span>
-        )}
-      </div>
       <div className="dw-composer-input">
         {menuOpen && items.length > 0 && (
           <div className="dw-mention-menu">
@@ -194,6 +221,11 @@ export function Composer({ terminals, focusSignal }: Props) {
             ))}
           </div>
         )}
+        {/* Overlay behind the transparent textarea that tints @mentions. */}
+        <div className="dw-composer-highlight" aria-hidden="true" ref={highlightRef}>
+          {highlightSegments(text, terminals)}
+          {'\n'}
+        </div>
         <textarea
           ref={ref}
           className="dw-composer-textarea"
@@ -202,6 +234,7 @@ export function Composer({ terminals, focusSignal }: Props) {
           onChange={(e) => update(e.target.value)}
           onKeyDown={onKeyDown}
           onPaste={(e) => void onPaste(e)}
+          onScroll={syncScroll}
           rows={2}
         />
       </div>

@@ -3,6 +3,16 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.4.1
+
+- Fix: app themes now actually recolor the interface. The chrome's colors were
+  hardcoded rather than referencing the theme tokens, so switching the app theme
+  did nothing; the surfaces, borders, text, notes and floating panels now follow
+  the `--dw-*` tokens.
+- Composer: the left-hand recipient indicator (and its "@mention a terminal" hint)
+  is gone. Instead, each `@mention` is tinted in the accent color inline as you
+  type, via a highlight overlay — theme-aware like the rest of the UI.
+
 ## 1.4.0
 
 - App themes: the theme menu now also switches the whole interface between named

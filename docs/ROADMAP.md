@@ -22,6 +22,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v1.3.2](#v132--spawn-time-role-ordering) | Spawn-time role ordering | A terminal's preset agent starts before its role is injected |
 | [v1.3.3](#v133--composer-portal--leash-fixes) | Composer, portal & leash fixes | Composer clears on send, portals respect layering, connections are removable |
 | [v1.4.0](#v140--app-themes-open-composer--schema-tree) | App themes, open composer & schema tree | The UI is themeable, the composer @mentions terminal recipients, and schemas edit as a tree |
+| [v1.4.1](#v141--theme-tokenization--composer-polish) | Theme tokenization & composer polish | App themes recolor the whole chrome; composer tints @mentions inline |
 
 ---
 
@@ -487,6 +488,27 @@ The first post-1.0 minor: three interaction upgrades.
   when nothing is mentioned.
 - A schema can be built and edited entirely in the tree, and round-trips through
   the raw-JSON view.
+
+---
+
+## v1.4.1 — Theme tokenization & composer polish
+
+A follow-up fixing what v1.4.0 shipped rough.
+
+- **App themes actually apply.** Most chrome colors were hardcoded hex/rgba rather
+  than referencing `--dw-*` tokens, so switching the app theme changed almost
+  nothing. The structural surfaces, borders, text, note nodes and floating glass
+  panels (menus, composer) now read from the tokens (new `--dw-glass`,
+  `--dw-glass-border`, `--dw-note-bg`, `--dw-note-border`).
+- **Composer mentions read inline.** The left-hand recipient indicator and its
+  hint text are removed; instead each `@mention` is tinted in the accent color as
+  you type, drawn by a highlight overlay behind the transparent textarea and
+  theme-aware like everything else.
+
+**Exit criteria**
+- Selecting Dogwalker Light visibly recolors the sidebar, menus, canvas chrome,
+  notes and composer — not just a few accents.
+- Typing `@name` tints that token; no recipient name is shown on the left.
 
 ---
 
