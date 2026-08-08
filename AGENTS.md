@@ -4,7 +4,7 @@ You are working on **Dogwalker**: a free, cross-platform (macOS/Windows/Linux) E
 
 ## Project status
 
-v1.4.1 is in development.
+v1.4.1 is released.
 
 ## Invariants — do not violate without explicit human sign-off
 
