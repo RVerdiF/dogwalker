@@ -2390,13 +2390,21 @@ body,
 
 .dw-composer-target {
   align-self: center;
-  color: var(--dw-accent);
   font-size: 12px;
   font-weight: 600;
   white-space: nowrap;
-  max-width: 140px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.dw-composer-to {
+  color: var(--dw-accent);
+}
+
+.dw-composer-hint {
+  color: var(--dw-text-faint);
+  font-weight: 500;
 }
 
 .dw-composer-input {
@@ -2411,7 +2419,7 @@ body,
   border: none;
   outline: none;
   background: transparent;
-  color: #eaeaf0;
+  color: var(--dw-text);
   font-family: inherit;
   font-size: 14px;
   line-height: 1.4;
@@ -2419,7 +2427,7 @@ body,
 }
 
 .dw-composer-textarea::placeholder {
-  color: #7a7a88;
+  color: var(--dw-text-faint);
 }
 
 .dw-composer-send {
@@ -2436,7 +2444,12 @@ body,
 }
 
 .dw-composer-send:hover {
-  background: #a3c4ff;
+  background: var(--dw-brand-1);
+}
+
+.dw-composer-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* Mention menu */
