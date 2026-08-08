@@ -591,7 +591,7 @@ export function DogwalkerWordmark({ height = 34, ...rest }: { height?: number } 
         fontSize="30"
         fontWeight="800"
         letterSpacing="-1"
-        fill="#EEF0F5"
+        fill="currentColor"
       >
         Dogwalker
       </text>

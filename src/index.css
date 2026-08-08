@@ -527,6 +527,8 @@ body,
   align-items: center;
   justify-content: center;
   margin-bottom: 6px;
+  /* The wordmark text is currentColor, so it tracks the app theme. */
+  color: var(--dw-text);
 }
 
 .dw-rail-list {
@@ -2532,6 +2534,17 @@ body,
   font-family: Consolas, monospace;
   font-size: 15px;
   font-weight: 600;
+  position: relative;
+}
+
+/* App-theme swatch: a little inset "chrome" bar to preview surface + border. */
+.dw-swatch-chrome {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  border-bottom: 1px solid;
 }
 
 .dw-swatch-dots {
