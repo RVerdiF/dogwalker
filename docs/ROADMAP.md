@@ -495,19 +495,23 @@ The first post-1.0 minor: three interaction upgrades.
 
 A follow-up fixing what v1.4.0 shipped rough.
 
-- **App themes actually apply.** Most chrome colors were hardcoded hex/rgba rather
-  than referencing `--dw-*` tokens, so switching the app theme changed almost
-  nothing. The structural surfaces, borders, text, note nodes and floating glass
-  panels (menus, composer) now read from the tokens (new `--dw-glass`,
-  `--dw-glass-border`, `--dw-note-bg`, `--dw-note-border`).
+- **One theme, not two.** The separate app-theme and terminal-theme concepts
+  collapse into a single Theme. The chrome's `--dw-*` tokens are *derived* from the
+  selected theme's palette (`themeChrome.ts`: surfaces/text are mixes toward the
+  palette's own bg/fg, so contrast holds), and applied alongside the terminal
+  colors. Every built-in and custom theme themes the app for free.
+- **Full chrome tokenization.** Most surfaces, borders, text, buttons, the canvas
+  grid and note nodes were hardcoded hex/rgba, so switching theme changed almost
+  nothing. They now read the tokens (buttons get readable `--dw-on-accent` ink;
+  the grid dots/background, notes and floating panels recolor).
 - **Composer mentions read inline.** The left-hand recipient indicator and its
   hint text are removed; instead each `@mention` is tinted in the accent color as
   you type, drawn by a highlight overlay behind the transparent textarea and
   theme-aware like everything else.
 
 **Exit criteria**
-- Selecting Dogwalker Light visibly recolors the sidebar, menus, canvas chrome,
-  notes and composer — not just a few accents.
+- Selecting a light theme visibly recolors the sidebar, menus, canvas grid, notes
+  and composer — the terminals and chrome move together.
 - Typing `@name` tints that token; no recipient name is shown on the left.
 
 ---

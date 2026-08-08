@@ -29,8 +29,6 @@ export interface AppSettings {
   notifyOnAttention: boolean;
   /** Collapse the workspace rail to icon-only (PRODUCT.md §12). */
   miniSidebar: boolean;
-  /** Named app (UI chrome) theme — recolors the whole interface (see appThemes.ts). */
-  appTheme: string;
 }
 
 export interface SpawnOptions {

@@ -80,7 +80,7 @@ Terminals on the canvas are never replaced by static screenshots at normal worki
 ### 4.1 Terminals
 - Real local PTYs (zsh/bash/fish on macOS & Linux, PowerShell/WSL via ConPTY on Windows).
 - Named, with icons, for quick identification.
-- Themeable: built-in color schemes + user-supplied custom themes, with a follow-system light/dark toggle. Separately, named **app themes** (Dogwalker Dark, Dim, Dogwalker Light) recolor the whole interface chrome.
+- Themeable: built-in color schemes + user-supplied custom themes, with a follow-system light/dark toggle. **One theme colors everything** — selecting it recolors the terminals *and* the whole interface chrome (the chrome tokens are derived from the theme's palette), so any theme, built-in or custom, themes the app too.
 - Per-terminal memory limit (a per-terminal setting, off by default): if the foreground process tree exceeds it, Dogwalker kills the offender and preserves the shell.
 - Number badges (hold modifier) for quick jump to terminals 1–9.
 

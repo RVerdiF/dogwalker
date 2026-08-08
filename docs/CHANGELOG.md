@@ -5,10 +5,14 @@ canvas for AI coding agents.
 
 ## 1.4.1
 
-- Fix: app themes now actually recolor the interface. The chrome's colors were
-  hardcoded rather than referencing the theme tokens, so switching the app theme
-  did nothing; the surfaces, borders, text, notes and floating panels now follow
-  the `--dw-*` tokens.
+- One theme instead of two. The separate "app theme" and "terminal theme" are now
+  a single **Theme**: selecting it recolors the terminals and the whole interface
+  together. The chrome tokens are derived from the theme's own palette, so every
+  built-in and custom theme themes the app too, with contrast that holds.
+- Fix: switching theme now actually recolors the chrome. Most surfaces, borders,
+  text, buttons, the canvas grid and note nodes were hardcoded rather than reading
+  the `--dw-*` tokens; they now follow the theme (buttons get readable ink, the
+  grid dots and background recolor, notes use a themed tint).
 - Composer: the left-hand recipient indicator (and its "@mention a terminal" hint)
   is gone. Instead, each `@mention` is tinted in the accent color inline as you
   type, via a highlight overlay — theme-aware like the rest of the UI.

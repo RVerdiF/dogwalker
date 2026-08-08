@@ -2088,7 +2088,7 @@ export function Canvas({
         onDrop={onCanvasDrop}
         onDragOver={onCanvasDragOver}
       >
-        <Background gap={20} />
+        <Background gap={20} color="var(--dw-border-strong)" />
         <ViewportPortal>
           {guides.map((g, i) =>
             g.axis === 'x' ? (

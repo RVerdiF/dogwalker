@@ -9,7 +9,6 @@ const DEFAULTS: AppSettings = {
   followSystem: false,
   notifyOnAttention: true,
   miniSidebar: false,
-  appTheme: 'Dogwalker Dark',
 };
 
 /**
