@@ -27,6 +27,15 @@ function Svg({ size = 16, children, ...rest }: IconProps & { children: ReactNode
   );
 }
 
+/** A disclosure chevron (points right; add class "open" to rotate it down). */
+export function ChevronIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M9 6l6 6-6 6" />
+    </Svg>
+  );
+}
+
 /** A terminal window with a prompt caret and a command line. */
 export function TerminalIcon(props: IconProps) {
   return (

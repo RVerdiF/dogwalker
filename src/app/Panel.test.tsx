@@ -57,6 +57,8 @@ describe('Panel', () => {
     it('rejects a schema that is not a JSON object', async () => {
       await goTo('Contracts');
       await userEvent.type(screen.getByPlaceholderText('Contract name'), 'c1');
+      // The schema opens in the tree editor; switch to raw JSON to paste an array.
+      await userEvent.click(screen.getByRole('button', { name: 'Raw JSON' }));
       fireEvent.change(screen.getByDisplayValue(/"type": "object"/), { target: { value: '[1, 2, 3]' } });
       await userEvent.click(screen.getByRole('button', { name: /Add contract/ }));
       expect(window.dw.createContract).not.toHaveBeenCalled();

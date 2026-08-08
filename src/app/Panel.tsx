@@ -3,6 +3,7 @@ import type { ComponentType } from 'react';
 import type { AppSettings, LiveTerminal, Contract, Routine, WorkspaceMeta } from '../shared/ipc';
 import type { ThemeSpec } from '../shared/themes';
 import { APP_THEMES } from '../shared/appThemes';
+import { JsonTreeEditor, type JsonValue } from './JsonTreeEditor';
 import {
   WorkspacesIcon,
   RoutinesIcon,
@@ -282,6 +283,7 @@ function ContractForm({ initial, submitLabel, onSubmit, onCancel }: {
   const [rejectionPrompt, setRejectionPrompt] = useState(initial?.rejectionPrompt ?? '');
   const [fallbackText, setFallbackText] = useState(initial?.fallbackText ?? '');
   const [error, setError] = useState('');
+  const [rawSchema, setRawSchema] = useState(false);
   const submit = () => {
     try {
       const input = draftToInput({ name, schemaText, attempts, timeoutSec, rejectionPrompt, fallbackText });
@@ -291,11 +293,32 @@ function ContractForm({ initial, submitLabel, onSubmit, onCancel }: {
       setError(e instanceof Error ? e.message : 'Invalid JSON');
     }
   };
+  // The tree edits parsed JSON; a parse failure falls back to the raw textarea.
+  let parsedSchema: JsonValue | null = null;
+  let schemaBroken = false;
+  try {
+    parsedSchema = JSON.parse(schemaText) as JsonValue;
+  } catch {
+    schemaBroken = true;
+  }
+  const showRaw = rawSchema || schemaBroken;
   return (
     <div className="dw-routine-form" style={{ width: '100%' }}>
       <input placeholder="Contract name" value={name} onChange={(e) => setName(e.target.value)} />
-      <label className="dw-contract-label">JSON Schema the peer's answer must match</label>
-      <textarea className="dw-mono" rows={7} value={schemaText} onChange={(e) => setSchemaText(e.target.value)} />
+      <div className="dw-contract-schemahead">
+        <label className="dw-contract-label">JSON Schema the peer's answer must match</label>
+        <button type="button" className="dw-btn-small" onClick={() => setRawSchema((r) => !r)} disabled={schemaBroken}>
+          {showRaw ? 'Tree editor' : 'Raw JSON'}
+        </button>
+      </div>
+      {showRaw ? (
+        <>
+          <textarea className="dw-mono" rows={7} value={schemaText} onChange={(e) => setSchemaText(e.target.value)} />
+          {schemaBroken && <div className="dw-json-parseerr">Invalid JSON — fix it here to return to the tree editor.</div>}
+        </>
+      ) : (
+        <JsonTreeEditor value={parsedSchema as JsonValue} onChange={(v) => setSchemaText(JSON.stringify(v, null, 2))} />
+      )}
       <div className="dw-routine-row">
         <label className="dw-routine-every">attempts<input type="number" min={1} value={attempts} onChange={(e) => setAttempts(Number(e.target.value))} /></label>
         <label className="dw-routine-every">timeout<input type="number" min={1} value={timeoutSec} onChange={(e) => setTimeoutSec(Number(e.target.value))} />s</label>
