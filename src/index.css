@@ -726,7 +726,7 @@ body,
   backdrop-filter: blur(22px) saturate(1.3);
   border: 1px solid var(--dw-glass-border);
   border-radius: 14px;
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
 .dw-palette-chip {
@@ -2475,7 +2475,7 @@ body,
 .dw-note-md h3 { font-size: 1.05em; }
 
 .dw-note-md code {
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--dw-glass-border);
   padding: 1px 5px;
   border-radius: 4px;
   font-family: Consolas, monospace;
@@ -2803,7 +2803,8 @@ body,
 }
 
 .dw-settings-hint code {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--dw-surface-3);
+  color: var(--dw-text);
   padding: 1px 5px;
   border-radius: 4px;
   font-family: Consolas, monospace;
