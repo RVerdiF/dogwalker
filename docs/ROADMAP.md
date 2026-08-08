@@ -21,6 +21,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v1.3.1](#v131--ci-node-bump) | CI Node bump | The release build runs on Node 24 and installs cleanly |
 | [v1.3.2](#v132--spawn-time-role-ordering) | Spawn-time role ordering | A terminal's preset agent starts before its role is injected |
 | [v1.3.3](#v133--composer-portal--leash-fixes) | Composer, portal & leash fixes | Composer clears on send, portals respect layering, connections are removable |
+| [v1.4.0](#v140--app-themes-open-composer--schema-tree) | App themes, open composer & schema tree | The UI is themeable, the composer @mentions terminal recipients, and schemas edit as a tree |
 
 ---
 
@@ -458,6 +459,34 @@ A bug-fix patch covering three canvas interactions:
 - Sending clears the box and leaves no draft behind (unit test).
 - A portal never paints over the minimap, an open menu or a modal.
 - A leash can be removed from the canvas without the keyboard.
+
+---
+
+## v1.4.0 — App themes, open composer & schema tree
+
+The first post-1.0 minor: three interaction upgrades.
+
+- **App themes.** The theme menu gains named app (UI chrome) palettes — Dogwalker
+  Dark, Dim and Dogwalker Light — separate from terminal themes. An app theme is a
+  set of `--dw-*` token overrides applied to the document root (`appThemes.ts`), so
+  the background, sidebar, menus, notes, leashes, buttons, icons and wordmark
+  recolor together. Persisted as `settings.appTheme`.
+- **Open composer.** The composer is no longer bound to the selected terminal.
+  It's an open chat: `@<name>` mentions one or more live terminals, and the full
+  text — mentions included, never split — is delivered verbatim to each mentioned
+  terminal, so addressing several at once lets each agent see what the others were
+  told. Recipients are derived from the text; send is disabled until one is set.
+- **Schema tree editor.** A contract's JSON Schema is edited in a themed,
+  collapsible tree (`JsonTreeEditor`) — objects and arrays fold, and each field's
+  key, type and value is editable inline — with a raw-JSON toggle as an escape
+  hatch.
+
+**Exit criteria**
+- Switching app theme recolors the whole chrome, light and dark, and persists.
+- A message @mentioning several terminals reaches each verbatim; none is sent
+  when nothing is mentioned.
+- A schema can be built and edited entirely in the tree, and round-trips through
+  the raw-JSON view.
 
 ---
 

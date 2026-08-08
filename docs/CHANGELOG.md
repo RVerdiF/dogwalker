@@ -3,6 +3,19 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.4.0
+
+- App themes: the theme menu now also switches the whole interface between named
+  palettes (Dogwalker Dark, Dim, Dogwalker Light). Each recolors the background,
+  sidebar, menus, notes, leashes, buttons, icons and wordmark at once.
+- Composer is an open chat instead of following the selected terminal. Type
+  `@<name>` to address one or more live terminals; the full message — mentions
+  included, never split — is delivered verbatim to each, so addressing several at
+  once lets each agent see what the others were told.
+- Contracts: the JSON Schema is edited in a collapsible tree — objects and arrays
+  fold, and each field's key, type and value is editable inline, with a raw-JSON
+  toggle for anything the tree can't express.
+
 ## 1.3.3
 
 - Fix: the composer now clears after sending. A pending debounced draft write
