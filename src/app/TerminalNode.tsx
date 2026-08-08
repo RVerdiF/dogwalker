@@ -148,9 +148,11 @@ function TerminalNodeInner({ id, data, selected }: NodeProps<TerminalFlowNode>) 
         >
           <CrownIcon size={15} />
         </button>
-        <span className={`dw-tier dw-tier-${data.tier}`}>
-          {TIER_LABELS[data.tier]}
-        </span>
+        {import.meta.env.DEV && (
+          <span className={`dw-tier dw-tier-${data.tier}`}>
+            {TIER_LABELS[data.tier]}
+          </span>
+        )}
         <button className="dw-close nodrag" onClick={close} title="Close terminal">
           ×
         </button>

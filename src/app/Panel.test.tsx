@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { AppSettings } from '../shared/ipc';
 import { Panel } from './Panel';
 
-const settings = { themeName: 'a', lightThemeName: 'b', followSystem: false, notifyOnAttention: false, appTheme: 'Dogwalker Dark' } as unknown as AppSettings;
+const settings = { themeName: 'a', lightThemeName: 'b', followSystem: false, notifyOnAttention: false } as unknown as AppSettings;
 
 function renderPanel() {
   const onUpdateSettings = vi.fn();
@@ -105,12 +105,6 @@ describe('Panel', () => {
       expect(onUpdateSettings).toHaveBeenCalledWith({ followSystem: true });
       await userEvent.click(screen.getByRole('checkbox', { name: /Notify when a terminal needs attention/ }));
       expect(onUpdateSettings).toHaveBeenCalledWith({ notifyOnAttention: true });
-    });
-
-    it('selects an app theme', async () => {
-      const { onUpdateSettings } = await goTo('Settings');
-      await userEvent.click(screen.getByRole('button', { name: /Dogwalker Light/ }));
-      expect(onUpdateSettings).toHaveBeenCalledWith({ appTheme: 'Dogwalker Light' });
     });
   });
 });

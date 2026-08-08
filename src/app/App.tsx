@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { AppSettings, FloorMeta, SidebarEntry, WorkspaceMeta } from '../shared/ipc';
 import { BUILTIN_THEMES, type ThemeSpec } from '../shared/themes';
-import { applyAppTheme, DEFAULT_APP_THEME } from '../shared/appThemes';
+import { applyThemeChrome } from '../shared/themeChrome';
 import { terminals } from './terminalService';
 import { Canvas } from './Canvas';
 import { Sidebar } from './Sidebar';
@@ -18,7 +18,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   followSystem: false,
   notifyOnAttention: true,
   miniSidebar: false,
-  appTheme: DEFAULT_APP_THEME,
 };
 
 function findTheme(themes: ThemeSpec[], name: string): ThemeSpec | undefined {
@@ -96,14 +95,12 @@ export function App() {
     return findTheme(themes, settings.themeName);
   }, [settings, themes, osDark]);
 
+  // One theme: recolor the terminals AND derive the whole UI chrome from it.
   useEffect(() => {
-    terminals.setTheme((activeTheme ?? BUILTIN_THEMES[0]).theme);
+    const theme = activeTheme ?? BUILTIN_THEMES[0];
+    terminals.setTheme(theme.theme);
+    applyThemeChrome(theme);
   }, [activeTheme]);
-
-  // Recolor the whole UI chrome when the app theme changes.
-  useEffect(() => {
-    applyAppTheme(settings.appTheme);
-  }, [settings.appTheme]);
 
   const updateSettings = useCallback(async (partial: Partial<AppSettings>) => {
     const next = await window.dw.setSettings(partial);

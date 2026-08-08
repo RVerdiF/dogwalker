@@ -2,7 +2,8 @@
  * Modern line-style icon set (24×24, stroke = currentColor) used across the
  * canvas chrome so buttons and labels carry crisp vector glyphs instead of
  * emoji/text. Each icon inherits color from its parent and scales with `size`.
- * `DogwalkerLogo` is the one full-color mark (the app brand), from assets/logo.svg.
+ * `DogwalkerLogo` is the app brand mark; it too draws from theme tokens so it
+ * recolors with the theme (from assets/logo.svg).
  */
 import type { ReactNode, SVGProps } from 'react';
 
@@ -530,7 +531,8 @@ export function PresetGlyph({ id, size = 16 }: { id?: string; size?: number }) {
   return <Svg size={size}>{(id && PRESET_GLYPHS[id]) || PRESET_GLYPHS.terminal}</Svg>;
 }
 
-/** The Dogwalker brand mark — the one full-color icon (from assets/logo.svg). */
+/** The Dogwalker brand mark — a golden terminal square + red leash, tinted from
+ * the theme tokens (brand/leash/on-accent) so it recolors with the app theme. */
 export function DogwalkerLogo({ size = 24, ...rest }: IconProps) {
   return (
     <svg
@@ -545,19 +547,19 @@ export function DogwalkerLogo({ size = 24, ...rest }: IconProps) {
     >
       <defs>
         <linearGradient id="dwFur" x1="8" y1="56" x2="34" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#C87F3C" />
-          <stop offset="1" stopColor="#EEC079" />
+          <stop offset="0" style={{ stopColor: 'var(--dw-brand-2)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--dw-brand-1)' }} />
         </linearGradient>
       </defs>
       <rect x="8" y="30" width="26" height="26" rx="8" fill="url(#dwFur)" />
-      <rect x="8.75" y="30.75" width="24.5" height="24.5" rx="7.25" stroke="#FFF0D1" strokeOpacity=".18" strokeWidth="1.5" />
-      <path d="M15 38l4 3.5-4 3.5" stroke="#20140A" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M23 45.5h6" stroke="#20140A" strokeWidth="2.8" strokeLinecap="round" />
-      <path d="M33 33C41 22 44 20 49 18" stroke="#8A261D" strokeOpacity=".35" strokeWidth="5" strokeLinecap="round" />
-      <path d="M33 33C41 22 44 20 49 18" stroke="#E6533C" strokeWidth="3.2" strokeLinecap="round" />
-      <circle cx="49" cy="16" r="8" fill="#E6533C" />
-      <circle cx="49" cy="16" r="6.7" stroke="#FFB3A5" strokeWidth="1.3" opacity=".4" />
-      <circle cx="49" cy="16" r="8" stroke="#20140A" strokeWidth="2" opacity="0.22" />
+      <rect x="8.75" y="30.75" width="24.5" height="24.5" rx="7.25" style={{ stroke: 'var(--dw-brand-1)' }} strokeOpacity=".18" strokeWidth="1.5" />
+      <path d="M15 38l4 3.5-4 3.5" style={{ stroke: 'var(--dw-on-accent)' }} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M23 45.5h6" style={{ stroke: 'var(--dw-on-accent)' }} strokeWidth="2.8" strokeLinecap="round" />
+      <path d="M33 33C41 22 44 20 49 18" style={{ stroke: 'var(--dw-leash)' }} strokeOpacity=".35" strokeWidth="5" strokeLinecap="round" />
+      <path d="M33 33C41 22 44 20 49 18" style={{ stroke: 'var(--dw-leash)' }} strokeWidth="3.2" strokeLinecap="round" />
+      <circle cx="49" cy="16" r="8" style={{ fill: 'var(--dw-leash)' }} />
+      <circle cx="49" cy="16" r="6.7" style={{ stroke: 'var(--dw-leash)' }} strokeWidth="1.3" opacity=".4" />
+      <circle cx="49" cy="16" r="8" style={{ stroke: 'var(--dw-on-accent)' }} strokeWidth="2" opacity="0.22" />
     </svg>
   );
 }
@@ -578,20 +580,20 @@ export function DogwalkerWordmark({ height = 34, ...rest }: { height?: number } 
     >
       <defs>
         <linearGradient id="dwFurWm" x1="8" y1="56" x2="34" y2="28" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#C87F3C" />
-          <stop offset="1" stopColor="#EEC079" />
+          <stop offset="0" style={{ stopColor: 'var(--dw-brand-2)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--dw-brand-1)' }} />
         </linearGradient>
       </defs>
       <svg x="0" y="4" width="56" height="56" viewBox="5 5 54 54">
         <rect x="8" y="30" width="26" height="26" rx="8" fill="url(#dwFurWm)" />
-        <rect x="8.75" y="30.75" width="24.5" height="24.5" rx="7.25" stroke="#FFF0D1" strokeOpacity=".18" strokeWidth="1.5" />
-        <path d="M15 38l4 3.5-4 3.5" stroke="#20140A" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M23 45.5h6" stroke="#20140A" strokeWidth="2.8" strokeLinecap="round" />
-        <path d="M33 33C41 22 44 20 49 18" stroke="#8A261D" strokeOpacity=".35" strokeWidth="5" strokeLinecap="round" />
-        <path d="M33 33C41 22 44 20 49 18" stroke="#E6533C" strokeWidth="3.2" strokeLinecap="round" />
-        <circle cx="49" cy="16" r="8" fill="#E6533C" />
-        <circle cx="49" cy="16" r="6.7" stroke="#FFB3A5" strokeWidth="1.3" opacity=".4" />
-        <circle cx="49" cy="16" r="8" stroke="#20140A" strokeWidth="2" opacity="0.22" />
+        <rect x="8.75" y="30.75" width="24.5" height="24.5" rx="7.25" style={{ stroke: 'var(--dw-brand-1)' }} strokeOpacity=".18" strokeWidth="1.5" />
+        <path d="M15 38l4 3.5-4 3.5" style={{ stroke: 'var(--dw-on-accent)' }} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M23 45.5h6" style={{ stroke: 'var(--dw-on-accent)' }} strokeWidth="2.8" strokeLinecap="round" />
+        <path d="M33 33C41 22 44 20 49 18" style={{ stroke: 'var(--dw-leash)' }} strokeOpacity=".35" strokeWidth="5" strokeLinecap="round" />
+        <path d="M33 33C41 22 44 20 49 18" style={{ stroke: 'var(--dw-leash)' }} strokeWidth="3.2" strokeLinecap="round" />
+        <circle cx="49" cy="16" r="8" style={{ fill: 'var(--dw-leash)' }} />
+        <circle cx="49" cy="16" r="6.7" style={{ stroke: 'var(--dw-leash)' }} strokeWidth="1.3" opacity=".4" />
+        <circle cx="49" cy="16" r="8" style={{ stroke: 'var(--dw-on-accent)' }} strokeWidth="2" opacity="0.22" />
       </svg>
       <text
         x="64"

@@ -83,6 +83,13 @@ describe('Composer', () => {
     expect(screen.getByRole('button', { name: /Mention a terminal first/ })).toBeDisabled();
   });
 
+  it('tints an @mention in the highlight overlay', () => {
+    const { container } = render(<Composer terminals={terminals} focusSignal={0} />);
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: '@lead ok' } });
+    const hl = container.querySelector('.dw-mention-hl');
+    expect(hl?.textContent).toBe('@lead');
+  });
+
   it('does not submit on Shift+Enter', () => {
     renderComposer();
     const box = setText('@lead line one');
