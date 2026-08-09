@@ -1415,11 +1415,21 @@ input[type='checkbox']:focus-visible {
 }
 
 .dw-section-head {
-  margin: 0;
+  margin: 0 0 18px;
   font-size: 18px;
   color: var(--dw-text);
+}
+
+/* A section heading paired with an action on the right (e.g. Workspaces → New). */
+.dw-section-head-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 18px;
-  display: block;
+}
+
+.dw-section-head-row .dw-section-head {
+  margin: 0;
 }
 
 .dw-ws-grid {

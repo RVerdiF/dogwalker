@@ -145,7 +145,7 @@ function PresetsSection() {
     setName(''); setCommand(''); setIcon(DEFAULT_PRESET_ICON);
     refresh();
   };
-  return <div className="dw-section"><div className="dw-section-head"><h2>Presets</h2></div>
+  return <div className="dw-section"><h2 className="dw-section-head">Presets</h2>
     <p className="dw-settings-hint">Reusable terminal launch commands. Pick an icon for the terminal palette; built-in commands are read-only but can be duplicated or deleted.</p>
     <div className="dw-routine-form">
       <IconPicker value={icon} onChange={setIcon} />
@@ -219,7 +219,7 @@ function RolesSection() {
   const refresh = () => void window.dw.listRoles().then((roles) => { setItems(roles); window.dispatchEvent(new Event('dw:roles-changed')); });
   useEffect(() => { refresh(); }, []);
   const add = async () => { if (!name.trim()) return; await window.dw.createRole({ name, instructions }); setName(''); setInstructions(''); refresh(); };
-  return <div className="dw-section"><div className="dw-section-head"><h2>Roles</h2></div>
+  return <div className="dw-section"><h2 className="dw-section-head">Roles</h2>
     <p className="dw-settings-hint">Reusable Markdown instructions. Assign one in a terminal header.</p>
     <div className="dw-routine-form"><input placeholder="Role name" value={name} onChange={(e) => setName(e.target.value)} /><textarea rows={4} placeholder="Instructions for this role…" value={instructions} onChange={(e) => setInstructions(e.target.value)} /><button className="dw-btn-primary" onClick={() => void add()}>+ Add role</button></div>
     <div className="dw-routine-list">{items.map((r) => <div className="dw-routine-card" key={r.id}><div className="dw-routine-info"><div className="dw-routine-title">{r.name}</div><div className="dw-routine-prompt-preview">{r.instructions || 'No instructions yet.'}</div></div><div className="dw-routine-actions"><button className="dw-btn-small" onClick={() => { const name = window.prompt('Role name', r.name); const instructions = window.prompt('Instructions', r.instructions); if (name !== null && instructions !== null) void window.dw.updateRole(r.id, { name, instructions }).then(refresh); }}>Edit</button><button className="dw-btn-small" onClick={() => void window.dw.createRole({ name: r.name + ' copy', instructions: r.instructions }).then(refresh)}>Duplicate</button><button className="dw-btn-small dw-btn-danger" onClick={() => void window.dw.deleteRole(r.id).then(refresh)}>Delete</button></div></div>)}</div>
@@ -319,7 +319,7 @@ function ContractsSection() {
   const [nonce, setNonce] = useState(0);
   const refresh = () => void window.dw.listContracts().then(setItems);
   useEffect(() => { refresh(); }, []);
-  return <div className="dw-section"><div className="dw-section-head"><h2>Contracts</h2></div>
+  return <div className="dw-section"><h2 className="dw-section-head">Contracts</h2>
     <p className="dw-settings-hint">A JSON Schema an <code>ask --contract</code> answer must validate against. The broker re-asks the peer up to the attempt budget; when they run out, the asker receives the fallback value.</p>
     <ContractForm
       key={`create-${nonce}`}
@@ -365,8 +365,8 @@ function WorkspacesSection({
 }: Props) {
   return (
     <div className="dw-section">
-      <div className="dw-section-head">
-        <h2>Workspaces</h2>
+      <div className="dw-section-head-row">
+        <h2 className="dw-section-head">Workspaces</h2>
         <button className="dw-btn-primary" onClick={onCreate}>
           + New
         </button>
@@ -431,9 +431,7 @@ function RoutinesSection({ activeId }: { activeId: string }) {
 
   return (
     <div className="dw-section">
-      <div className="dw-section-head">
-        <h2>Routines</h2>
-      </div>
+      <h2 className="dw-section-head">Routines</h2>
       <p className="dw-settings-hint">
         A scheduled prompt for an agent. Chain steps with <code>&&</code> (or new
         lines) — each waits for the agent's turn to finish before the next.
@@ -528,7 +526,7 @@ function SettingsSection({ themes, settings, activeThemeName, onUpdateSettings }
   const lightThemes = themes.filter((t) => t.appearance === 'light');
   return (
     <div className="dw-section">
-      <h2 className="dw-section-header">Theme</h2>
+      <h2 className="dw-section-head">Theme</h2>
       <p className="dw-settings-hint">
         One theme colors everything — the terminals and the whole interface
         (background, sidebar, menus, notes, leashes, buttons and icons).
@@ -562,9 +560,7 @@ function SettingsSection({ themes, settings, activeThemeName, onUpdateSettings }
         Follow system light/dark
       </label>
 
-      <div className="dw-section-head" style={{ marginTop: 8 }}>
-        <h2>Notifications</h2>
-      </div>
+      <h2 className="dw-section-head" style={{ marginTop: 8 }}>Notifications</h2>
       <label className="dw-toggle-row">
         <input
           type="checkbox"
