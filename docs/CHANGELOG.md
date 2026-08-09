@@ -14,6 +14,10 @@ canvas for AI coding agents.
 - The Dogwalker logo is now the app/installer icon on every OS (generated from
   `assets/logo.svg`), and attention notifications carry the icon and focus the
   window when clicked.
+- Packaged Windows/macOS builds auto-update from GitHub Releases via the free
+  `update.electronjs.org` service. Added package-manager manifests under
+  `packaging/` for Homebrew (cask), Scoop and the AUR, plus a portable Windows
+  zip for Scoop.
 
 ## 1.4.1
 

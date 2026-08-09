@@ -531,6 +531,12 @@ The first feature minor after the 1.4 polish.
   a live linter (parse errors underlined + gutter marker). It's themed from the
   `--dw-*` tokens and sits flush, built on the CodeMirror already used by the file
   editor — no component to hand-maintain.
+- **App icon + distribution groundwork.** The logo becomes the app/installer icon
+  on every OS (a dev-only rasterizer, `tools/gen-icons.mjs`, generates the committed
+  `.png`/`.ico`/`.icns`); notifications gain the icon and click-to-focus; packaged
+  Windows/macOS builds auto-update from Releases via the free `update.electronjs.org`;
+  and `packaging/` adds Homebrew-cask / Scoop / AUR manifests (the low-friction,
+  unsigned, no-gate channels — winget/choco/apt/Snap/Flatpak deferred).
 
 **Exit criteria**
 - `dogwalker <verb> … --json` returns a valid `{ ok, data }` envelope for every

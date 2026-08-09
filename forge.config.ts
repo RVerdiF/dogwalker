@@ -34,7 +34,8 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({ setupIcon: 'assets/icons/icon.ico' }),
     new MakerDMG({ icon: 'assets/icons/icon.icns' }, ['darwin']),
-    new MakerZIP({}, ['darwin']),
+    // ZIPs: macOS (Squirrel.Mac auto-update feed) + Windows (portable, for Scoop).
+    new MakerZIP({}, ['darwin', 'win32']),
     new MakerRpm({ options: { icon: 'assets/icons/icon.png' } }),
     new MakerDeb({ options: { icon: 'assets/icons/icon.png' } }),
     new MakerAppImage({ options: { bin: 'dogwalker', icon: 'assets/icons/icon.png' } }),

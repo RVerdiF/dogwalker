@@ -1,0 +1,23 @@
+{
+  "version": "1.5.0",
+  "description": "Infinite canvas for AI coding agents",
+  "homepage": "https://github.com/caribeedu/dogwalker",
+  "license": "MIT",
+  "architecture": {
+    "64bit": {
+      "url": "https://github.com/caribeedu/dogwalker/releases/download/v1.5.0/Dogwalker-win32-x64-1.5.0.zip",
+      "hash": "REPLACE_WITH_ZIP_SHA256"
+    }
+  },
+  "bin": "dogwalker.exe",
+  "shortcuts": [["dogwalker.exe", "Dogwalker"]],
+  "persist": [],
+  "checkver": "github",
+  "autoupdate": {
+    "architecture": {
+      "64bit": {
+        "url": "https://github.com/caribeedu/dogwalker/releases/download/v$version/Dogwalker-win32-x64-$version.zip"
+      }
+    }
+  }
+}

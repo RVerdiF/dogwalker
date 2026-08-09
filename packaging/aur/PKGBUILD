@@ -1,0 +1,25 @@
+# Maintainer: Edu Caribé <28613091+caribeedu@users.noreply.github.com>
+# AUR binary package: repackages the official .deb from GitHub Releases.
+#
+# Publish under the AUR package name `dogwalker-bin`. Per release, bump `pkgver`
+# and either set the real sha256 or keep 'SKIP'. Regenerate .SRCINFO with:
+#   makepkg --printsrcinfo > .SRCINFO
+pkgname=dogwalker-bin
+pkgver=1.5.0
+pkgrel=1
+pkgdesc="Infinite canvas for AI coding agents"
+arch=('x86_64')
+url="https://github.com/caribeedu/dogwalker"
+license=('MIT')
+depends=('gtk3' 'nss' 'alsa-lib' 'libxss')
+provides=('dogwalker')
+conflicts=('dogwalker')
+options=(!strip)
+source=("dogwalker-${pkgver}.deb::https://github.com/caribeedu/dogwalker/releases/download/v${pkgver}/dogwalker_${pkgver}_amd64.deb")
+sha256sums=('SKIP')
+
+package() {
+  # A .deb is an `ar` archive; extract its data payload straight into $pkgdir.
+  bsdtar -xf "${srcdir}/dogwalker-${pkgver}.deb" -C "${srcdir}"
+  bsdtar -xf "${srcdir}"/data.tar.* -C "${pkgdir}"
+}

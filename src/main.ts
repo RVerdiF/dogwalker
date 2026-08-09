@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
 import { PtyManager } from './main/ptyManager';
 import { GraphStore } from './main/graphStore';
 import { History } from './main/history';
@@ -656,6 +657,19 @@ ipcMain.handle('perf:metrics', (): ProcessMetric[] =>
 // Windows shows an app's notifications under its AppUserModelID; set a stable
 // one so toasts are attributed to Dogwalker (not "electron.app.…").
 if (process.platform === 'win32') app.setAppUserModelId('com.dogwalker.app');
+
+// Free in-app auto-updates for packaged Windows/macOS builds, served from this
+// repo's GitHub Releases via update.electronjs.org. The library no-ops in dev
+// and on Linux; unsigned macOS can't apply updates (Squirrel.Mac needs signing)
+// and is skipped with a log line — Windows Squirrel updates unsigned just fine.
+if (app.isPackaged) {
+  updateElectronApp({
+    updateSource: {
+      type: UpdateSourceType.ElectronPublicUpdateService,
+      repo: 'caribeedu/dogwalker',
+    },
+  });
+}
 
 app.on('ready', createWindow);
 
