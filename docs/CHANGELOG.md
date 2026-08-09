@@ -3,6 +3,22 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.5.0
+
+- Every CLI verb accepts `--json`: append it to any command (`list`, `check`,
+  `note`, `portal`, `contract`, …) to get a machine-readable `{ ok, data }`
+  envelope instead of human text. Previously only `ask` honored it.
+- Contract schemas are now edited in a CodeMirror JSON editor with a live linter
+  (parse errors are underlined and flagged in the gutter as you type), replacing
+  the custom tree editor. It's syntax-highlighted, themed, and sits flush.
+- The Dogwalker logo is now the app/installer icon on every OS (generated from
+  `assets/logo.svg`), and attention notifications carry the icon and focus the
+  window when clicked.
+- Packaged Windows/macOS builds auto-update from GitHub Releases via the free
+  `update.electronjs.org` service. Added package-manager manifests under
+  `packaging/` for Homebrew (cask), Scoop and the AUR, plus a portable Windows
+  zip for Scoop.
+
 ## 1.4.1
 
 - One theme instead of two. The separate "app theme" and "terminal theme" are now

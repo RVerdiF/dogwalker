@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { execFile } from 'node:child_process';
 import * as net from 'node:net';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
@@ -198,4 +199,25 @@ describe('Broker (integration, real PTYs)', () => {
     expect(res.ok).toBe(false);
     expect(Date.now() - t0).toBeLessThan(3000); // instant, not the ask timeout
   }, 30_000);
+
+  // The real CLI shim round-trip: `--json` is universal, so any verb prints a
+  // machine-readable { ok, data } envelope; without it the output is plain text.
+  it('the shim emits a JSON envelope for any verb with --json', async () => {
+    const shim = path.join(process.cwd(), 'src', 'shim', 'shim.mjs');
+    const env = { ...process.env, DOGWALKER_SOCKET: sock, DOGWALKER_TERMINAL_ID: lead };
+    const run = (args: string[]): Promise<string> =>
+      new Promise((resolve, reject) =>
+        execFile(process.execPath, [shim, ...args], { env }, (err, stdout) =>
+          err ? reject(err) : resolve(stdout),
+        ),
+      );
+
+    const parsed = JSON.parse(await run(['list', '--json'])) as { ok: boolean; data: { peers: unknown[] } };
+    expect(parsed.ok).toBe(true);
+    expect(Array.isArray(parsed.data.peers)).toBe(true);
+
+    // Plain (no --json) output is human text, not a JSON envelope.
+    const plain = await run(['list']);
+    expect(() => JSON.parse(plain)).toThrow();
+  }, 15_000);
 });

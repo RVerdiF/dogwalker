@@ -1,6 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
 import { PtyManager } from './main/ptyManager';
 import { GraphStore } from './main/graphStore';
 import { History } from './main/history';
@@ -82,11 +83,18 @@ function brokerPipePath(): string {
   return path.join(app.getPath('userData'), `broker-${process.pid}.sock`);
 }
 
+/** The app icon PNG — bundled as an extraResource when packaged (see forge.config). */
+const appIconPath = (): string =>
+  app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(app.getAppPath(), 'assets', 'icons', 'icon.png');
+
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 1600,
     height: 1000,
     backgroundColor: '#101014',
+    icon: appIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       // Smoke runs measure fps; Chromium throttles rAF to ~0 in occluded
@@ -185,7 +193,16 @@ const createWindow = () => {
   ipcMain.handle('routine:delete', (_e, id: string) => routines.remove(id));
 
   ipcMain.on('notify', (_e, { title, body }: { title: string; body: string }) => {
-    if (Notification.isSupported()) new Notification({ title, body }).show();
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title, body, icon: appIconPath() });
+    // Clicking the toast brings the canvas forward on the terminal that needs it.
+    n.on('click', () => {
+      if (mainWindow.isDestroyed()) return;
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    });
+    n.show();
   });
 
   const settings = new SettingsStore(app.getPath('userData'));
@@ -636,6 +653,23 @@ ipcMain.handle('perf:metrics', (): ProcessMetric[] =>
     memoryMB: Math.round((m.memory.workingSetSize ?? 0) / 1024),
   })),
 );
+
+// Windows shows an app's notifications under its AppUserModelID; set a stable
+// one so toasts are attributed to Dogwalker (not "electron.app.…").
+if (process.platform === 'win32') app.setAppUserModelId('com.dogwalker.app');
+
+// Free in-app auto-updates for packaged Windows/macOS builds, served from this
+// repo's GitHub Releases via update.electronjs.org. The library no-ops in dev
+// and on Linux; unsigned macOS can't apply updates (Squirrel.Mac needs signing)
+// and is skipped with a log line — Windows Squirrel updates unsigned just fine.
+if (app.isPackaged) {
+  updateElectronApp({
+    updateSource: {
+      type: UpdateSourceType.ElectronPublicUpdateService,
+      repo: 'caribeedu/dogwalker',
+    },
+  });
+}
 
 app.on('ready', createWindow);
 

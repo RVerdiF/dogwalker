@@ -20,6 +20,10 @@ if (!socketPath || !from) {
 }
 
 const argv = process.argv.slice(2);
+// `--json` is a universal output flag: strip it before per-verb parsing so any
+// command emits a machine-readable { ok, data } envelope (see render()).
+const wantJson = argv.includes('--json');
+for (let i = argv.length - 1; i >= 0; i--) if (argv[i] === '--json') argv.splice(i, 1);
 const cmd = argv[0];
 
 function readStdin() {
@@ -37,12 +41,11 @@ async function buildRequest() {
     case 'ask': {
       const rest = argv.slice(1);
       const all = rest.includes('--all');
-      const json = rest.includes('--json');
       const ci = rest.indexOf('--contract');
       const contract = ci >= 0 ? rest[ci + 1] : undefined;
       const exclude = [];
       for (let i = rest.length - 1; i >= 0; i--) {
-        if (rest[i] === '--all' || rest[i] === '--json') rest.splice(i, 1);
+        if (rest[i] === '--all') rest.splice(i, 1);
         if (rest[i] === '--contract') rest.splice(i, 2);
         if (rest[i] === '--exclude') { exclude.push(...(rest[i + 1] || '').split(',').filter(Boolean)); rest.splice(i, 2); }
       }
@@ -62,7 +65,7 @@ async function buildRequest() {
         die('usage: dogwalker ask <terminal[,terminal]> <message> [--all] [--exclude <terminal>] [--contract <name>] [--json] [--timeout <seconds>]');
       }
       const targets = target?.split(',').filter(Boolean);
-      const req = { cmd: 'ask', from, target: targets?.[0], targets, all, exclude, body, json, contract };
+      const req = { cmd: 'ask', from, target: targets?.[0], targets, all, exclude, body, contract };
       if (timeoutMs !== undefined) req.timeoutMs = timeoutMs;
       return req;
     }
@@ -191,7 +194,8 @@ async function buildRequest() {
     }
     default:
       die(
-        'commands: ask <t> <msg> | check <t> | list | note read|append|write <n> | portal <op> <p> | contract list|inspect|create|edit|delete <n> | recruit --agent <a> --role <r> | dismiss <r> | assign <r> --role <r> | connect <t> | disconnect <t>',
+        'commands: ask <t> <msg> | check <t> | list | note read|append|write <n> | portal <op> <p> | contract list|inspect|create|edit|delete <n> | recruit --agent <a> --role <r> | dismiss <r> | assign <r> --role <r> | connect <t> | disconnect <t>\n' +
+          'add --json to any command for a machine-readable { ok, data } envelope',
       );
   }
 }
@@ -262,7 +266,7 @@ socket.on('data', (chunk) => {
     process.exit(0);
   }
   if (!res.ok) die(res.error || 'request failed');
-  render(request.cmd, res.data, request.json);
+  render(request.cmd, res.data, wantJson);
   process.exit(0);
 });
 socket.on('error', (err) => die(`cannot reach broker: ${err.message}`));

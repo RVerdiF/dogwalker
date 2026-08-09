@@ -23,6 +23,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v1.3.3](#v133--composer-portal--leash-fixes) | Composer, portal & leash fixes | Composer clears on send, portals respect layering, connections are removable |
 | [v1.4.0](#v140--app-themes-open-composer--schema-tree) | App themes, open composer & schema tree | The UI is themeable, the composer @mentions terminal recipients, and schemas edit as a tree |
 | [v1.4.1](#v141--theme-tokenization--composer-polish) | Theme tokenization & composer polish | App themes recolor the whole chrome; composer tints @mentions inline |
+| [v1.5.0](#v150--universal---json--codemirror-schema-editor) | Universal --json & CodeMirror schema editor | Every CLI verb speaks `--json`; contracts edit their schema in a linted CodeMirror |
 
 ---
 
@@ -513,6 +514,35 @@ A follow-up fixing what v1.4.0 shipped rough.
 - Selecting a light theme visibly recolors the sidebar, menus, canvas grid, notes
   and composer — the terminals and chrome move together.
 - Typing `@name` tints that token; no recipient name is shown on the left.
+
+---
+
+## v1.5.0 — Universal --json & CodeMirror schema editor
+
+The first feature minor after the 1.4 polish.
+
+- **`--json` everywhere.** The flag was `ask`-only; it's now a universal output
+  flag handled once in the shim — any verb (`list`, `check`, `note`, `portal`,
+  `contract`, `recruit`, …) emits a `{ ok, data }` envelope with `--json`, so agents
+  and scripts parse results reliably. The broker is untouched (client-side
+  formatting). The agent skill is bumped to v6.
+- **CodeMirror schema editor.** The hand-rolled JSON-Schema tree editor is replaced
+  by a small CodeMirror 6 editor (`SchemaEditor`) with JSON syntax highlighting and
+  a live linter (parse errors underlined + gutter marker). It's themed from the
+  `--dw-*` tokens and sits flush, built on the CodeMirror already used by the file
+  editor — no component to hand-maintain.
+- **App icon + distribution groundwork.** The logo becomes the app/installer icon
+  on every OS (a dev-only rasterizer, `tools/gen-icons.mjs`, generates the committed
+  `.png`/`.ico`/`.icns`); notifications gain the icon and click-to-focus; packaged
+  Windows/macOS builds auto-update from Releases via the free `update.electronjs.org`;
+  and `packaging/` adds Homebrew-cask / Scoop / AUR manifests (the low-friction,
+  unsigned, no-gate channels — winget/choco/apt/Snap/Flatpak deferred).
+
+**Exit criteria**
+- `dogwalker <verb> … --json` returns a valid `{ ok, data }` envelope for every
+  verb; plain output is unchanged.
+- A contract's schema can be written and validated in the editor, with malformed
+  JSON flagged inline.
 
 ---
 
