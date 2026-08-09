@@ -297,8 +297,8 @@ function ContractForm({ initial, submitLabel, onSubmit, onCancel }: {
       <label className="dw-contract-label">JSON Schema the peer's answer must match</label>
       <SchemaEditor value={schemaText} onChange={setSchemaText} />
       <div className="dw-routine-row">
-        <label className="dw-routine-every">attempts<input type="number" min={1} value={attempts} onChange={(e) => setAttempts(Number(e.target.value))} /></label>
-        <label className="dw-routine-every">timeout<input type="number" min={1} value={timeoutSec} onChange={(e) => setTimeoutSec(Number(e.target.value))} />s</label>
+        <label className="dw-routine-every">Attempts<input type="number" min={1} value={attempts} onChange={(e) => setAttempts(Number(e.target.value))} /></label>
+        <label className="dw-routine-every">Timeout<input type="number" min={1} value={timeoutSec} onChange={(e) => setTimeoutSec(Number(e.target.value))} />s</label>
       </div>
       <label className="dw-contract-label">Rejection prompt — re-sent to the peer after a failed attempt</label>
       <textarea rows={2} placeholder="Please return valid JSON matching the schema." value={rejectionPrompt} onChange={(e) => setRejectionPrompt(e.target.value)} />
@@ -456,7 +456,7 @@ function RoutinesSection({ activeId }: { activeId: string }) {
             ))}
           </select>
           <label className="dw-routine-every">
-            every
+            Every
             <input
               type="number"
               min={5}
@@ -528,15 +528,12 @@ function SettingsSection({ themes, settings, activeThemeName, onUpdateSettings }
   const lightThemes = themes.filter((t) => t.appearance === 'light');
   return (
     <div className="dw-section">
-      <div className="dw-section-head">
-        <h2>Theme</h2>
-        <span className="dw-active-theme">active: {activeThemeName}</span>
-      </div>
+      <h2 className="dw-section-header">Theme</h2>
       <p className="dw-settings-hint">
         One theme colors everything — the terminals and the whole interface
         (background, sidebar, menus, notes, leashes, buttons and icons).
       </p>
-
+      <span className="dw-active-theme">Active: {activeThemeName}</span>
       <div className="dw-theme-grid">
         {themes.map((t) => (
           <button
