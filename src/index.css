@@ -68,6 +68,77 @@ body,
   font-size: 13px;
 }
 
+/* ---- Design system: scrollbars (themed) -------------------------------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--dw-border-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--dw-border-strong);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: var(--dw-r-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dw-text-faint);
+  background-clip: padding-box;
+}
+
+/* ---- Design system: checkboxes (themed) -------------------------------- */
+input[type='checkbox'] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex-shrink: 0;
+  position: relative;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--dw-border-strong);
+  border-radius: var(--dw-r-sm);
+  background: var(--dw-surface-2);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+input[type='checkbox']:hover {
+  border-color: var(--dw-accent);
+}
+
+input[type='checkbox']:checked {
+  background: var(--dw-accent);
+  border-color: var(--dw-accent);
+}
+
+/* Drawn checkmark so it inherits the theme (ink readable on the accent fill). */
+input[type='checkbox']:checked::after {
+  content: '';
+  position: absolute;
+  left: 4.5px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid var(--dw-on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+input[type='checkbox']:focus-visible {
+  outline: none;
+  box-shadow: var(--dw-ring);
+}
+
 /* ---- App shell ---------------------------------------------------------- */
 .dw-app {
   height: 100%;
@@ -879,8 +950,10 @@ body,
 /* ---- Dev toolbar (dev only) --------------------------------------------- */
 .dw-devbar {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  /* Sits centered just below the common palette (top: 12px + its ~48px height). */
+  top: 68px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 15;
   display: flex;
   align-items: center;
@@ -1312,7 +1385,7 @@ body,
 }
 
 .dw-panel-body {
-  padding: 24px 28px;
+  padding: 24px 56px;
   overflow-y: auto;
 }
 
@@ -1324,8 +1397,8 @@ body,
 
 .dw-panel-close {
   position: absolute;
-  top: 12px;
-  right: 14px;
+  top: 22px;
+  right: 26px;
   width: 30px;
   height: 30px;
   border: none;
@@ -1342,16 +1415,21 @@ body,
 }
 
 .dw-section-head {
+  margin: 0 0 18px;
+  font-size: 18px;
+  color: var(--dw-text);
+}
+
+/* A section heading paired with an action on the right (e.g. Workspaces → New). */
+.dw-section-head-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 18px;
 }
 
-.dw-section-head h2 {
+.dw-section-head-row .dw-section-head {
   margin: 0;
-  font-size: 18px;
-  color: var(--dw-text);
 }
 
 .dw-ws-grid {
@@ -2543,6 +2621,8 @@ body,
 .dw-active-theme {
   color: var(--dw-text-muted);
   font-size: 12px;
+  margin-bottom: 14px;
+  display: block;
 }
 
 .dw-theme-grid {

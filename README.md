@@ -4,7 +4,17 @@
 
 An infinite canvas for AI coding agents: real terminals as nodes on a zoomable 2D surface. Put them on a leash — wire terminals together and your agents talk to each other through a structured protocol.
 
-*macOS · Windows · Linux*
+<p>
+  <a href="https://github.com/caribeedu/dogwalker/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/caribeedu/dogwalker?label=release&labelColor=1b1b23&color=e8b565"></a>
+  <a href="https://github.com/caribeedu/dogwalker/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/caribeedu/dogwalker/build.yml?label=build&labelColor=1b1b23&color=e8b565"></a>
+  <a href="#license"><img alt="License: MIT" src="https://img.shields.io/github/license/caribeedu/dogwalker?labelColor=1b1b23&color=e8b565"></a>
+</p>
+
+<p>
+  <a href="#install"><img alt="macOS — Homebrew" src="https://img.shields.io/badge/macOS-Homebrew-e8b565?logo=apple&logoColor=white&labelColor=1b1b23"></a>
+  <a href="#install"><img alt="Windows — Scoop" src="https://img.shields.io/badge/Windows-Scoop-e8b565?logo=windows&logoColor=white&labelColor=1b1b23"></a>
+  <a href="#install"><img alt="Linux — AUR" src="https://img.shields.io/badge/Linux-AUR-e8b565?logo=archlinux&logoColor=white&labelColor=1b1b23"></a>
+</p>
 
 [Why](#why) · [Features](#features) · [Install](#install) · [Quick start](#quick-start) · [Compatibility](#compatibility) · [Architecture](#architecture) · [Documents](#documents) · [Privacy](#privacy) · [License](#license)
 
@@ -69,6 +79,8 @@ Grab the installer for your OS from the [latest release](https://github.com/cari
 | Linux | `Dogwalker-<version>.AppImage`, or the `.deb` / `.rpm` |
 
 Unsigned for now: Windows SmartScreen ("More info → Run anyway") and macOS Gatekeeper (right-click → Open, or `xattr -dr com.apple.quarantine Dogwalker.app`) will warn on first launch. Code signing + notarization are tracked for a later release.
+
+Packaged Windows/macOS builds **auto-update** from the latest release. Package-manager installs — Homebrew (macOS), Scoop (Windows), AUR (Linux) — are set up under [`packaging/`](packaging/); the `brew` / `scoop` / AUR commands land here once their taps are published.
 
 ### From source
 
