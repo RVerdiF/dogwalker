@@ -25,6 +25,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v1.4.1](#v141--theme-tokenization--composer-polish) | Theme tokenization & composer polish | App themes recolor the whole chrome; composer tints @mentions inline |
 | [v1.5.0](#v150--universal---json--codemirror-schema-editor) | Universal --json & CodeMirror schema editor | Every CLI verb speaks `--json`; contracts edit their schema in a linted CodeMirror |
 | [v1.5.1](#v151--design-system-polish) | Design-system polish | Themed scrollbars/checkboxes, dev palette placement, README badges |
+| [v1.5.2](#v152--distribution-automation) | Distribution automation | The tag CD auto-bumps the Homebrew, Scoop and AUR channels |
 
 ---
 
@@ -564,6 +565,26 @@ A small polish patch.
 **Exit criteria**
 - Scrollbars and checkboxes look native to Dogwalker and change with the theme.
 - The dev palette no longer overlaps the top-left chrome.
+
+---
+
+## v1.5.2 — Distribution automation
+
+Wire the package-manager channels into the tag-based CD.
+
+- **`publish-packaging` job.** After the tag build attaches every OS's installers
+  to the Release, a job downloads the artifacts, computes their checksums, and
+  bumps each channel to the new version from the `packaging/` templates: the
+  Homebrew cask and Scoop manifest are pushed to their tap/bucket repos, and the
+  AUR `dogwalker-bin` package is published via the deploy action.
+- **Guarded by secrets.** Each channel is skipped unless its secret is set
+  (`PACKAGING_TOKEN` for Homebrew/Scoop; `AUR_SSH_PRIVATE_KEY` + `AUR_USERNAME` +
+  `AUR_EMAIL` for the AUR), so the job is a green no-op until the taps/keys exist.
+  One-time setup is documented in `packaging/README.md`.
+
+**Exit criteria**
+- A `v*` tag with the secrets configured updates all three channels to the new
+  version with correct checksums; without them, the release is unaffected.
 
 ---
 

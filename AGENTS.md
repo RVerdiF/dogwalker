@@ -4,7 +4,7 @@ You are working on **Dogwalker**: a free, cross-platform (macOS/Windows/Linux) E
 
 ## Project status
 
-v1.5.1 is released.
+v1.5.2 is in development.
 
 ## Invariants — do not violate without explicit human sign-off
 
@@ -52,10 +52,10 @@ Every file that must move, end to end:
 6. **README** — the install table uses a `<version>` placeholder and links to
    `/releases/latest`, so it needs no per-release edit; touch it only if the
    public surface actually changed.
-7. **[packaging/](packaging/)** — after the Release is published, bump the version
-   (and where required the `sha256`) in the Homebrew cask, Scoop and AUR manifests
-   and push them to their respective tap/bucket/AUR repos (see `packaging/README.md`).
-   Auto-update (`update.electronjs.org`) needs no per-release step.
+7. **Distribution** — no per-release step. The `publish-packaging` CI job bumps the
+   Homebrew, Scoop and AUR channels automatically after the tag build, once their
+   secrets are configured (see [packaging/README.md](packaging/README.md)); it's a
+   no-op otherwise. Auto-update (`update.electronjs.org`) needs nothing either.
 8. **Commit** the bump (convention: `chore: set vX.Y.Z package version`) and get
    it onto `main` (via PR — the `check` job gates every PR to `main`).
 

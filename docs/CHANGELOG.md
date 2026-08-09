@@ -3,6 +3,13 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.5.2
+
+- Release automation: the tag build now updates the Homebrew, Scoop and AUR
+  package channels to the new version automatically (stamping the artifacts'
+  checksums), once each channel's secret is configured. No user-facing change to
+  the app itself.
+
 ## 1.5.1
 
 - Themed scrollbars and checkboxes: both now follow the Dogwalker design system
