@@ -82,11 +82,18 @@ function brokerPipePath(): string {
   return path.join(app.getPath('userData'), `broker-${process.pid}.sock`);
 }
 
+/** The app icon PNG — bundled as an extraResource when packaged (see forge.config). */
+const appIconPath = (): string =>
+  app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(app.getAppPath(), 'assets', 'icons', 'icon.png');
+
 const createWindow = () => {
   const mainWindow = new BrowserWindow({
     width: 1600,
     height: 1000,
     backgroundColor: '#101014',
+    icon: appIconPath(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       // Smoke runs measure fps; Chromium throttles rAF to ~0 in occluded
@@ -186,7 +193,7 @@ const createWindow = () => {
 
   ipcMain.on('notify', (_e, { title, body }: { title: string; body: string }) => {
     if (!Notification.isSupported()) return;
-    const n = new Notification({ title, body });
+    const n = new Notification({ title, body, icon: appIconPath() });
     // Clicking the toast brings the canvas forward on the terminal that needs it.
     n.on('click', () => {
       if (mainWindow.isDestroyed()) return;

@@ -16,6 +16,12 @@ const config: ForgeConfig = {
     // maker's `bin` matches the packaged binary (it defaults to the capitalized
     // product name otherwise → "Could not find executable 'dogwalker'").
     executableName: 'dogwalker',
+    // App/program icon (from assets/logo.svg via tools/gen-icons.mjs). Packager
+    // appends .ico on Windows and .icns on macOS; Linux icons come from the makers.
+    icon: 'assets/icons/icon',
+    // Ship the PNG as a runtime resource so the window/notification can load it
+    // (the OS taskbar/dock icon already comes from `icon` above).
+    extraResource: ['assets/icons/icon.png'],
   },
   // node-pty is N-API with bundled prebuilds (prebuilds/<platform>-<arch>),
   // so no electron-rebuild pass is needed — and requiring one would demand
@@ -26,12 +32,12 @@ const config: ForgeConfig = {
   // artifact: Windows → Squirrel .exe, macOS → .dmg (+ .zip), Linux → .deb /
   // .rpm / AppImage.
   makers: [
-    new MakerSquirrel({}),
-    new MakerDMG({}, ['darwin']),
+    new MakerSquirrel({ setupIcon: 'assets/icons/icon.ico' }),
+    new MakerDMG({ icon: 'assets/icons/icon.icns' }, ['darwin']),
     new MakerZIP({}, ['darwin']),
-    new MakerRpm({}),
-    new MakerDeb({}),
-    new MakerAppImage({ options: { bin: 'dogwalker' } }),
+    new MakerRpm({ options: { icon: 'assets/icons/icon.png' } }),
+    new MakerDeb({ options: { icon: 'assets/icons/icon.png' } }),
+    new MakerAppImage({ options: { bin: 'dogwalker', icon: 'assets/icons/icon.png' } }),
   ],
   plugins: [
     new VitePlugin({

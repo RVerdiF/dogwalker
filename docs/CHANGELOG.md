@@ -11,6 +11,9 @@ canvas for AI coding agents.
 - Contract schemas are now edited in a CodeMirror JSON editor with a live linter
   (parse errors are underlined and flagged in the gutter as you type), replacing
   the custom tree editor. It's syntax-highlighted, themed, and sits flush.
+- The Dogwalker logo is now the app/installer icon on every OS (generated from
+  `assets/logo.svg`), and attention notifications carry the icon and focus the
+  window when clicked.
 
 ## 1.4.1
 
