@@ -69,6 +69,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    # `secrets` can't be used in a step `if`, so fold the presence check into
+    # job-level booleans (secrets ARE allowed in job env) and gate on those.
+    env:
+      HAS_PKG_TOKEN: ${{ secrets.PACKAGING_TOKEN != '' }}
+      HAS_AUR: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -91,7 +96,7 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Update Homebrew cask (${{ github.repository_owner }}/homebrew-dogwalker)
-        if: ${{ secrets.PACKAGING_TOKEN != '' }}
+        if: env.HAS_PKG_TOKEN == 'true'
         env:
           TOKEN: ${{ secrets.PACKAGING_TOKEN }}
         run: |
@@ -109,7 +114,7 @@ jobs:
           git push
 
       - name: Update Scoop manifest (${{ github.repository_owner }}/scoop-bucket)
-        if: ${{ secrets.PACKAGING_TOKEN != '' }}
+        if: env.HAS_PKG_TOKEN == 'true'
         env:
           TOKEN: ${{ secrets.PACKAGING_TOKEN }}
         run: |
@@ -128,7 +133,7 @@ jobs:
           git push
 
       - name: Stamp the AUR PKGBUILD
-        if: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
+        if: env.HAS_AUR == 'true'
         run: |
           set -euo pipefail
           sed -i \
@@ -138,7 +143,7 @@ jobs:
             packaging/aur/PKGBUILD
 
       - name: Publish to the AUR (dogwalker-bin)
-        if: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
+        if: env.HAS_AUR == 'true'
         uses: KSXGitHub/github-actions-deploy-aur@v2
         with:
           pkgname: dogwalker-bin
