@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AppSettings } from '../shared/ipc';
-import { Panel } from './Panel';
+import { Panel, draftToInput } from './Panel';
+
+// The schema field is a CodeMirror editor; stub it here so the Panel tests stay
+// focused on form logic (the schema transform is unit-tested via draftToInput).
+vi.mock('./SchemaEditor', () => ({ SchemaEditor: () => null }));
 
 const settings = { themeName: 'a', lightThemeName: 'b', followSystem: false, notifyOnAttention: false } as unknown as AppSettings;
 
@@ -53,18 +57,20 @@ describe('Panel', () => {
     } as unknown as typeof window.dw;
   });
 
-  describe('Contracts', () => {
-    it('rejects a schema that is not a JSON object', async () => {
-      await goTo('Contracts');
-      await userEvent.type(screen.getByPlaceholderText('Contract name'), 'c1');
-      // The schema opens in the tree editor; switch to raw JSON to paste an array.
-      await userEvent.click(screen.getByRole('button', { name: 'Raw JSON' }));
-      fireEvent.change(screen.getByDisplayValue(/"type": "object"/), { target: { value: '[1, 2, 3]' } });
-      await userEvent.click(screen.getByRole('button', { name: /Add contract/ }));
-      expect(window.dw.createContract).not.toHaveBeenCalled();
-      expect(screen.getByText(/Schema must be a JSON object/i)).toBeInTheDocument();
+  describe('draftToInput', () => {
+    const base = { name: 'c', attempts: 3, timeoutSec: 180, rejectionPrompt: '', fallbackText: '' };
+    it('rejects a schema that is not a JSON object', () => {
+      expect(() => draftToInput({ ...base, schemaText: '[1, 2, 3]' })).toThrow(/JSON object/i);
     });
+    it('parses a valid schema and normalizes attempts/timeout', () => {
+      const out = draftToInput({ ...base, schemaText: '{"type":"object"}', attempts: 0, timeoutSec: 5 });
+      expect(out.schema).toEqual({ type: 'object' });
+      expect(out.maxAttempts).toBe(1); // floored to a minimum of 1
+      expect(out.timeoutMs).toBe(5000);
+    });
+  });
 
+  describe('Contracts', () => {
     it('creates a contract from a valid JSON Schema', async () => {
       await goTo('Contracts');
       await userEvent.type(screen.getByPlaceholderText('Contract name'), 'verdict');
