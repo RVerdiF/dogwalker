@@ -24,6 +24,7 @@ The path from empty repo to public release, one version at a time. Each version 
 | [v1.4.0](#v140--app-themes-open-composer--schema-tree) | App themes, open composer & schema tree | The UI is themeable, the composer @mentions terminal recipients, and schemas edit as a tree |
 | [v1.4.1](#v141--theme-tokenization--composer-polish) | Theme tokenization & composer polish | App themes recolor the whole chrome; composer tints @mentions inline |
 | [v1.5.0](#v150--universal---json--codemirror-schema-editor) | Universal --json & CodeMirror schema editor | Every CLI verb speaks `--json`; contracts edit their schema in a linted CodeMirror |
+| [v1.5.1](#v151--design-system-polish) | Design-system polish | Themed scrollbars/checkboxes, dev palette placement, README badges |
 
 ---
 
@@ -543,6 +544,26 @@ The first feature minor after the 1.4 polish.
   verb; plain output is unchanged.
 - A contract's schema can be written and validated in the editor, with malformed
   JSON flagged inline.
+
+---
+
+## v1.5.1 — Design-system polish
+
+A small polish patch.
+
+- **Themed scrollbars & checkboxes.** Both are restyled to the `--dw-*` design
+  tokens (custom webkit scrollbars; `appearance: none` checkboxes with a drawn,
+  accent-filled tick), so they match the chrome and recolor with the theme instead
+  of using the browser defaults.
+- **Dev palette placement.** The dev-only palette moves from the top-left corner to
+  centered just below the common palette.
+- **README badges.** Status badges (release / build / license) and per-OS install
+  badges (macOS · Homebrew, Windows · Scoop, Linux · AUR).
+- Panel section headings collapse onto one consistent `.dw-section-head` style.
+
+**Exit criteria**
+- Scrollbars and checkboxes look native to Dogwalker and change with the theme.
+- The dev palette no longer overlaps the top-left chrome.
 
 ---
 

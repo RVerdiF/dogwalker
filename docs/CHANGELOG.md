@@ -3,6 +3,18 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.5.1
+
+- Themed scrollbars and checkboxes: both now follow the Dogwalker design system
+  and recolor with the theme (custom `--dw-*`-driven styling instead of the
+  browser defaults).
+- The dev palette sits centered just below the common palette instead of the
+  top-left corner.
+- README gains status badges (release / build / license) and per-OS install
+  badges (macOS · Homebrew, Windows · Scoop, Linux · AUR).
+- Panel polish: section headings share one consistent style, plus minor label
+  tidy-ups.
+
 ## 1.5.0
 
 - Every CLI verb accepts `--json`: append it to any command (`list`, `check`,
