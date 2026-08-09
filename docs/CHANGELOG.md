@@ -3,6 +3,15 @@
 All notable changes, newest first. Dogwalker is a free, local, cross-platform
 canvas for AI coding agents.
 
+## 1.5.0
+
+- Every CLI verb accepts `--json`: append it to any command (`list`, `check`,
+  `note`, `portal`, `contract`, …) to get a machine-readable `{ ok, data }`
+  envelope instead of human text. Previously only `ask` honored it.
+- Contract schemas are now edited in a CodeMirror JSON editor with a live linter
+  (parse errors are underlined and flagged in the gutter as you type), replacing
+  the custom tree editor. It's syntax-highlighted, themed, and sits flush.
+
 ## 1.4.1
 
 - One theme instead of two. The separate "app theme" and "terminal theme" are now
