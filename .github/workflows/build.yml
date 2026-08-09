@@ -56,3 +56,99 @@ jobs:
         with:
           files: out/make/**/*
           fail_on_unmatched_files: true
+
+  # Once every OS's installers are on the Release, bump the package-manager
+  # channels to this version. Each channel is guarded by its secret, so this job
+  # is a green no-op until you configure the taps/keys (see packaging/README.md).
+  # Secrets: PACKAGING_TOKEN (a PAT with contents:write on the homebrew-dogwalker
+  # and scoop-bucket repos) and, for the AUR, AUR_SSH_PRIVATE_KEY / AUR_USERNAME
+  # / AUR_EMAIL.
+  publish-packaging:
+    needs: make
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    # `secrets` can't be used in a step `if`, so fold the presence check into
+    # job-level booleans (secrets ARE allowed in job env) and gate on those.
+    env:
+      HAS_PKG_TOKEN: ${{ secrets.PACKAGING_TOKEN != '' }}
+      HAS_AUR: ${{ secrets.AUR_SSH_PRIVATE_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version and artifact checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VER="${GITHUB_REF_NAME#v}"
+          dir="$(mktemp -d)"
+          gh release download "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" -D "$dir" \
+            -p "Dogwalker-${VER}-arm64.dmg" \
+            -p "Dogwalker-win32-x64-${VER}.zip" \
+            -p "dogwalker_${VER}_amd64.deb"
+          {
+            echo "VER=$VER"
+            echo "DMG_SHA=$(sha256sum "$dir/Dogwalker-${VER}-arm64.dmg" | cut -d' ' -f1)"
+            echo "ZIP_SHA=$(sha256sum "$dir/Dogwalker-win32-x64-${VER}.zip" | cut -d' ' -f1)"
+            echo "DEB_SHA=$(sha256sum "$dir/dogwalker_${VER}_amd64.deb" | cut -d' ' -f1)"
+          } >> "$GITHUB_ENV"
+
+      - name: Update Homebrew cask (${{ github.repository_owner }}/homebrew-dogwalker)
+        if: env.HAS_PKG_TOKEN == 'true'
+        env:
+          TOKEN: ${{ secrets.PACKAGING_TOKEN }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/homebrew-dogwalker.git" tap
+          mkdir -p tap/Casks
+          sed -e "s/^  version .*/  version \"${VER}\"/" \
+              -e "s/^  sha256 .*/  sha256 \"${DMG_SHA}\"/" \
+              packaging/homebrew/dogwalker.rb > tap/Casks/dogwalker.rb
+          cd tap
+          git add Casks/dogwalker.rb
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "dogwalker ${VER}" || { echo "no change"; exit 0; }
+          git push
+
+      - name: Update Scoop manifest (${{ github.repository_owner }}/scoop-bucket)
+        if: env.HAS_PKG_TOKEN == 'true'
+        env:
+          TOKEN: ${{ secrets.PACKAGING_TOKEN }}
+        run: |
+          set -euo pipefail
+          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY_OWNER}/scoop-bucket.git" bucket
+          mkdir -p bucket/bucket
+          url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/Dogwalker-win32-x64-${VER}.zip"
+          jq --arg v "$VER" --arg h "$ZIP_SHA" --arg url "$url" \
+            '.version=$v | .architecture."64bit".url=$url | .architecture."64bit".hash=$h' \
+            packaging/scoop/dogwalker.json > bucket/bucket/dogwalker.json
+          cd bucket
+          git add bucket/dogwalker.json
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "dogwalker ${VER}" || { echo "no change"; exit 0; }
+          git push
+
+      - name: Stamp the AUR PKGBUILD
+        if: env.HAS_AUR == 'true'
+        run: |
+          set -euo pipefail
+          sed -i \
+            -e "s/^pkgver=.*/pkgver=${VER}/" \
+            -e "s/^pkgrel=.*/pkgrel=1/" \
+            -e "s/^sha256sums=.*/sha256sums=('${DEB_SHA}')/" \
+            packaging/aur/PKGBUILD
+
+      - name: Publish to the AUR (dogwalker-bin)
+        if: env.HAS_AUR == 'true'
+        uses: KSXGitHub/github-actions-deploy-aur@v2
+        with:
+          pkgname: dogwalker-bin
+          pkgbuild: ./packaging/aur/PKGBUILD
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "dogwalker ${{ env.VER }}"
