@@ -1,6 +1,6 @@
 ---
 name: dogwalker
-version: 5
+version: 6
 description: Talk to other agents and read their terminals from inside a Dogwalker canvas. Use whenever you need to ask a connected teammate to do something, check what another terminal is doing, read or write a shared note, drive a connected browser portal, or list who you are connected to.
 ---
 
@@ -41,6 +41,9 @@ You can only reach terminals you are wired to. Run `dogwalker list` to see them.
   that persists across sessions; use them to leave findings, specs, or TODOs the
   user and other agents can see.
 - `dogwalker connect <name>` / `dogwalker disconnect <name>` — manage leashes.
+- **`--json` on any command** — append `--json` to any verb to get a
+  machine-readable `{ "ok": true, "data": ... }` envelope instead of human text,
+  so you can parse results reliably (e.g. `dogwalker list --json`).
 
 ## Contracts (schema-checked answers)
 

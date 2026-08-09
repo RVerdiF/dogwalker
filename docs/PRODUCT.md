@@ -142,9 +142,13 @@ dogwalker note read|append|write <note> # operate on a connected note
 dogwalker portal <verb> ...             # drive a connected portal (navigate/click/type/screenshot/js/dom/console)
 dogwalker connect <a> <b> / disconnect  # manage wiring
 dogwalker list                          # nodes visible to this terminal: names, roles, connections
+dogwalker <verb> ... --json             # any verb: machine-readable { ok, data } envelope
 ```
 
 Design points:
+- **`--json` on every verb.** Appending `--json` to any command returns a
+  `{ "ok": true, "data": ... }` envelope instead of human text, so agents and
+  scripts can parse results reliably; without it, output stays terminal-friendly.
 - **`ask` captures output without target cooperation.** The broker injects the
   message, waits for target quiescence, and returns the output it produced; no
   `reply` command or cooperative TUI is required.
