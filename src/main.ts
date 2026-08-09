@@ -185,7 +185,16 @@ const createWindow = () => {
   ipcMain.handle('routine:delete', (_e, id: string) => routines.remove(id));
 
   ipcMain.on('notify', (_e, { title, body }: { title: string; body: string }) => {
-    if (Notification.isSupported()) new Notification({ title, body }).show();
+    if (!Notification.isSupported()) return;
+    const n = new Notification({ title, body });
+    // Clicking the toast brings the canvas forward on the terminal that needs it.
+    n.on('click', () => {
+      if (mainWindow.isDestroyed()) return;
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    });
+    n.show();
   });
 
   const settings = new SettingsStore(app.getPath('userData'));
@@ -636,6 +645,10 @@ ipcMain.handle('perf:metrics', (): ProcessMetric[] =>
     memoryMB: Math.round((m.memory.workingSetSize ?? 0) / 1024),
   })),
 );
+
+// Windows shows an app's notifications under its AppUserModelID; set a stable
+// one so toasts are attributed to Dogwalker (not "electron.app.…").
+if (process.platform === 'win32') app.setAppUserModelId('com.dogwalker.app');
 
 app.on('ready', createWindow);
 
