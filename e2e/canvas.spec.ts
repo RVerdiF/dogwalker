@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { launchApp } from './helpers';
+import { launchApp, closeApp } from './helpers';
 import type { ElectronApplication } from '@playwright/test';
 
 // Terminal lifecycle e2e: the palette spawns a real PTY node on the canvas.
@@ -7,7 +7,7 @@ import type { ElectronApplication } from '@playwright/test';
 let app: ElectronApplication;
 
 test.afterEach(async () => {
-  await app?.close();
+  await closeApp(app);
 });
 
 test('creating a terminal from the palette adds a live terminal node', async () => {

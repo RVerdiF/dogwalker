@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { launchApp } from './helpers';
+import { launchApp, closeApp } from './helpers';
 import type { ElectronApplication } from '@playwright/test';
 
 // Agent-created portal e2e: a terminal running `dogwalker portal new <url>` over
@@ -12,7 +12,7 @@ import type { ElectronApplication } from '@playwright/test';
 let app: ElectronApplication;
 
 test.afterEach(async () => {
-  await app?.close();
+  await closeApp(app);
 });
 
 test('a terminal can create a portal over the CLI', async () => {

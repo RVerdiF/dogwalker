@@ -1,5 +1,7 @@
 import { _electron as electron, type ElectronApplication } from '@playwright/test';
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 /**
  * Shared Electron launch for the e2e specs.
  *
@@ -22,4 +24,24 @@ export async function launchApp(): Promise<ElectronApplication> {
   proc.stderr?.on('data', (d) => console.error('[electron stderr]', String(d).trimEnd()));
   proc.on('exit', (code) => console.error('[electron exit]', code));
   return app;
+}
+
+/**
+ * Robust teardown: `app.close()` can hang when the app holds live PTYs (the
+ * spawned shells keep the main process alive). Give close a short grace
+ * period, then SIGKILL the process so the afterEach never eats the 60s test
+ * timeout on CI.
+ */
+export async function closeApp(app: ElectronApplication | undefined): Promise<void> {
+  if (!app) return;
+  try {
+    await Promise.race([app.close(), sleep(5_000)]);
+  } catch {
+    /* close threw — force kill below */
+  }
+  try {
+    if (app.process().exitCode === null) app.process().kill('SIGKILL');
+  } catch {
+    /* already gone */
+  }
 }

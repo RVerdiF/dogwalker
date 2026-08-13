@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { launchApp } from './helpers';
+import { launchApp, closeApp } from './helpers';
 import type { ElectronApplication } from '@playwright/test';
 
 // Smoke E2E: the real app boots and paints its shell. This is the pattern the
@@ -9,7 +9,7 @@ import type { ElectronApplication } from '@playwright/test';
 let app: ElectronApplication;
 
 test.afterEach(async () => {
-  await app?.close();
+  await closeApp(app);
 });
 
 test('the app boots and paints its shell', async () => {
