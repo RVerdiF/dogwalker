@@ -19,7 +19,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      - run: npm run test:coverage
 
   # Per-OS installers, built only when a v* tag is pushed. Each runner produces
   # its own OS's artifact (electron-forge runs only the host's makers) and
