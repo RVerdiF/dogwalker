@@ -14,5 +14,12 @@ export async function launchApp(): Promise<ElectronApplication> {
   if (process.env.CI) {
     args.push('--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage');
   }
-  return electron.launch({ args });
+  const app = await electron.launch({ args });
+  // Surface the app process's own output so a boot failure is diagnosable in
+  // CI logs instead of a silent firstWindow timeout.
+  const proc = app.process();
+  proc.stdout?.on('data', (d) => console.log('[electron stdout]', String(d).trimEnd()));
+  proc.stderr?.on('data', (d) => console.error('[electron stderr]', String(d).trimEnd()));
+  proc.on('exit', (code) => console.error('[electron exit]', code));
+  return app;
 }
