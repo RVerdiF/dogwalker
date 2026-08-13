@@ -18,6 +18,35 @@ export default defineConfig({
   },
   test: {
     globals: true,
+    coverage: {
+      provider: 'v8',
+      all: true,
+      reporter: ['text', 'html', 'lcov'],
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/main.ts',
+        'src/preload.ts',
+        'src/renderer.tsx',
+        'src/vite-env.d.ts',
+        'src/test/**',
+        '**/*.test.{ts,tsx}',
+        '**/e2e/**',
+        // Integration harness (DW_PORTALCLI / DW_PORTALLINK): drives a real
+        // socket + PTY + browser against the running app. Not unit-testable;
+        // excluded so the gate doesn't punish un-reachable code.
+        'src/main/portalIntegration.ts',
+      ],
+      thresholds: {
+        // Ratcheting: thresholds sit just below the last measured baseline and
+        // only ever move up as coverage improves.
+        // 2026-08-13 baseline #1: statements 28.5 / branches 24.4 / funcs 25.3 / lines 29.1.
+        // 2026-08-13 after Onda 1 (7 stores/managers tested): stmts 33.2 / br 27.9 / fn 29.3 / ln 34.2.
+        statements: 30,
+        branches: 25,
+        functions: 27,
+        lines: 31,
+      },
+    },
     projects: [
       {
         extends: true,
