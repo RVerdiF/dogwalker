@@ -11,7 +11,11 @@ test.afterEach(async () => {
 });
 
 test('the app boots and paints its shell', async () => {
-  app = await electron.launch({ args: ['.vite/build/main.js'] });
+  const args = ['.vite/build/main.js'];
+  // GitHub Actions runners run as root in a container; Chromium's SUID
+  // sandbox is unavailable there. CI-only flag, never used locally.
+  if (process.env.CI) args.push('--no-sandbox');
+  app = await electron.launch({ args });
   const window = await app.firstWindow();
   await expect(window.locator('.dw-rail')).toBeVisible({ timeout: 30_000 });
 });

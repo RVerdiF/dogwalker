@@ -14,7 +14,11 @@ test.afterEach(async () => {
 });
 
 test('a terminal can create a portal over the CLI', async () => {
-  app = await electron.launch({ args: ['.vite/build/main.js'] });
+  const args = ['.vite/build/main.js'];
+  // GitHub Actions runners run as root in a container; Chromium's SUID
+  // sandbox is unavailable there. CI-only flag, never used locally.
+  if (process.env.CI) args.push('--no-sandbox');
+  app = await electron.launch({ args });
   const page = await app.firstWindow();
   await expect(page.locator('.dw-rail')).toBeVisible({ timeout: 30_000 });
 
