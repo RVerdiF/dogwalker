@@ -1,4 +1,6 @@
-import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { launchApp } from './helpers';
+import type { ElectronApplication } from '@playwright/test';
 
 // Agent-created portal e2e: a terminal running `dogwalker portal new <url>` over
 // the real broker materializes a portal (WebContentsView) as a canvas node.
@@ -14,11 +16,7 @@ test.afterEach(async () => {
 });
 
 test('a terminal can create a portal over the CLI', async () => {
-  const args = ['.vite/build/main.js'];
-  // GitHub Actions runners run as root in a container; Chromium's SUID
-  // sandbox is unavailable there. CI-only flag, never used locally.
-  if (process.env.CI) args.push('--no-sandbox');
-  app = await electron.launch({ args });
+  app = await launchApp();
   const page = await app.firstWindow();
   await expect(page.locator('.dw-rail')).toBeVisible({ timeout: 30_000 });
 

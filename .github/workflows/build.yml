@@ -38,7 +38,11 @@ jobs:
       # System libs for Chromium/Electron under Xvfb; no Playwright browsers
       # are downloaded — Electron ships via npm.
       - run: npx playwright install-deps chromium
+      # ELECTRON_ENABLE_LOGGING surfaces the app's stderr into the runner log,
+      # so a boot failure is diagnosable instead of a silent firstWindow timeout.
       - run: xvfb-run -a npm run test:e2e
+        env:
+          ELECTRON_ENABLE_LOGGING: 1
 
   # Per-OS installers, built only when a v* tag is pushed. Each runner produces
   # its own OS's artifact (electron-forge runs only the host's makers) and

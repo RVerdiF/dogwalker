@@ -1,4 +1,6 @@
-import { test, expect, _electron as electron, type ElectronApplication } from '@playwright/test';
+import { test, expect } from '@playwright/test';
+import { launchApp } from './helpers';
+import type { ElectronApplication } from '@playwright/test';
 
 // Terminal lifecycle e2e: the palette spawns a real PTY node on the canvas.
 // Run against the built app: `npm run package` then `npm run test:e2e`.
@@ -9,11 +11,7 @@ test.afterEach(async () => {
 });
 
 test('creating a terminal from the palette adds a live terminal node', async () => {
-  const args = ['.vite/build/main.js'];
-  // GitHub Actions runners run as root in a container; Chromium's SUID
-  // sandbox is unavailable there. CI-only flag, never used locally.
-  if (process.env.CI) args.push('--no-sandbox');
-  app = await electron.launch({ args });
+  app = await launchApp();
   const page = await app.firstWindow();
   await expect(page.locator('.dw-rail')).toBeVisible({ timeout: 30_000 });
 
