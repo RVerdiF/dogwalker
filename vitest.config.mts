@@ -41,10 +41,11 @@ export default defineConfig({
         // only ever move up as coverage improves.
         // 2026-08-13 baseline #1: statements 28.5 / branches 24.4 / funcs 25.3 / lines 29.1.
         // 2026-08-13 after Onda 1 (7 stores/managers tested): stmts 33.2 / br 27.9 / fn 29.3 / ln 34.2.
-        statements: 30,
-        branches: 25,
-        functions: 27,
-        lines: 31,
+        // 2026-08-13 after Ondas 2+3 (broker 100%, presets, workspaceStore, renderer): stmts 44.6 / br 42.5 / fn 39.0 / ln 45.7.
+        statements: 41,
+        branches: 39,
+        functions: 36,
+        lines: 42,
       },
     },
     projects: [
